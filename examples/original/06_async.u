@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Task semantics include completion, failure and cancellation; this is
+// not a blocking call renamed async. HTTP authority is explicitly borrowed.
+def fetch_text(net: SharedCap(Http), url: Text) -> Task(Text) =
+  async.then(http.get(net, url),
+    fn(reply: Response) => http.body_text(reply));

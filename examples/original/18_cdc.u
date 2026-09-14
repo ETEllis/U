@@ -1,0 +1,22 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+use "etellis.cdc/native-0.3.0-1307f2a7";
+
+// make_state includes default immutable parameters and explicit source order.
+def initial: CdcState = cdc.make_state(#{
+  fields: [#{name: "f", gain: 1.0, deadband: 0.1}],
+  modules: [#{name: "parent", field: "f", belief: 0.0, prior: 0.0},
+            #{name: "child", field: "f", belief: 0.0, prior: 0.0}],
+  cells: [#{name: "p", module: "parent", theta: 0.0, omega: 0.0},
+          #{name: "c", module: "child", theta: 0.0, omega: 1.0}],
+  channels: []
+});
+
+def run(state: CdcState) -> CdcStepResult = {
+  let flowed = cdc.flow(state, "f", 0.1);
+  let committed = cdc.commit(flowed.state, "child");
+  // Both accepted and held commit results retain state. Native reducer
+  // sequencing does not gain a new abort-on-HOLD policy in this lowering.
+  yield cdc.nest(committed.state, "parent", "child");
+};

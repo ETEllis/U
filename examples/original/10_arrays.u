@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Contract one axis of each array. Rank and shape survive in the graph.
+// The profile fixes reduction order and forbids IEEE reassociation.
+def multiply(a: Array(F64, [2, 3]), b: Array(F64, [3, 4]))
+  -> Array(F64, [2, 4]) =
+  array.contract(a, b, [1], [0], "f64.strict_left_fold");

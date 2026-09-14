@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "Please cite this repository and the included manuscript when discussing U. The manuscript is prepared for author review and has not been submitted to arXiv."
+type: software
+title: "U: Law-Bearing Operations"
+authors:
+  - family-names: Ellis
+    given-names: Edward
+repository-code: "https://github.com/ETEllis/U"
+url: "https://github.com/ETEllis/U"
+date-released: 2026-09-14
+abstract: "A research language and semantic substrate with explicit operation laws, theory adapters, resource and proof boundaries, residual-preserving ingestion, and evidence-scoped realizations. The repository contains a stage-0 reference implementation and an arXiv-intended formal manuscript."
+keywords:
+  - programming languages
+  - semantics
+  - typed operation graphs
+  - algebraic effects
+  - evidence
+  - CDC
+preferred-citation:
+  type: report
+  title: "U: Law-Bearing Operations, Explicit Semantic Composition, and Earned Artifacts"
+  authors:
+    - family-names: Ellis
+      given-names: Edward
+  year: 2026
+  url: "https://github.com/ETEllis/U/blob/main/paper/main.pdf"
+  notes: "ArXiv-intended manuscript for author review; not submitted or peer reviewed. Includes disclosure of AI assistance."

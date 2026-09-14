@@ -1,0 +1,15 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def User: Type = types.record(#{id: Int, name: Text});
+def Order: Type = types.record(#{user_id: Int, total: Decimal});
+def Row: Type = types.record(#{name: Text, total: Decimal});
+
+// Inputs are bags from one explicit database snapshot. sql.eq is three-valued
+// where nullable types require it; output order is not invented.
+def join_orders(users: Bag(User), orders: Bag(Order)) -> Bag(Row) =
+  sql.project(
+    sql.inner_join(users, orders,
+      fn(u: User, o: Order) => sql.eq(u.id, o.user_id)),
+    fn(row: Pair(User, Order)) =>
+      #{name: row.first.name, total: row.second.total});

@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-14",
+  "repository": "https://github.com/ETEllis/U",
+  "visibility": "private",
+  "active_checkout": "/Users/edwardellis/Developer/U",
+  "original_design_handoff": "/Users/edwardellis/Documents/New language",
+  "reason_for_checkout_relocation": "New files in Documents were being evicted to dataless cloud placeholders, blocking verification. The new working checkout was hydrated and moved out of cloud-synced Documents.",
+  "original_supplied_sources_modified": false
+}

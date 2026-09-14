@@ -1,0 +1,1725 @@
+# U — Law-Bearing Operations
+### Foundational language and semantic-substrate design, candidate 0.1
+
+**Partner, the design converges—but not to “everything is a function,” and not honestly to six magic opcodes.**
+
+It converges to a small algebra of operations whose **composition laws remain explicit**. Functions, relations, dynamical trajectories, concurrent behaviors, and quantum channels can share a structural language without being forced to mean the same thing.
+
+The compact identity I would give U is:
+
+> **U makes the laws under which an operation can be composed part of the operation itself.**
+
+CDC then becomes a particularly strong specialization:
+
+> **CDC selects transformations whose consequences must be earned through its particular admissibility, coherence, topology, and evidence conditions.**
+
+That relationship works without historical revisionism. CDC came first. U is the later abstraction beneath it.
+
+The complete deliverable is available here:
+
+**:chatgpt-content-reference{index="38"}** · **:chatgpt-content-reference{index="39"}** · **:chatgpt-content-reference{index="40"}**
+
+The package contains the formal design, naming audit, operator contracts, all 18 comparison-family records, **22 `.u` examples**, a shared grammar, reproducible scoped checks, source references, and the build directive.
+
+What follows develops the architecture and its decisive arguments, rather than merely pointing at the files.
+
+---
+
+# A. Executive result
+
+## What U is
+
+U is a **typed, law-bearing operation language** with three deliberately separate representations:
+
+\[
+\boxed{\text{Meaning}\quad\longrightarrow\quad\text{Realization}\quad\longrightarrow\quad\text{Evidence}}
+\]
+
+**Meaning** describes what an operation denotes and which distinctions it preserves.
+
+**Realization** describes how a particular interpreter, compiler, solver, scheduler, processor, or physical device implements that meaning.
+
+**Evidence** describes what has actually been checked or observed about that realization.
+
+These are linked artifacts, not interchangeable descriptions.
+
+For example, a quantum circuit may have a well-defined channel meaning, a classical simulator realization, and a reproducible simulator receipt. None of that constitutes physical quantum execution. Similarly, an ODE may have a trajectory denotation and a numerical realization without the numerical samples becoming the exact continuous trajectory.
+
+## What is genuinely small
+
+The proposed **structural kernel** has six constructors:
+
+\[
+\texttt{wire},\quad
+\texttt{gen},\quad
+\texttt{seq},\quad
+\texttt{par},\quad
+\texttt{scope},\quad
+\texttt{fix}.
+\]
+
+But the complete semantic foundation is **not six primitives**.
+
+`gen` refers to a declared semantic generator. Its meaning, typing rules, laws, assumptions, and reference behavior must all be exposed. Calling every difficult operation a generator and then advertising a six-primitive universal calculus would be exactly the accounting trick this project must avoid.
+
+The defensible architecture is:
+
+\[
+\boxed{
+\begin{aligned}
+&\text{small structural kernel}\\
++{}&\text{explicit semantic theories}\\
++{}&\text{checked cross-theory adapters}\\
++{}&\text{derived operator algebra}.
+\end{aligned}}
+\]
+
+This is the **minimum-plural architecture** I can currently justify. I do not have a proof that its theory partition is globally minimal, or that every pair of theories admits an elegant composition.
+
+## What was actually inspected and tested
+
+I inspected `ETEllis/BiDi` at current `main`, and checked the branch again at the end:
+
+```text
+Repository: ETEllis/BiDi
+Commit:     1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157
+Commit UTC: 2026-08-08 10:17:01
+CDC:        0.3.0
+Grammar:    1
+C ABI:      1.5
+```
+
+The exact-head GitHub Actions run, `31252447769`, completed successfully. That is stronger evidence than the older matrix wording saying exact-head CI was pending, but it is **not** an independent local rerun or a proof of runtime correctness.    
+
+For this design, the local audit records **40/40 passing scoped checks**: 22 example parses, three malformed-syntax rejection cases, and 15 mathematical or small-model probes. The examples have **not** been typechecked or executed by a completed U implementation. No complete U frontend has earned native subsumption of another language.
+
+Those boundaries are explicit in the **:chatgpt-content-reference{index="41"}**.
+
+---
+
+# B. Naming and prior-art audit
+
+## Naming verdict: `.u` is not clean
+
+There are material collisions, not merely hypothetical search-engine noise.
+
+| Collision | Relevance |
+|---|---|
+| **Unison** | Uses `.u` source files. |
+| **Ü** | An existing programming-language project with `.u` examples. |
+| **Another public language called U** | Its public specification also presents `.u` programs. This establishes a naming collision, not validation of its technical claims. |
+| **UnrealScript** | `.u` has an established compiled-package use. |
+| **Historical ucode** | `.u` appears in historical compiler intermediate/object-file conventions. |
+| **Esoteric languages named U** | Additional direct name collisions. |
+| **Package ecosystem** | At least PyPI’s `u` name is already occupied. |
+
+These uses are documented in the corresponding language/project documentation, historical compiler documentation, and package record. 
+
+**Decision:** retain **U** and **`.u` as qualified working identifiers**, not cleared public branding.
+
+Use:
+
+```text
+Language identity: etellis.u
+Required header:   u "etellis.u/0.1";
+Working extension: .u, only in explicitly opted-in workspaces
+CLI candidate:     etellis-u
+Local alias:       u
+```
+
+Do not globally claim `.u` in editor associations. Do not claim the proposed CLI or package identifiers are available without checking their actual registries.
+
+The trademark portion is a **screening audit, not legal clearance**. USPTO and WIPO searches are part of a release-clearance process, but the investigation does not establish exclusive rights to “U,” “Universal Operation Language,” or “Universal Operator Language.” 
+
+## Closest conceptual prior art
+
+The serious comparisons are not just Python, Rust, or Lisp.
+
+**MLIR** already provides extensible operations, regions, types, dialects, and staged lowering. **K** already treats executable language semantics as a central engineering object. **PLanCompS/CBS** is particularly close to the idea of reusable semantic building blocks. **Eff** supplies relevant effect-handler foundations. Bigraphs and compositional open-system work are relevant to boundaries, interaction, and nesting. 
+
+Therefore, U’s defensible contribution is **not** “typed graphs exist” or “many languages lower to one representation.”
+
+Its proposed distinguishing contract is:
+
+> High-level semantic operators, their composition laws, source residuals, realization choices, and earned evidence remain jointly inspectable through transformation.
+
+That is an architectural proposition to implement and test—not a claim of established historical novelty.
+
+---
+
+# C. First-principles derivation
+
+## Begin with distinctions that must survive
+
+A computational artifact is not adequately characterized by “input goes to output.”
+
+It may additionally specify:
+
+- which resources may be consumed or duplicated;
+- which observations distinguish two executions;
+- which events may occur, and in what causal order;
+- whether alternatives represent search, probability, or coherent superposition;
+- whether time denotes a logical step, a clock edge, or a continuous parameter;
+- which claims are justified by its result.
+
+These are not optional annotations when they change program meaning.
+
+The primitive design question becomes:
+
+> **What must remain explicit for composition to preserve meaning?**
+
+The answer is an **operational boundary**: a typed interface carrying the laws that govern its interaction with other boundaries.
+
+An ordinary function boundary may admit copying its input. A unique mutable resource boundary does not. A quantum boundary does not admit arbitrary cloning. A synchronous signal boundary has clock semantics. A logical relation boundary supports constraint combination rather than ordinary eager application.
+
+## Three counterexamples force the architecture
+
+### 1. Copying cannot be universal
+
+Suppose all U interfaces admit a generic operation:
+
+\[
+\operatorname{copy}_A:A\rightarrow A\otimes A.
+\]
+
+That is useful for ordinary immutable values. It is incompatible with unique ownership and cannot be admitted as arbitrary copying of an unknown physical quantum state.
+
+Consequently, U cannot use an unrestricted Cartesian value model as its universal substrate. Copying must be a **qualified operation supported by the interface**, not an implicit structural right.
+
+### 2. Probability and nondeterminism cannot silently commute
+
+Consider a fair coin \(b\) and an adversarial choice \(a\), with success when \(a=b\).
+
+An adversary choosing before observing the coin can guarantee success probability only \(1/2\). An adversary choosing after observing it can achieve \(1\).
+
+Thus:
+
+\[
+\operatorname{choose}\circ\operatorname{sample}
+\not\equiv
+\operatorname{sample}\circ\operatorname{choose}
+\]
+
+without an explicit information and scheduling contract.
+
+A universal “effect collection” that ignores this ordering has erased semantics.
+
+### 3. A finite flow step is not automatically continuous flow
+
+For the finite map
+
+\[
+F_d(x)=x+d\cos x,
+\]
+
+we have:
+
+\[
+F_1(F_1(0))=1+\cos 1\approx1.5403,
+\qquad
+F_2(0)=2.
+\]
+
+Therefore:
+
+\[
+F_a;F_b\ne F_{a+b}.
+\]
+
+This is directly relevant to CDC’s current synchronous finite-step `flow`. Giving that operator the laws of an exact autonomous ODE flow would change its meaning.
+
+The resulting principle is:
+
+> **A common composition notation does not authorize common composition laws.**
+
+## What the candidate foundations contribute
+
+| Foundation family | What U retains | Why it is not sufficient alone |
+|---|---|---|
+| Lambda/combinatory calculi, dependent types | Binding, application, substitution, constructive proof | Do not by themselves preserve physical clocks, weak memory, trajectory semantics, or quantum-resource laws. |
+| Term/graph rewriting, interaction nets | Local transformation and explicit sharing structure | A graph shape alone does not specify what its nodes mean or which rewrites are valid. |
+| Relational algebra, logic and constraint programming | Relations, existential variables, joins, inference | Search strategy, effects, resources, and time still need explicit treatment. |
+| Process calculi, actors, Petri nets, dataflow | Interaction, causality, concurrency, feedback | Probability, proof conversion, numerical trajectories, and hardware details are not automatically supplied. |
+| Category-theoretic composition | Interfaces, composition, independent juxtaposition | The abstract laws do not select a computational ontology or implementation. |
+| Temporal and event logics | Behavior sets, safety, liveness, fairness | They are not themselves a complete executable resource model. |
+| Hybrid automata, ODEs and DAEs | Paths, events, resets, continuous constraints | Discrete realizations and approximation guarantees remain distinct. |
+| Linear logic, effects, capabilities, information flow | Usage discipline, authority, controlled interaction | These constrain operations; they do not replace every domain’s denotation. |
+
+The design takes these as **sources of necessary structure**, not as a menu of surface-language features.
+
+---
+
+# D. U’s semantic kernel
+
+## D.1 Abstract syntax
+
+The structural operation graph is:
+
+\[
+\begin{aligned}
+P ::= {}&
+\operatorname{wire}[\pi]\\
+\mid{}&\operatorname{gen}[T,o](a_1,\ldots,a_n;\mathcal R_1,\ldots,\mathcal R_m)\\
+\mid{}&\operatorname{seq}(P,P)\\
+\mid{}&\operatorname{par}(P,P)\\
+\mid{}&\operatorname{scope}(k,x.P)\\
+\mid{}&\operatorname{fix}[\iota](x.P).
+\end{aligned}
+\]
+
+| Constructor | Meaning | What it does **not** imply |
+|---|---|---|
+| `wire` | Forward or permute existing typed ports | Copying, dropping, allocation |
+| `gen` | Instantiate a declared semantic operator | An arbitrary opaque callback with a reassuring name |
+| `seq` | Connect compatible operational boundaries | Identical semantics for every domain |
+| `par` | Compose independent operations | Automatic parallel execution or unrestricted shared access |
+| `scope` | Introduce a fresh nominal boundary | Physical allocation by itself |
+| `fix` | Admit theory-qualified iteration or feedback | General recursion inside proofs, instantaneous causal loops, or arbitrary quantum feedback |
+
+The ordinary-function fragment can have familiar identity and associative-composition laws. The broader graph is not an assertion that every domain is a set-theoretic function.
+
+Acausal constraints, for example, may expose variable connections whose solution direction is determined during realization rather than by a universal input/output convention.
+
+## D.2 Typing judgment
+
+A core judgment is:
+
+\[
+\Theta;\Gamma;\Delta
+\vdash
+p:A\xrightarrow{T,\epsilon,u,s}B.
+\]
+
+Here:
+
+- \(\Theta\) contains admitted theories, profiles, and adapters.
+- \(\Gamma\) contains reusable assumptions and values.
+- \(\Delta\) contains affine or linear resources.
+- \(T\) identifies the semantic theory/profile.
+- \(\epsilon\) records effects and authority requirements.
+- \(u\) records resource usage.
+- \(s\) records the stage: compile-time syntax, ordinary execution, proof, device program, and so forth.
+
+Sequential composition requires compatible interfaces and contracts:
+
+\[
+\frac{
+p:A\xrightarrow{T,\epsilon_1}B
+\qquad
+q:B\xrightarrow{T,\epsilon_2}C
+}{
+\operatorname{seq}(p,q):
+A\xrightarrow{T,\epsilon_1;\epsilon_2}C
+}.
+\]
+
+Cross-theory composition additionally requires an admitted adapter.
+
+Parallel composition requires a valid resource split:
+
+\[
+\Delta=\Delta_1*\Delta_2
+\]
+
+and an independence judgment. Two expressions that happen to have separate syntax are not necessarily independent.
+
+## D.3 Evaluation
+
+For a selected realization \(r\), use configurations:
+
+\[
+\langle p,W,\mathcal E\rangle_r,
+\]
+
+where \(W\) is a theory-indexed world and \(\mathcal E\) is the current evidence/obligation structure.
+
+A generator executes only through its declared reference rule or admitted realization:
+
+\[
+\frac{
+\operatorname{admit}(o,W)=a
+\quad
+\operatorname{step}_{T,r}(o,W,a)=(W',v,e)
+}{
+\langle\operatorname{gen}(T,o),W,\mathcal E\rangle_r
+\longrightarrow
+\langle v,W',\mathcal E\oplus e\rangle_r
+}.
+\]
+
+A failed admissibility condition does not grant permission to partially perform the protected operation and describe it as held afterward.
+
+For sequential operations, ordinary small-step propagation applies. For parallel operations, the selected causal model determines which independent steps may occur; no universal interleaving semantics is silently imposed on hardware or quantum models.
+
+## D.4 What a semantic generator must provide
+
+A native generator must declare:
+
+```text
+identity and version
+interface/type scheme
+static parameter schema
+region binders and staging rules
+resource/effect requirements
+denotation or model
+reference execution rules, or checked U-native expansion
+laws and assumptions
+observable behavior
+held/error conditions
+admitted adapters and realizations
+positive, negative, and differential conformance cases
+trust dependencies
+```
+
+This is the defense against `gen` becoming a semantic dumping ground.
+
+A derived-native operator retains its high-level identity **and** an inspectable expansion. A join does not have to disappear into nested loops for the compiler to execute it.
+
+## D.5 The explicit semantic theory ledger
+
+The initial design has seven **obligation clusters**, not seven magical axioms:
+
+| Cluster | Owned distinctions |
+|---|---|
+| **V — Values and constructive reasoning** | Universes, dependent types, inductive data, equality, functions, evaluation strategy, typed syntax and staging |
+| **M — Memory and resources** | Allocation identity, layout, pointer provenance, ownership, borrowing, atomics, machine/ABI refinements |
+| **R — Relations and constraints** | Logical variables, unification, multiplicity, conjunction, disjunction, existential binding, search strategy, least fixed points |
+| **P — Probability** | Measures, kernels, likelihood weighting, conditioning, normalization, inference approximation |
+| **C — Causality and behavior** | Events, partial orders, messages, mailboxes, behavior sets, fairness, clocks, failure, execution geometry |
+| **D — Dynamics** | Continuous paths, ODE/DAE constraints, events/resets, topology, derivatives, numerical approximation |
+| **Q — Quantum processes** | Joint systems, channels, instruments, measurement, reset, timing and classical feedforward |
+
+The full **:chatgpt-content-reference{index="42"}** expose the obligations beneath these headings.
+
+### Minimality verdict
+
+Some structural constructors can be encoded using others if enough complexity is moved into generators. That does not establish a better basis.
+
+Accordingly, the optimization objective should be:
+
+\[
+\min
+\left(
+\text{kernel complexity}
++\text{generator complexity}
++\text{adapter complexity}
++\text{hidden semantic debt}
+\right),
+\]
+
+subject to the native-subsumption constraints.
+
+**I am not claiming an absolute irreducibility theorem for six constructors.** I am claiming that this separation makes the semantic costs visible and provides a concrete architecture in which a smaller basis can be tested rather than advertised.
+
+---
+
+# E. Types, effects, resources, identity, and evidence
+
+## Types and proof
+
+U uses stratified universes, dependent products and sums, inductive data, equality, indexed interfaces, and staged syntax objects.
+
+The logical fragment must have a **total checker**. General recursion, arbitrary IO, unbounded search, and foreign evaluation cannot participate in definitional equality or manufacture proof terms.
+
+A function with possible divergence belongs to an explicitly partial computation type. It does not become a proof merely because its declared return type is a proposition.
+
+Proof search and tactic execution may be sophisticated and untrusted. Their output must pass an independent kernel check. This follows the distinction between elaboration and foundational checking that a Lean bridge must preserve. 
+
+## Resources and authority
+
+These must be distinct:
+
+```text
+Owned(Buffer(T,n))
+Borrow(region, access, T)
+Capability(action, resource)
+AuthorityLease(issuer, action, frame, horizon, expiry, epoch, nonce)
+QReg(n)
+```
+
+A borrow governs aliasing and lifetime. An authority lease governs whether an action is authorized in a particular operational context.
+
+`Copy` and `Drop` are admitted interface witnesses, not universal structural rules. A physical `QReg` cannot acquire arbitrary copying through an ordinary trait declaration.
+
+## Outcomes
+
+Use an explicit outcome family:
+
+```text
+Done(value, evidence)
+Held(reason, obligations, earned_artifacts)
+Rejected(diagnostic)
+Fault(diagnostic, known_progress)
+Indeterminate(possible_external_effect, reconciliation_obligation)
+```
+
+`Indeterminate` matters. A network timeout does not necessarily mean the remote effect failed to occur.
+
+Divergence is a semantic possibility, not a runtime condition U can always detect.
+
+A HOLD prevents the **current protected application mutation**. It may still append an audit receipt, and it does not undo effects that happened earlier.
+
+## Identity
+
+U must distinguish at least:
+
+| Identity | Meaning |
+|---|---|
+| Original-source identity | Exact input bytes |
+| Canonical-syntax identity | Normalized parsed structure |
+| Semantic-artifact identity | Typed graph plus theory/profile/assumption identities |
+| Execution identity | A particular realization with its inputs and relevant external observations |
+| Replay identity | Equality under a declared replay projection |
+| Resource identity | A nominal allocation, actor, device, store, or authority subject |
+
+A semantic-artifact hash is **not a decision procedure for semantic equivalence**.
+
+A history commitment is **not reconstructible history**.
+
+This is particularly important for BiDi’s store: its compaction preserves a replay commitment while discarding historical payloads, and exact recovery then explicitly refuses. 
+
+## Evidence is multidimensional
+
+Retain the requested claim form, but expand its scope:
+
+\[
+\text{Claim}=
+(\text{scope},\text{maturity dimensions},\text{verdict},
+\text{receipt/obligations},\text{assumptions},\text{checker identity}).
+\]
+
+“Specified,” “executed,” “adversarially checked,” “mechanized-finite,” and “open” are not a single automatic promotion ladder.
+
+A finite proof about a model and a successful execution of an implementation establish different things.
+
+---
+
+# F. Execution semantics without domain erasure
+
+## Discrete and machine computation
+
+The machine profile includes registers, address spaces, access width, alignment, traps, privilege, interrupts, atomics, and ordering.
+
+The C profile adds the relevant layout, allocation, aliasing, ABI, volatile, and undefined-behavior contracts. It must be pinned to an admitted dialect and environment.
+
+A safer U operation is not automatically a semantics-preserving translation of an unsafe C operation. “Fixing” behavior is a transformation that requires an explicit contract, not an invisible translation step. Current ISA specifications and C verification systems likewise have concrete, bounded semantic targets. 
+
+## Concurrency and distribution
+
+Represent behaviors using events and causal relations:
+
+\[
+\mathcal B=(E,\prec,\lambda,\mathcal C),
+\]
+
+with event set \(E\), causal order \(\prec\), labels \(\lambda\), and compatibility or conflict structure \(\mathcal C\).
+
+A scheduler selects a permitted realization. A deterministic replay reproduces that realization under its recorded inputs.
+
+Neither operation proves that every permitted execution is safe, that fairness holds, or that distributed consensus has been established.
+
+Actors, selective receive, supervision, and failure propagation remain explicit operators over this causal model rather than being reduced to “threads with callbacks.” Erlang’s process semantics provide the source contract for that profile. 
+
+## Time
+
+Do not use one scalar `time` everywhere.
+
+At minimum distinguish:
+
+```text
+PhaseTime
+EventOrder
+TraceOrder
+LogicalClock
+PhysicalDuration
+ClockDomain
+AdmissionTime
+```
+
+Relations between them are explicit maps with assumptions.
+
+CDC’s phase progression, event sequence, and trace order therefore survive independently. Its scheduler’s local admission time need not become replay identity. 
+
+## Continuous and hybrid dynamics
+
+For an ODE profile:
+
+\[
+\operatorname{Sol}(f,x_0,I)
+=
+\{x:I\to X\mid x(0)=x_0,\ \dot{x}(t)=f(x(t))\}.
+\]
+
+For a DAE profile:
+
+\[
+F(t,x,\dot x,z)=0.
+\]
+
+These denote paths satisfying constraints—not finite arrays pretending to be paths.
+
+A numerical realization produces an approximation and an error contract:
+
+\[
+\widehat{x},\quad
+\operatorname{ErrorClaim}(\widehat{x},\operatorname{Sol},\varepsilon,H),
+\]
+
+where \(H\) contains the hypotheses under which the bound is justified.
+
+Hybrid events add guards, reset maps, event localization, and itinerary conditions. A derivative across an event requires the actual event semantics; a scheduled reset is not automatically a localized crossing.
+
+Acausal differential-algebraic composition earns a distinct basis seat because it avoids fixing a procedural solution direction too early. Modelica is relevant prior art for that capability. 
+
+## Relations, search, and SQL
+
+Keep three things separate:
+
+\[
+\text{relation meaning}
+\ne
+\text{search strategy}
+\ne
+\text{answer stream}.
+\]
+
+A Prolog profile may require clause order, depth-first search, cut, and a particular unification term universe. Merely preserving the set of mathematical answers can still change termination and observable behavior.
+
+SQL additionally needs bag multiplicity, NULL truth, collation, grouping, explicit ordering, and transaction isolation. Those distinctions must constrain optimization. 
+
+## Probability
+
+A probabilistic model denotes a measure or kernel. Composition is measure binding:
+
+\[
+(\mu\bind k)(B)
+=
+\int k(x,B)\,d\mu(x).
+\]
+
+An observation with likelihood \(\ell(x)\) produces:
+
+\[
+d\mu'(x)=\ell(x)d\mu(x).
+\]
+
+Normalization is permitted only under the relevant conditions, including:
+
+\[
+0<Z=\int d\mu'<\infty.
+\]
+
+Inference is a separate realization. HMC output is an approximation with diagnostics, not the posterior measure itself. Stan’s distinction between model density construction and inference is therefore preserved rather than flattened into ordinary random-number calls. 
+
+## Hardware and accelerators
+
+A hardware register has pre-edge and post-edge behavior. Signal update regions, clocks, initialization, bit widths, and four-state versus two-state semantics are explicit.
+
+A GPU kernel has execution geometry, memory spaces, synchronization scopes, and resource partitions. A CPU loop that computes the same vector does not earn GPU execution.
+
+A SystemVerilog simulation profile and a synthesizable subset must therefore be separate contracts; CUDA lowering must preserve its device execution and memory assumptions. 
+
+## Quantum
+
+The semantic object is a joint system, not independent unknown classical bits.
+
+A unitary operation denotes:
+
+\[
+\rho\mapsto U\rho U^\dagger.
+\]
+
+Measurement denotes an instrument:
+
+\[
+\rho\mapsto
+\{(p_i,\rho_i)\}_i,
+\qquad
+p_i=\operatorname{tr}(M_i\rho M_i^\dagger).
+\]
+
+Reset, timing, classical feedforward, and device constraints remain explicit.
+
+The OpenQASM bridge therefore targets channel/instrument meaning and timing contracts. Classical simulation, native representation, and QPU execution receive different evidence labels. 
+
+---
+
+# G. Surface syntax and canonical representation
+
+The human surface uses one grammar:
+
+```text
+unit       := header import* definition*
+header     := u STRING ;
+import     := use STRING ;
+
+definition :=
+    def NAME (parameters) -> expression = expression ;
+  | def NAME : expression = expression ;
+
+expression :=
+    name | literal
+  | fn(parameters) => expression
+  | expression(arguments)
+  | expression.NAME
+  | tuple | list | record
+  | { statement* yield expression; }
+
+record     := #{ NAME: expression, ... }
+statement  := let NAME [: expression] = expression ;
+            | expression ;
+```
+
+Types are expressions checked in the total fragment.
+
+The same region syntax can describe a probabilistic model, a hardware next-state rule, or a macro body, but the **operator’s region signature declares which interpretation applies**. The editor must expose that distinction.
+
+Optional Unicode, infix, or graphical views are reversible projections. They cannot introduce invisible semantics.
+
+Canonical serialization preserves ordered ports, binders, regions, profiles, and residual references. It uses tagged integers, rationals, and exact IEEE bit patterns rather than ambiguous ordinary JSON numbers.
+
+Changing canonical structure is not the same thing as changing execution semantics; both have separate version rules.
+
+---
+
+# H. Formal native-subsumption test
+
+## H.1 Embedding and preservation
+
+For a source language \(L\) under a pinned semantic environment \(\kappa\), define:
+
+\[
+E_{L,\kappa}(P)=(G,R,\Pi),
+\]
+
+where:
+
+- \(G\) is the U-native semantic graph;
+- \(R\) is the reconstruction/residual stream;
+- \(\Pi\) is provenance and evidence.
+
+Require:
+
+\[
+\operatorname{Obs}_{L,\kappa}(P,C)
+\approx_{L,\varepsilon}
+\operatorname{projection}_{L,\kappa}
+\left(
+\operatorname{Obs}_{U}(G,E(C));R
+\right).
+\]
+
+The relation depends on the domain: trace equivalence, bisimulation, query equivalence, proof preservation, channel equivalence, numerical error, and so forth.
+
+**The projection must not execute the original source from the residual.** Otherwise, an empty graph plus the original program would falsely pass the test.
+
+Faithful lifting and backend refinement are also separate:
+
+\[
+\text{all source-permitted behaviors}
+\longrightarrow
+\text{faithful meaning graph}
+\longrightarrow
+\text{a permitted realization}.
+\]
+
+One deterministic execution may refine a nondeterministic specification without representing its entire behavior set.
+
+## H.2 Native status requires more than compact syntax
+
+An operator earns native status only when it has:
+
+1. An explicit, inspectable representation retaining its distinctive semantics.
+2. Local compositional meaning and exposed interaction laws.
+3. Direct U execution rules or a checked U-native expansion.
+4. Analyzable types, resources, effects, and observables.
+5. Semantic recovery and a declared residual boundary.
+6. Positive, negative, and differential conformance evidence.
+7. Accounted representation cost, including hidden interpreter debt.
+
+A constant-size call to a giant foreign VM is not constant-cost semantic compression.
+
+## H.3 Coverage matrix
+
+**P** = theory primitive; **D** = derived-native; **L** = library; **B** = backend; **F** = foreign; **R** = residual-preserving import.
+
+These are **proposed placements**, not claims of completed U implementation.
+
+| Source | U-native operational target | Preservation and remaining boundary |
+|---|---|---|
+| Assembly/ISA | **P:** machine state, registers, accesses, atomics, traps, events; **B:** target execution | Exact ISA/memory/interrupt contract; unknown instructions remain unsupported/R. |
+| C | **P:** byte memory, layout, pointers, allocation; **D:** control; **B/F:** ABI | Defined-behavior equivalence under pinned dialect/ABI; preprocessing/source details R. |
+| Rust | **P:** ownership/borrowing; **D:** traits, generics, patterns | Preserve access/lifetime judgments, drops, panic behavior; unsafe subsets require an explicit model. |
+| Python | **P/D:** dynamic values, descriptors, introspection, dispatch | Versioned data model; observable code/frame metadata retained; native extensions F. |
+| JS/TS | **P:** jobs/continuations; **D:** prototypes, structural/type-level operations | Preserve coercion/job/host behavior; TS checker acceptance is not a proof of runtime safety. |
+| Lisp/Racket | **P:** scoped syntax/staging; **D:** quote, splice, hygienic macros | Binding, phase, evaluation strategy, observable syntax properties. |
+| Haskell | **P:** functions/data; **D:** laziness, effects, abstractions | Bottom, strictness, `seq`, sharing where observable, IO order. |
+| Prolog | **P:** variables, unification, goals; **D:** resolution | Answer order, termination, cut and term-universe mode—not just relation equality. |
+| SQL | **P:** bags, joins, NULL logic; **D:** aggregation, transactions; **L:** optimizer | Multiplicity, collation, isolation, ordering; engine UDFs/extensions F/R until modeled. |
+| APL | **D:** rank, shape, cells, scan, reduction, contraction | Empty/prototype rules, scalar extension, numeric/evaluation profile. |
+| Stan | **P:** measures/conditioning; **D:** transforms/AD; **L:** inference | Density/Jacobian correspondence; inference remains approximate and diagnosed. |
+| Erlang | **P:** processes/messages/failure; **D:** supervision | Mailbox/selective receive, identity, exits/restarts; real distribution B with separate gates. |
+| TLA+ | **P:** behavior sets/actions; **D:** modalities/fairness | Temporal satisfaction and stuttering; one trace is insufficient. |
+| Lean | **P:** dependent logic/checker; **D/L:** elaboration/tactics | Proof terms checked in admitted logic; unsupported axioms/features R/F, not trusted logs. |
+| SystemVerilog | **P:** signals/clocks/event regions/bits; **D:** elaboration; **B:** synthesis | Simulation and synthesis profiles distinguished; full four-state semantics not replaced by a two-state demo. |
+| CUDA | **P:** geometry/memory/synchronization; **D:** partitions; **B:** device code | Race/order/address-space preservation; simulator does not count as GPU execution. |
+| OpenQASM | **P:** channels/instruments/reset; **D:** timed control; **B:** QPU | Channel/instrument and timing equivalence; simulation and hardware claims separated. |
+| BiDi/CDC | **D:** flow/commit/nest, guarded effects, topology, U1/U2 | Exact pinned runtime semantics, source identity, receipts, and earned-artifact stages. |
+
+The source contracts for borrowing, macros, laziness, structural typing, and ranked arrays are materially different; the corresponding official references make those differences part of the bridge obligations rather than optional syntax preferences. 
+
+## H.4 Is the basis incomplete?
+
+Yes, in useful ways.
+
+**Acausal DAE composition** and **constructive synchronous causality** deserve explicit conformance seats. So do **least-fixed-point logic** and **effect handlers**, because they expose operations that are easy to obscure inside ordinary callbacks or search loops. Modelica, Datalog-style semantics, and Eff are relevant here. 
+
+Other candidates earn tests without necessarily earning new foundational clusters:
+
+| Candidate group | Placement |
+|---|---|
+| Wolfram symbolic rewriting/attributes | V/R rewrite and evaluation-policy contracts |
+| Smalltalk, Julia | Reflection, dispatch, object-model refinements |
+| Forth | Stack-oriented projection of composition and resource effects |
+| ML/OCaml, Elixir | Existing V/M/C families with distinct frontend contracts |
+| Kahn networks, Petri nets, interaction nets, CHR | C/R/M interaction and fixed-point profiles |
+| Nix | Hermetic evaluation/build-dependency and effect contracts |
+| Shell/process composition | Streams, processes, exit/failure semantics |
+| Regex, BNF, PEG | Automata/grammar operators; ordered PEG choice remains explicit |
+| HTML/CSS/layout | Declarative constraints and browser realization; not automatic full-browser subsumption |
+| WASM, LLVM, MLIR | Important realization/interchange profiles, not replacements for the high-level meaning graph |
+| Reversible, session-typed, categorical languages | Additional algebraic and resource-law refinements |
+
+No language gets a new kernel keyword simply because it exists.
+
+---
+
+# I. CDC derivation and repository reconciliation
+
+## I.1 What CDC actually contributes
+
+“Transformation with earned consequence” is a good compression of CDC’s architecture, but it is not literally a rule that every operation in the current runtime passes through the same commit boundary.
+
+The implementation is more specific:
+
+- `flow` updates phase state.
+- `commit` conditionally latches quantized trits.
+- `nest` integrates child information into parent belief and overwrites child prior.
+- Additional U1/U2 and persistence paths impose their own stronger admission conditions.
+
+That specificity is valuable. U should preserve it rather than “improve” CDC into a different calculus.  
+
+CDC’s most generalizable discoveries are the separation of transformation from admission, meaningful non-action, explicit scope and provenance, distinct notions of time and identity, and the refusal to construct downstream objects before their prerequisites exist.
+
+Its trit carrier, prefix barrier, particular phase-coupling map, particular nesting update, and selected cover/recurrence rules are **specializations**, not compulsory U primitives.
+
+## I.2 Exact `flow` lowering
+
+The current native real-arithmetic map is:
+
+\[
+\theta_i'
+=
+\theta_i+\omega_i d+
+Gd\sum_{e:t(e)=i}
+w_e\sin(\theta_{s(e)}+\alpha_e-\theta_i).
+\]
+
+It uses the old snapshot and eligible same-field channels. Other state components remain unchanged by this operation. 
+
+Its U derivation is:
+
+```text
+snapshot selected phase coordinates
+  -> map intrinsic phase increments
+  -> fold eligible channel contributions in source order
+  -> replace selected phase coordinates
+```
+
+**Exact compatibility must preserve the actual floating-point evaluation order**, not merely this algebraically equivalent displayed formula.
+
+It must not silently add an exact ODE solver, amplitude evolution, plasticity, or delay history.
+
+## I.3 Exact `commit` lowering
+
+Quantize:
+
+\[
+q_\delta(\theta)=
+\begin{cases}
++1 & \cos\theta>\delta\\
+-1 & \cos\theta<-\delta\\
+0 & \text{otherwise}.
+\end{cases}
+\]
+
+For trits \(t_1,\ldots,t_n\) in source order:
+
+\[
+\operatorname{Admissible}(t)
+\iff
+\forall k,\quad\sum_{i=1}^{k}t_i\ge0.
+\]
+
+Then:
+
+```text
+quantize
+  -> ordered prefix scan
+  -> admissibility result
+  -> accepted: update latch values/flags
+  -> held: preserve protected latch state
+```
+
+`+,-` is admissible; `-,+` is not. Consequently, arbitrary pointwise polarity reversal is not a global symmetry of the oriented barrier.
+
+A zero trit, a HOLD outcome, a missing value, and Boolean false remain four different things.  
+
+## I.4 Exact `nest` lowering
+
+Let \(u\) be the child’s mean trit, using latched values where present and the native quantization fallback otherwise:
+
+\[
+b_p'=b_p+Gu,
+\qquad
+p_c'=b_p'.
+\]
+
+The second assignment uses the **new** parent belief.
+
+Therefore:
+
+```text
+observe child trits
+  -> aggregate mean
+  -> update parent belief
+  -> overwrite child prior
+```
+
+The fixed-itinerary derivative copies the parent-belief row into the child-prior row. It does not differentiate a theoretical belief-minus-prior equation absent from execution. The runtime and its adversarial derivative fixture explicitly enforce this distinction.   
+
+## I.5 Derived operator map
+
+| CDC operator | U derivation |
+|---|---|
+| `flow` | Snapshot transformation under a pinned numerical profile |
+| `commit` | Quantization + ordered constraint + admitted latch effect |
+| `nest` | Scoped observation + aggregation + two linked state updates |
+| `guard` | Predicate/constraint evaluation with typed admission result |
+| `trace` | Observation and ordered evidence projection |
+| `measure` | Declared observation map—not automatically probabilistic measurement |
+| `policy` | Rule interpretation producing scoped decisions/obligations |
+| `bridge` | Typed representation/coordinate adapter with declared preservation |
+| `persist` | Admitted effect + durable-store realization + recovery contract |
+| `authority` | Capability/lease checking with issuer, scope, freshness and causal conditions |
+| `transport` | Causal message relation plus concrete authenticated realization |
+| `frame` | Scoped coordinate/interface identity and transition rules |
+| `topology` | Explicit structural state, invariants, and witnessed transitions |
+| `universal` | Source-bound composite closure and evidence construction |
+| `orbit` | Selected path and recurrence request |
+| `variational` | Derivative of the admitted executed-path map |
+| `spectrum` | Analysis of an earned return operator under a numerical contract |
+
+These remain recognizable high-level nodes with inspectable expansions. CDC is not reduced to unreadable anonymous graph plumbing.
+
+## I.6 U1 does not imply U2 recurrence
+
+This is one of the strongest existing BiDi distinctions.
+
+U1 can establish its guarded closure conditions while U2 still refuses monodromy because the selected full state does not recur.
+
+For the canonical `loop-u720`, the current source-bound path can earn tangent information while holding recurrence. A restored cover sheet is not sufficient to establish return of the complete continuous and discrete state.  
+
+U makes that prerequisite chain structural:
+
+```text
+ExecutedPath
+    -> PathTangent
+    -> VerifiedRecurrence
+    -> ReturnMap
+    -> Spectrum
+```
+
+No ordinary cast may jump a stage.
+
+For column perturbations:
+
+\[
+A_0=I,\qquad A_{k+1}=J_kA_k.
+\]
+
+Absolute recurrence authorizes:
+
+\[
+M=A.
+\]
+
+Relative recurrence requires an executable restoration map and its derivative:
+
+\[
+M_\gamma=D\rho_\gamma(x_T)A.
+\]
+
+Omitting changed coordinates is not a restoration map.
+
+A later spectral-backend failure retains an already earned monodromy while withholding multipliers. That is **partial evidence retention**, not success fabrication.  
+
+One further precision boundary matters: numerical AD refers to the **real-valued extension of the executed operation graph**, not a classical derivative of literal IEEE rounding on bit patterns.
+
+## I.7 Implementation traps the bridge must preserve
+
+Three findings materially change the build plan.
+
+**The C ABI execution entry is still unavailable.** `cdc_runtime_execute` returns `CDC_ERR_STATE`, although the native CLI has executing paths. The U bridge must not depend on an imagined completed ABI. 
+
+**Attribute semantics are consumer-dependent.** The AST preserves a last-wins dictionary view and a first-wins legacy scanner view. “Cleaning up” duplicate attributes could change meaning. 
+
+**Plain reducer sequencing does not globally abort on held commit.** Introducing that policy would change existing programs. Likewise, source expectations can be checked after a step; the bridge must not invent rollback semantics. 
+
+The formal files establish bounded algebraic and finite-model facts, including the six-trit counts, but do not prove the entire C runtime, numerical analysis, or physical interpretations. RFTC’s local classical machinery likewise does not promote itself into completed multihost or quantum-physical evidence.   
+
+---
+
+# J. Worked U examples
+
+These are **design-candidate programs**. Their complete files parse under the supplied common grammar; a full U typechecker and evaluator remain implementation work.
+
+Each file begins with:
+
+```u
+u "etellis.u/0.1";
+use "u.standard/0.1";
+```
+
+The critical point is not that every example uses calls. It is that each called operator has a typed, inspectable semantic contract rather than an opaque foreign interpreter.
+
+## 1–4. Effects, arithmetic, recursion, collections
+
+```u
+def main(out: ConsoleCap) -> Effect(IO, Unit) =
+  io.println(out, "Hello, world!");
+
+def square(x: Int) -> Int =
+  int.mul(x, x);
+
+def fib(n: Nat) -> Nat =
+  tuple.first(nat.rec(n, (0, 1),
+    fn(k: Nat, pair: Pair(Nat, Nat)) =>
+      (pair.second, nat.add(pair.first, pair.second))));
+
+def sum_positive_squares(xs: List(Int)) -> Int =
+  list.fold_left(
+    list.map(
+      list.filter(xs, fn(x: Int) => int.gt(x, 0)),
+      fn(x: Int) => int.mul(x, x)),
+    0,
+    fn(acc: Int, x: Int) => int.add(acc, x));
+```
+
+`Int` is unbounded here. Changing to a fixed-width integer requires an overflow contract. `nat.rec` is structural recursion, not unrestricted proof-level divergence.
+
+## 5. Ownership-sensitive mutation
+
+```u
+def change_first(buf: Owned(Buffer(U8, 1)))
+  -> Owned(Buffer(U8, 1)) =
+  mem.with_mut(buf,
+    fn(view: MutView(Buffer(U8, 1))) =>
+      mem.write(view, 0, bits.u8(7)));
+```
+
+`with_mut` suspends ownership, opens a fresh lifetime, and requires the view back. The view cannot escape or alias another writer.
+
+## 6. Asynchronous request
+
+```u
+def fetch_text(net: SharedCap(Http), url: Text) -> Task(Text) =
+  async.then(
+    http.get(net, url),
+    fn(reply: Response) => http.body_text(reply));
+```
+
+The task contract includes completion, failure, and cancellation. This is not a blocking call relabeled “async.”
+
+## 7. Hygienic source transformation
+
+```u
+def twice(argument: Code(Int)) -> Code(Int) =
+  syntax.bind_once(argument,
+    fn(x: Code(Int)) =>
+      syntax.quote(
+        fn() => int.add(syntax.splice(x), syntax.splice(x))));
+```
+
+The generated binding evaluates an effectful argument once. Quote/splice crosses declared stages without abandoning hygiene.
+
+## 8. Prolog-like relation and query
+
+```u
+def parent: Rel(Text, Text) =
+  rel.rows([
+    ("Ada", "Ben"),
+    ("Ben", "Cara"),
+    ("Ada", "Dana")
+  ]);
+
+def grandparent: Rel(Text, Text) =
+  logic.relation(
+    fn(x: Logic(Text), z: Logic(Text)) =>
+      logic.exists(
+        fn(y: Logic(Text)) =>
+          logic.and(
+            logic.apply(parent, x, y),
+            logic.apply(parent, y, z))));
+
+def query: Search(Substitution) =
+  logic.query(
+    "sld.leftmost.depth_first.finite_terms",
+    fn(who: Logic(Text)) =>
+      logic.apply(grandparent, "Ada", who));
+```
+
+The query’s search mode is explicit. The relation is not a Boolean function.
+
+## 9. SQL-style bag join
+
+```u
+def User: Type =
+  types.record(#{id: Int, name: Text});
+
+def Order: Type =
+  types.record(#{user_id: Int, total: Decimal});
+
+def Row: Type =
+  types.record(#{name: Text, total: Decimal});
+
+def join_orders(users: Bag(User), orders: Bag(Order))
+  -> Bag(Row) =
+  sql.project(
+    sql.inner_join(
+      users, orders,
+      fn(u: User, o: Order) => sql.eq(u.id, o.user_id)),
+    fn(row: Pair(User, Order)) =>
+      #{name: row.first.name, total: row.second.total});
+```
+
+Multiplicity survives. No output order is invented. Nullable profiles use SQL truth semantics rather than ordinary Boolean equality.
+
+## 10. Ranked array contraction
+
+```u
+def multiply(
+  a: Array(F64, [2, 3]),
+  b: Array(F64, [3, 4]))
+  -> Array(F64, [2, 4]) =
+  array.contract(a, b, [1], [0], "f64.strict_left_fold");
+```
+
+Shape, rank, contracted axes, and reduction order remain in the semantic graph.
+
+## 11. Bayesian model and separate inference
+
+```u
+def model(data: List(Real)) -> Measure(Real) =
+  prob.model(fn() => {
+    let mu = prob.sample(dist.normal(0.0, 1.0));
+    prob.observe_all(dist.normal(mu, 1.0), data);
+    yield mu;
+  });
+
+def infer(data: List(Real), seed: U64)
+  -> ApproxPosterior(Real) =
+  prob.infer(
+    model(data), "hmc",
+    #{seed: seed, chains: 4, draws: 1000, warmup: 500});
+```
+
+Inside `model`, sampling is a measure-binding operation. The inference result is explicitly approximate.
+
+## 12. Actors with supervision
+
+```u
+def Message: Type =
+  types.sum(#{inc: Unit, crash: Unit});
+
+def worker(state: Nat, message: Message) -> ActorStep(Nat) =
+  sum.case(message, #{
+    inc: fn(unit: Unit) =>
+      actor.continue(nat.succ(state)),
+    crash: fn(unit: Unit) =>
+      actor.fail("requested_failure")
+  });
+
+def start(system: ActorSystemCap)
+  -> Effect(Actors, SupervisorRef) =
+  actor.supervise(
+    system, "one_for_one",
+    [actor.child("counter", 0, worker)],
+    #{max_restarts: 3, window: duration.seconds(5)});
+```
+
+Failure and restart belong to the operational semantics, not a comment around exception handling.
+
+## 13. Temporal safety and liveness
+
+```u
+def advance(n: Nat) -> Option(Nat) =
+  option.when(nat.lt(n, 3), fn() => nat.succ(n));
+
+def system: BehaviorSet(Nat) =
+  temporal.spec(
+    0, advance,
+    temporal.stutter(),
+    temporal.weak_fair(advance));
+
+def safe: Temporal(Nat) =
+  temporal.always(fn(n: Nat) => nat.le(n, 3));
+
+def live: Temporal(Nat) =
+  temporal.eventually(fn(n: Nat) => nat.eq(n, 3));
+
+def verification: FiniteModelReport =
+  temporal.check(
+    system,
+    temporal.and(safe, live),
+    model.closed_reachable_states([0, 1, 2, 3]));
+```
+
+The fairness assumption is explicit. The result is a finite-model report over a checked closed state space—not a universal theorem about arbitrary programs.
+
+## 14. Checked inductive proof
+
+```u
+def zero_add:
+  Pi(Nat, fn(n: Nat) => Eq(Nat, nat.add(0, n), n)) =
+  fn(n: Nat) =>
+    nat.induction(
+      n,
+      fn(k: Nat) => Eq(Nat, nat.add(0, k), k),
+      eq.refl(Nat, 0),
+      fn(k: Nat, ih: Eq(Nat, nat.add(0, k), k)) =>
+        eq.congr(Nat, Nat, nat.succ, ih));
+
+def checked: ProofReceipt =
+  proof.check(zero_add);
+```
+
+In this profile addition recurses on its second argument, so the theorem genuinely uses induction.
+
+## 15. Synchronous eight-bit counter
+
+```u
+def counter(clk: Clock, reset: Signal(Bit, clk))
+  -> Signal(Bits(8), clk) =
+  hw.reg(
+    clk,
+    bits.u8(0),
+    fn(q: Bits(8)) =>
+      value.select(
+        hw.at_tick(reset),
+        bits.u8(0),
+        bits.add_wrap(q, bits.u8(1))));
+```
+
+The region sees pre-edge state; register updates publish according to the clock contract. This example is a two-state synchronous profile, not a claim to cover all SystemVerilog semantics.
+
+## 16. GPU vector kernel
+
+```u
+def saxpy(
+  n: Nat,
+  a: F32,
+  x: GpuRead(F32, n),
+  y: GpuOwn(F32, n))
+  -> GpuTask(GpuOwn(F32, n)) =
+  gpu.partition_launch(
+    #{grid: [nat.ceil_div(n, 256)], block: [256]},
+    y,
+    fn(thread: GpuThread, yi: GpuOwnElement(F32)) =>
+      gpu.write(
+        yi,
+        f32.add(
+          f32.mul(a, gpu.load(x, thread.global_x)),
+          gpu.read(yi))));
+```
+
+The launch contract derives disjoint output leases, excludes padded lanes, and retains the read lease until completion.
+
+## 17. Bell-state circuit
+
+```u
+def bell(q: QReg(2)) -> QReg(2) =
+  quantum.cx(quantum.h(q, 0), 0, 1);
+
+def experiment: QuantumProgram(Bits(2)) =
+  quantum.program(
+    fn() =>
+      quantum.measure_all(bell(quantum.zero(2))));
+```
+
+`q` is one joint register. Gates consume and return its linear handle. Simulator or QPU selection occurs through an explicit realization outside the program.
+
+## 18. CDC flow → commit → nest
+
+With the pinned CDC profile imported:
+
+```u
+use "etellis.cdc/native-0.3.0-1307f2a7";
+
+def run(state: CdcState) -> CdcStepResult = {
+  let flowed = cdc.flow(state, "f", 0.1);
+  let committed = cdc.commit(flowed.state, "child");
+  yield cdc.nest(committed.state, "parent", "child");
+};
+```
+
+Both accepted and held commit results retain state. This does not introduce a new global abort-on-HOLD policy.
+
+The complete example includes the field, module, cell, and source-order declarations.
+
+## 19. U1-style guarded closure
+
+```u
+def guarded_closure(
+  run: ExecutedPath(CdcNative),
+  pair: ReciprocalBinding,
+  target: DecisionCoordinate)
+  -> Analysis(U1Closure) =
+  cdc.u1.close(run, #{
+    reciprocal: cdc.check_reciprocal(run, pair),
+    cover: topology.check_oriented_double_cover(run, pair),
+    commits: cdc.check_accepted_commits(run),
+    decision: cdc.check_generated_coordinate(run, target),
+    effects: cdc.check_effect_binding(run, target)
+  });
+```
+
+Every check binds the same immutable path/source identity. A post-execution closure check does not retroactively authorize an effect; effect admission occurs before the protected action.
+
+## 20. U2 recurrence-gated variation
+
+```u
+def variation(
+  closed: U1Closure,
+  request: RecurrenceRequest)
+  -> Analysis(Spectrum) =
+  analysis.then(
+    ad.executed_path(closed),
+    fn(tangent: PathTangent) =>
+      analysis.then(
+        recurrence.check(tangent, request),
+        fn(recurrence: VerifiedRecurrence) =>
+          spectral.real_schur(
+            linear.return_map(tangent, recurrence),
+            #{residual_tolerance: 0.0000000001})));
+```
+
+`linear.return_map` uses \(D\rho A\) for admitted relative recurrence. `Analysis.then` retains earlier earned artifacts when a downstream stage holds.
+
+The package adds an **acausal RC differential-algebraic model** and an **explicit native universal-machine construction**. The latter demonstrates the intended universal-computation mechanism; it is not used as proof of SQL, Prolog, hardware, or quantum subsumption.
+
+---
+
+# K. Compiler and runtime architecture
+
+Use three linked graphs rather than one progressively flattened IR:
+
+```text
+Lossless source/CST
+    ↓
+Typed meaning graph
+    ↓  chosen algorithms, schedules, numerical/device contracts
+Realization graph
+    ↓  checked/refined lowering
+Executable graph
+```
+
+Each transformation emits a record binding source and target identities, profile versions, assumptions, residual policy, and preservation evidence.
+
+## Required implementation boundaries
+
+```text
+Source / CST / parser / formatter
+Kinds / types / usage / proof kernel
+Structural graph / substitution
+Theory registry / adapters
+Reference evaluator
+Seven semantic clusters
+Identity / canonical encoding / receipts
+Store / replay / capability admission
+Realization selection / optimization
+Native / WASM / interchange
+GPU / HDL / QPU backends
+Source importers / CDC bridge
+CLI / LSP / package system
+```
+
+The reference evaluator precedes optimization. Specialized backends cannot become the only repository of an operator’s meaning.
+
+The optimizer rewrites under laws:
+
+```text
+rewrite:
+  source_pattern
+  target_pattern
+  required_profile
+  assumptions
+  preservation_relation
+  proof_or_validation
+```
+
+No generic reassociation of floating-point expressions, probability/search reordering, SQL bag-to-set conversion, or removal of observable effects is allowed.
+
+A certificate bound to an old graph is invalidated unless the transformation explicitly transports it.
+
+---
+
+# L. Ingestion, residuals, and round-tripping
+
+The ingestion pipeline is:
+
+\[
+\text{source}
+\rightarrow
+\text{semantic lifting}
+\rightarrow
+(G,R,\Pi)
+\rightarrow
+\text{analysis/transformation}
+\rightarrow
+\text{realization/lowering}.
+\]
+
+Residuals are typed:
+
+| Residual | Preserves |
+|---|---|
+| Lexical | Comments, formatting, exact token spellings |
+| Intensional | Macro structure, source-observable names and locations |
+| Semantic | Source distinctions not yet represented natively |
+| Environment | Compiler flags, host APIs, ABI, library versions |
+| Approximation | Declared information/numerical loss |
+| Provenance | Original identity, transformations, dependencies |
+
+Exact reconstruction requires:
+
+\[
+\operatorname{reconstruct}(G,R)=P_{\text{bytes}}.
+\]
+
+But that equation alone says nothing about faithful execution.
+
+After transforming \(G\), one must either update \(R\) through a valid transformation lens or withdraw exact round-trip claims.
+
+There is also a basic compression bound. When many source artifacts map to the same native representation \(G\), distinguishing them requires residual information. For a finite reconstruction class:
+
+\[
+|R|
+\gtrsim
+\log_2
+\left|\{P:E(P).G=G\}\right|.
+\]
+
+The residual stream is not a design failure. **Pretending it is unnecessary would be the failure.**
+
+What cannot be promised simultaneously is arbitrary legacy compatibility, complete static decidability, no residuals, no foreign execution, complete semantic recovery, and uniformly optimal compilation.
+
+U must choose explicit fragments and contracts rather than claiming that contradiction has disappeared.
+
+---
+
+# M. Formal proof program
+
+The important theorem program is not “prove U is universal” and stop.
+
+| Obligation | Required statement |
+|---|---|
+| Binding | Capture-avoiding substitution and alpha-renaming preserve interfaces |
+| Type/resource preservation | Every admitted step preserves typing and usage obligations |
+| Qualified progress | Executable admitted terms step, return, legitimately wait/hold/refuse, or remain within an explicitly partial semantics |
+| Proof boundary | Partial execution cannot manufacture logical proof |
+| Derived operators | Each retained high-level node agrees with its checked expansion |
+| Theory adapters | Cross-theory maps preserve their declared observations/laws/error bounds |
+| Source lifting | Each admitted frontend fragment preserves the appropriate source semantics |
+| Backend refinement | Executable realizations implement or refine the meaning graph |
+| CDC compatibility | Pinned maps, source handling, entry behavior, and receipts match |
+| U1/U2 non-fabrication | No return map without recurrence; no spectrum without an earned return map |
+| Persistence/replay | Committed history and corruption/recovery distinctions are preserved |
+| Residuals/serialization | Canonical encoding and exact reconstruction satisfy their specified laws |
+| Numerical/probabilistic/quantum transforms | Preserve the declared mathematical relation under explicit hypotheses |
+| Universality | A visible U-native construction simulates a selected universal machine |
+| Self-hosting | Stage builds preserve compiler behavior with an explicit bootstrap trust chain |
+
+Mechanization may begin in Lean or Rocq. U’s own proof capability still requires its own implemented checker for its admitted logical fragment; calling Lean and trusting a success line is not enough.
+
+---
+
+# N. Adversarial review and two redesign passes
+
+## Architecture zero: contextual rewriting over universal state
+
+**Attractive idea:** everything is a typed rewrite of context.
+
+**Attack:** it conceals distinct meanings of copying, observation, probability, concurrency, continuity, and proof. A universal commit gate would also privilege CDC unnecessarily.
+
+### Redesign pass one
+
+Introduce typed operational boundaries, qualified resource laws, and distinct semantic profiles.
+
+Remove CDC’s commit policy from the universal core.
+
+Separate meaning from execution realization.
+
+## Architecture one: typed graph dialects
+
+**Attractive idea:** each domain becomes a graph dialect.
+
+**Attack:** this can still become “MLIR with prettier syntax,” with opaque callbacks carrying the actual meaning. Residuals can also become a loophole for hiding complete foreign interpreters.
+
+### Redesign pass two
+
+Require law-bearing operator descriptors, native execution rules or checked expansions, explicit cross-theory adapters, residual reconstruction laws, and a semantic-debt ledger.
+
+Separate evidence from both meaning and realization.
+
+No native-support claim may pass merely because an operator name exists.
+
+## Final attacks
+
+| Attack | Current answer |
+|---|---|
+| “Just Lisp?” | The small call/region grammar resembles familiar languages; the semantic contribution is not parentheses or homoiconicity. |
+| “Just MLIR?” | Structurally close. The mandatory meaning/realization/evidence and native-subsumption contracts must be implemented to justify going beyond an IR collection. |
+| “Category theory cosplay?” | Avoided only when every claimed law has a model, executable rule, counterexample suite, and implementation relevance. |
+| “CDC artificially privileged?” | Its prefix barrier, ternary carrier and closure rules are derived profile operators, not universal axioms. |
+| “Quantum support fake?” | Channel meaning can be native before QPU execution, but simulator/device evidence must remain separate. |
+| “Continuous computation fake?” | Paths and equations are native semantic objects; finite solvers remain approximate realizations. |
+| “Proof outsourced?” | Not acceptable. An independent admitted-fragment checker is required. |
+| “Really several languages?” | There are genuinely different theories. One grammar alone does not unify them; the common composition/adaptation/evidence discipline is the test. |
+| “Kernel proven minimal?” | No. Semantic cost is exposed, and smaller alternatives must be compared under the same obligations. |
+| “Easy to learn?” | The conceptual center is small; specialist profiles remain demanding. Usability requires testing, not assertion. |
+
+The hardest remaining research problem is **cross-theory composition**: proving that a useful adapter preserves the distinctions both sides care about without imposing intolerable complexity.
+
+That is where U must earn its value.
+
+---
+
+# O. Final specification commitments
+
+The candidate specification fixes these implementation rules:
+
+**Semantic identity is versioned.** A behavior-changing correction creates a new semantic profile or explicit migration, even when marketed as a bug fix.
+
+**Grammar, ABI, package, and semantics versions are separate.**
+
+**New generators are visible trust changes.** A library cannot silently introduce axioms or foreign execution under a native-looking name.
+
+**No unearned artifact construction.** `Proof`, `AdmittedEffect`, `VerifiedRecurrence`, `ReturnMap`, and hardware-execution receipts have checked constructors.
+
+**No universal execution mode.** Profiles declare strictness, memory model, numeric mode, clocks, search strategy, observation contract, and backend requirements.
+
+**No silent unsupported behavior.** Missing realizations and unmodeled imports return explicit diagnostics or remain foreign/residual—not success-shaped placeholders.
+
+**No claim inflation through transformation.** Optimization must invalidate or transport evidence explicitly.
+
+Together, these commitments make the language implementable without requiring the next engineer to guess what “universal” was supposed to mean.
+
+---
+
+# P. Repository, build architecture, and milestones
+
+The repository should begin as a sibling:
+
+```text
+workspace/
+├── BiDi/                       # unchanged initially
+└── U/
+    ├── README.md
+    ├── AGENTS.md
+    ├── U.toml
+    ├── U.lock
+    ├── docs/
+    │   ├── SPEC.md
+    │   ├── AUTHORITY.md
+    │   ├── CLAIMS.md
+    │   ├── DESIGN_HISTORY.md
+    │   ├── semantics/
+    │   └── decisions/
+    ├── spec/
+    │   ├── grammar/
+    │   ├── schemas/
+    │   ├── operator-ledger/
+    │   └── conformance/
+    ├── crates/
+    │   ├── source/ parser/ ast/ format/
+    │   ├── kinds/ types/ resources/ proof-kernel/
+    │   ├── core/ theory/ adapters/ eval/
+    │   ├── values/ memory/ relations/ probability/
+    │   ├── causality/ dynamics/ quantum/
+    │   ├── evidence/ canonical/ store/
+    │   ├── optimize/ realize/ bytecode/
+    │   ├── native/ wasm/ interchange/
+    │   ├── gpu/ hdl/ qpu/
+    │   ├── import-core/ importers/ cdc-bridge/
+    │   └── cli/ lsp/
+    ├── theories/
+    ├── profiles/
+    ├── compat/cdc/
+    ├── std/
+    ├── examples/
+    ├── tests/
+    ├── formal/
+    ├── bootstrap/
+    ├── tooling/
+    └── artifacts/
+```
+
+The full dossier expands this into exact module responsibilities, interfaces, test families, and artifacts.
+
+Implementation proceeds through architecture-preserving gates:
+
+| Gate | Completion criterion |
+|---|---|
+| Contracts and source | Grammar/CST/AST/canonical encoding/formatter with malformed-input tests |
+| Executable foundation | Reference values/resources evaluator and independent proof fragment |
+| Native CDC bridge | Independent U evaluation plus original-CDC differential oracle |
+| Theory conformance | Representative direct mechanisms for all comparison families |
+| Ingestion and transformations | Explicit fragment manifests, residual reconstruction and law-aware rewrites |
+| Production classical runtime | Packages, LSP, CLI, durable state, native/WASM parity, security gates |
+| Specialized execution | Real GPU/HDL/QPU evidence before backend execution claims |
+| Formal correspondence and self-hosting | Stronger preservation proofs and reproducible staged compiler builds |
+
+A memory-safe Rust bootstrap is a practical starting point. It is **bootstrap engineering**, not a claim of self-hosting.
+
+Self-hosting means progressing to a compiler written in U, compiling that compiler, comparing stages, and retaining an independent oracle and trust manifest.
+
+Performance is evaluated separately across runtime, compile time, memory, code density, analysis, proof coverage, learnability, interoperability, and ecosystem. No architecture can honestly promise to beat every mature implementation on every axis.
+
+---
+
+# Q. Codex execution directive
+
+The design’s final answer is not “seventeen languages fit into one.”
+
+It is:
+
+> **Different languages preserve different operational laws. U’s job is to make those laws first-class, composable, executable where appropriate, and impossible to silently erase.**
+
+That is why CDC fits naturally. Its contribution is not another arbitrary dialect bolted onto a graph. It is an unusually disciplined specialization of **law-bearing transformation**, with admission and earned consequence made operational.
+
+The following is the self-contained build instruction.
+
+```text
+You are Codex acting as principal language designer, compiler/runtime engineer and verification lead. Build the production-intent U language and semantic substrate described below. This is not a toy language, transpiler collection, demo, or MVP. Preserve the full target architecture from the first commit, implement coherent vertical paths in phases, and keep every unimplemented capability explicitly gated. Do not replace execution with scaffolding or canned outputs.
+
+PROJECT AND SOURCE OF TRUTH
+
+Create a new local Git repository named U as a sibling of the existing BiDi repository, unless inspection establishes and records a compelling architectural reason otherwise. Do not modify BiDi initially. Record its branch, SHA, dirty status and version, and verify that your work leaves it unchanged. Do not publish private source, credentials, or a remote repository without explicit authorization.
+
+The design audit inspected ETEllis/BiDi main at 1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157, CDC release 0.3.0, grammar 1, C ABI 1.5; GitHub Actions run 31252447769 was successful for that exact head. Fetch current main rather than trusting this pin as forever current. If it moved, inspect the delta, preserve the audited profile, and add a new compatibility profile rather than silently redefining old semantics.
+
+Inspect and reconcile README.md, CDC_LANGUAGE.md, FORMAL_SEMANTIC_SPINE.md, UNIVERSAL_OPERATOR_SYSTEM.md, VERIFICATION_OBLIGATION_MATRIX.md, FRAMEWORKS.md, NATIVE_SELF_HOSTING_MANDATE.md, CDC_TOOLCHAIN_PLAN.md, historical BIDI_CALCULUS_CORE.md, docs/u2/U2_SEMANTICS.md, docs/rftc/RFTC_FULL_BUILD_SPEC.md, docs/rftc/VERIFICATION_OBLIGATION_MATRIX.md, and relevant runtime/parser/AST/compiler/store/scheduler/RFTC/U1/U2/ABI/proof/tests. Follow the repository's authority order; late binding amendments outrank old phase sketches. Record what was specified, executed, adversarially checked, mechanized-finite and open. Do not turn CI success into a proof of implementation correctness.
+
+Historical truth is mandatory: CDC was discovered and implemented first. U is a later abstraction beneath CDC. A new U–CDC bridge does not mean CDC was originally built on U. Keep .cdc stable and useful. U is not a user-facing replacement imposed on CDC.
+
+NAMING
+
+U and .u are collision-prone working identifiers, not cleared branding. Unison and Ü use .u; another public U language specification does too; .u also has UnrealScript-package and historical ucode uses. Use qualified language identifier etellis.u and a required header u "etellis.u/0.1";. Keep .u only in opted-in workspaces; do not globally seize its editor association. Use a provisional qualified executable such as etellis-u and an optional workspace-local u alias. Record package/CLI/trademark clearance as a release gate; do not claim availability.
+
+FOUNDATIONAL DESIGN
+
+U's center is: an operation exposes the laws under which it can be composed. Separate its meaning, its selected realization, and its earned evidence. These must be separately versioned linked artifacts.
+
+The structural kernel AST has exactly these six constructors in the initial design:
+1. wire(permutation): forward/reorder existing typed ports, never implicit copy/drop/allocation.
+2. gen(theory_id, operator_id, static_parameters, typed_regions): a declared semantic generator, not an arbitrary foreign callback.
+3. seq(p,q): compatible boundary composition.
+4. par(p,q): independent composition requiring an explicit resource/causality split.
+5. scope(name_kind, body): fresh nominal binding with capture avoidance and escape checks, not physical allocation.
+6. fix(iteration_mode, binder, body): theory-qualified iteration/feedback, never universally available recursion.
+
+Do not pretend gen is one semantic primitive that makes everything else free. Maintain an explicit generator/law/model/trust ledger. The seven initial semantic obligation clusters are V constructive values/types/proofs, M resources/byte memory/machine models, R relations/constraints/search, P measures/probability, C causal behaviors/clocks/processes, D trajectories/differential constraints, and Q quantum channels/instruments. They are not a proved minimal set of axioms. Add a primitive only with a recorded native-compression argument and counterexample to the existing basis.
+
+Each theory descriptor must contain: immutable identity and digest; kind/interface constructors; operator type schemes; static parameter schemas; region binders/stages/effect/resource limits; denotation/model reference; executable reference rules or a checked U-native expansion; laws and assumptions; observables; held/error outcomes; adapters; conformance cases; and trust dependencies. A name plus a backend stub is not native semantic possession.
+
+Implement typing as an explicit unrestricted context plus affine/linear resource context. Use stratified universes, dependent Pi/Sigma, inductive data, equality/eliminators, indexed opaque interfaces and staged Code types. Type conversion is total. General partial recursion, IO, arbitrary solver search and unchecked foreign evaluation cannot enter proof conversion or construct checked proof/authority/recurrence values. Use bidirectional checking and require annotations where necessary; do not promise complete dependent-type inference.
+
+Copy and Drop are admitted interface witnesses, not universal operations. A physical QReg cannot gain Copy through ordinary trait instances. Borrowing and authority leases are distinct types: borrows constrain alias/access/lifetime; leases constrain issuer/action/frame/horizon/expiry/epoch/nonce. Typed code descriptions can be copied when safe; physical resources cannot be reflected into ordinary values.
+
+Cross-theory composition requires an admitted composite model or an explicit adapter with interface map, observation map, assumptions, preservation/refinement/error relation, residual policy and checker. Probability and nondeterministic choice cannot commute by default. A simulator cannot satisfy a physical-device capability. Continuous paths cannot be silently replaced by finite samples. One trace cannot replace a behavior set. A passing test cannot create a proof.
+
+CANONICAL SOURCE AND IR
+
+Implement one shared surface grammar: version header; exact-profile imports; def name(params)->type = expression; def name:type = expression; fn(params)=>expression; qualified calls; tuples; lists; records spelled #{field:value}; and blocks { let x=expression; expression; yield expression; }. Types are expressions checked in the total fragment. Domain operators use this grammar, not SQL/Prolog/QASM strings sent to hidden interpreters. Region signatures expose whether their body is evaluated, staged, declarative, clocked, probabilistic or quantum. Do not let visually similar syntax hide that information from the typechecker/editor.
+
+When available, use the supplied surface.lark and 22 examples as the design-candidate syntax, not as proof that all examples already typecheck. Resolve any genuine type/interface defects with a documented spec change, not a silent special case. Create a lossless CST, stable AST, typed operation graph, formatter and canonical serializer from a common parser. Reject malformed input predictably and fuzz all layers.
+
+Use a deterministic tagged graph encoding. Preserve ordered ports, binder identity, ordered regions, theory/profile hashes, exact attributes, provenance and residual references. Canonical JSON is acceptable initially with sorted keys, no duplicates, deterministic traversal IDs and tagged numeric payloads. Unbounded integers/rationals use canonical strings; IEEE values carry width and exact hexadecimal bits. Never call canonical structural identity general semantic equivalence. Human Unicode/infix/graphical forms are reversible projections with ASCII equivalents, not alternative semantics.
+
+STATE, EFFECTS AND EVIDENCE
+
+Keep original byte identity, canonical syntax identity, semantic-artifact identity, execution identity, replay projection identity and nominal resource identity distinct. A digest authenticates neither the signer nor the truth of a claim; signatures and external history anchors are separate mechanisms. A history commitment without payload is not reconstructible history.
+
+Outcomes include Done, Held with obligations/earned artifacts, Rejected, Fault with known progress, and Indeterminate when an external effect may have occurred. Divergence is not generally detectable. HOLD prevents the current protected application mutation but may append an audit/control receipt; it does not reverse earlier effects. Parse/configuration errors and missing realizations are not success-shaped held computations. Enforce effect admission before execution; post-hoc receipt validation cannot retroactively prevent an unauthorized effect.
+
+Receipts bind scope, maturity dimensions, verdict, obligations, assumptions, checker/runtime identity, profile/source/dependency/input identity, scheduler/randomness/external observations when relevant, numeric/clock contract, and only earned output artifacts. Evidence levels are not a scalar ladder. Unknown, missing and skipped fields stay explicit. Optimizations must invalidate or explicitly transport certificates; never reuse an admission/proof/recurrence certificate across a changed scope, artifact, or source hash without its preservation obligation. Only checked constructors create Proof, AdmittedEffect, VerifiedRecurrence, ReturnMap and physical-device execution receipts.
+
+EXACT CDC BRIDGE
+
+Create an independent U-native lowering/evaluator for the pinned CDC profile, plus an isolated original-CDC differential oracle. Invoking cdc run and relabeling its output is not native lowering. At the audited pin, cdc_runtime_execute in the C ABI still returns an unavailable-state error although native CLI execution exists. Do not build against an imagined completed ABI. Use actual supported parsing/canonical/registry surfaces or implement the specified frontend; use the CLI transparently for tests.
+
+Preserve source expectations/assertions, tolerance failures, budget/cancellation boundaries, result schemas and entry-specific sequencing; do not invent transactional rollback after a native post-step assertion fails. Preserve ordered statements/tokens and consumer-specific attribute semantics: the registry dictionary view is last-wins while the legacy native scanner view is first-wins. Retain original bytes as residual and canonical parser identity as a distinct artifact. Do not reread a mutable path later and call those bytes the executed source.
+
+Implement current flow exactly as the synchronous finite map
+ theta_i' = theta_i + omega_i*d + G*d*sum_e w_e*sin(theta_source+angle_e-theta_i),
+using the old snapshot and eligible same-field channels. Do not invent exact ODE flow, amplitude relaxation, plasticity or delay history. Pin float operation order and library/numeric contracts: preserve the source-ordered additions and gain*weight*sin*duration sequence rather than algebraically factoring the displayed sum. Derivative contracts refer to the real-valued extension of the executed map, not an exact classical derivative of binary64 rounding. Numeric AD/finite-difference evidence must state that scope. Retain the derived cdc.flow operator and its checked expansion.
+
+Commit quantizes cos(theta) with the exact deadband to -1/0/+1, scans trits in source order for nonnegative prefixes, and only then updates latch values/flags. Hold leaves the protected latch state unchanged. Zero is a trit aperture value, not false and not the same as Held. Preserve entry-specific sequencing: plain native steps do not acquire an automatic global abort-on-HOLD policy. U1/U2 accepted-path admission remains stricter.
+
+Nest computes the child mean latched/current trit under native rules, updates parent belief by parent-field gain times that mean, then overwrites child prior with the new parent belief. Its fixed-itinerary Jacobian copies the parent-belief row into the child-prior row; do not differentiate a theoretical belief-minus-prior update absent from execution.
+
+U1 verifies bound reciprocal/cover/admissibility/generated-coordinate/effect conditions. It does not establish full-state recurrence. U2 uses the exact selected state manifest, discrete modes, source order and analytic local rules. Propagate column tangents by A <- J_k*A. Scheduled commits use their scheduled reset derivative, not invented source-localized saltation. Guard-localized events require their actual event/transversality/itinerary contract before saltation is used.
+
+Absolute recurrence checks complete declared state and discrete restoration. Relative recurrence requires executable rho, verified symmetry/equivariance conditions and bound D-rho, with M = D-rho*A. Projected/omitted coordinates do not authorize full monodromy. Canonical loop-u720 must retain its current held/non-recurrent distinction. A downstream spectral hold retains an already earned monodromy but emits no fabricated multipliers. Preserve legacy CDC receipt precision and schema; add U exact-bit sidecars without silently redefining legacy hashes.
+
+Reproduce the eight U2 mutant families: reversed product, omitted saltation, omitted restoration derivative, theoretical nest derivative, false/projected recurrence acceptance, ignored polarity aperture, skipped tangent conjugacy and automatic false polarity acceptance. Add store/replay/authority/scheduler adversarial cases. RFTC classical local machinery does not earn multihost, quantum or physical-law claims.
+
+NATIVE COVERAGE AND INGESTION
+
+Maintain a conformance matrix for Assembly, C, Rust, Python, JS/TS, Lisp/Racket, Haskell, Prolog, SQL, APL, Stan, Erlang, TLA+, Lean, SystemVerilog, CUDA, OpenQASM and CDC. Add acausal DAE, synchronous causality, least-fixed-point logic and effect-handler probes. Classify every operator as theory primitive, derived-native, library, backend, foreign, residual-preserved or unsupported. Publish actual status, not desired status.
+
+For each admitted fragment define E(P)=(typed U graph,residual,provenance) and an explicit source/target observational relation. Distinguish faithful semantic lifting from backend refinement of allowed nondeterminism. Use domain-appropriate relations: traces/bisimulation, memory/ABI, bags/NULL, laziness/bottom, distributions, type/proof judgments, hardware cycles or quantum channels. Numerical tolerances require norms and propagation assumptions.
+
+Native status requires explicit inspectable operators, compositional meaning, direct U rules/checked expansion, analyzability, recoverability, and differential/adversarial evidence. A giant hidden source-language interpreter fails native subsumption. Turing completeness is never the substitute for this test.
+
+Legacy import retains lexical, intensional, semantic, environment and approximation residuals with source maps. reconstruct(G,R)=original bytes is useful but not the semantic theorem. Transforms must update residuals through checked lenses or invalidate exact export honestly. Unmodeled source regions remain foreign/unsupported even if their original text is retained. Imported proof candidates are independently checked; external typechecker/test success is evidence only of its actual scope.
+
+BUILD ARCHITECTURE
+
+Use an explicit bootstrap implementation, preferably a memory-safe Rust workspace unless repository/tooling constraints justify another choice. This is allowed bootstrap engineering, not a claim of self-hosting. Keep independent crates/modules for source/CST/parser/formatter, core graph/substitution, kinds/types/resources/proof kernel, theory/adapters, reference evaluator, seven theory clusters, evidence/canonical/store, optimization/realization/bytecode, native/WASM/interchange, specialized backends, import-core/source frontends/CDC bridge, CLI and LSP. Do not force every path through a single giant runtime switch or monolithic interpreter.
+
+Create docs/SPEC.md, AUTHORITY.md, CLAIMS.md, DESIGN_HISTORY.md, theory/adapter/profile documentation, decisions, threat model, migration rules, verification matrix, exact grammar/AST/receipt schemas, and a machine-readable capability ledger. Include U.toml and an exact U.lock from the start. Parsing/checking/formatting must not perform undeclared IO. Package builds run under explicit filesystem/network/subprocess capabilities; importing a package does not trust its arbitrary scripts.
+
+Provide check/run/eval/test/prove/fmt/build/lift/export/explain/audit/lsp and package lock/install/verify command paths. A command whose owning capability is unfinished returns a typed explicit unsupported result, not dummy success. Implement a useful LSP path showing profiles, effects, ownership, residual loss, obligations and reasons for holds; an editor folder alone does not satisfy it.
+
+Implement the 20 representative programs: hello effect; arithmetic; structural-recursive Fibonacci; map/filter/fold; ownership-sensitive mutation; async/event request; hygienic quote/splice rewrite; family relation query; SQL multitable bag join; ranked array contraction; Bayesian measure model/inference separation; supervised actors; temporal safety/liveness with fairness; an independently checked inductive theorem; synchronous 8-bit counter; partitioned GPU vector kernel; Bell circuit/instrument; CDC flow/commit/nest; U1 guarded closure; U2 recurrence-gated variation. Add acausal DAE and an explicit native universal machine construction. Never hard-code an expected output in lieu of the mechanism.
+
+VERIFICATION AND PERFORMANCE
+
+Use unit/property/metamorphic/differential/fuzz/mutation/security/crash/replay suites. Cross-theory negatives must reject implicit QReg copy, invalid lifetime escape, probability/search reordering, SQL bag flattening, eager evaluation of a lazy divergent argument, wrong event/clock order, racing device writes, incorrect CDC Jacobians, false recurrence, forged or stale capability receipts, and proof creation through partial recursion or unsafe coercion.
+
+Create the reference evaluator before optimizing. Establish native and WASM execution parity for admitted fragments. Keep GPU/HDL/QPU interfaces designed and typed, but require real execution gates before advertising their physical backends. A simulator or emitted interchange file has its own lower claim level. Compare performance only under matched semantics, hardware, numeric mode, workload and resource accounting. Track compile time, runtime, memory, code density, learnability, analysis/proof coverage and ecosystem separately; never claim universally faster execution.
+
+Formalize structural/type/resource preservation, qualified progress, proof-fragment boundaries, operator expansion, profile/adapter laws, source lifting, backend refinement, residual reconstruction, CDC/U2 non-fabrication and replay invariants. State the exact trust and theorem scope. Finite model checking is not an unbounded theorem; an abstract theorem is not automatically a proof about compiled code.
+
+Self-hosting milestones: stage0 explicit host bootstrap; enough U implementation to write its parser/formatter/elaborator; stage1 compiler in U; stage2 reproducible self-compilation; independent reference/differential checks; bootstrap trust manifest and removal gates. Do not destroy the independent oracle merely because the compiler can compile itself.
+
+EXECUTION POLICY AND HANDOFF
+
+Work toward the full architecture, not an intentionally disposable MVP. Phase implementation into coherent end-to-end paths: contracts/CST/core; executable values/resources/proof fragment; native CDC bridge; theory conformance; ingestion and law-aware transforms; production classical runtime; specialized execution gates; strengthened formal correspondence and self-hosting. Parallelize independent work behind stable interfaces. Empty module trees and superficial examples do not count as completed phases.
+
+Run the actual tests you report. Preserve exact command/environment/artifact receipts. Keep supported, held, failed, skipped and unimplemented cases visible. When a real environment or dependency blocker prevents a gate, record the blocker and continue independent reachable work without faking success. Do not silently shrink the final scope. Leave the repository with runnable completed paths, explicit unimplemented interfaces, specifications, tests, formatter/LSP/CLI progress, verified BiDi non-modification, a precise claim ledger, and an ordered full-completion backlog.
+
+Conclude each execution handoff with exact files changed, commands run and outcomes, demonstrated native operators, evidence scope, open obligations, failed/skipped gates, and the next architecture-preserving work. Do not claim full U completion until its documented release gates actually pass.
+```

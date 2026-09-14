@@ -1,0 +1,13 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// q is ONE joint register. Each gate consumes and returns its linear handle.
+// No classical Copy witness exists for QReg. measure_all is an instrument.
+def bell(q: QReg(2)) -> QReg(2) =
+  quantum.cx(quantum.h(q, 0), 0, 1);
+
+def experiment: QuantumProgram(Bits(2)) =
+  quantum.program(fn() => quantum.measure_all(bell(quantum.zero(2))));
+
+// Choosing quantum.simulator or a QPU occurs outside this program, through an
+// explicit realization. A simulator receipt is never a hardware receipt.

@@ -1,0 +1,13 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// nat.add recurses on its SECOND argument. This theorem needs induction.
+// Proof checking is total and cannot call core.fix_partial or trust an IO result.
+def zero_add: Pi(Nat, fn(n: Nat) => Eq(Nat, nat.add(0, n), n)) =
+  fn(n: Nat) => nat.induction(n,
+    fn(k: Nat) => Eq(Nat, nat.add(0, k), k),
+    eq.refl(Nat, 0),
+    fn(k: Nat, ih: Eq(Nat, nat.add(0, k), k)) =>
+      eq.congr(Nat, Nat, nat.succ, ih));
+
+def checked: ProofReceipt = proof.check(zero_add);

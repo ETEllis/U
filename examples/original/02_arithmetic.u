@@ -1,0 +1,5 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Int is unbounded. Changing this to I64 requires an overflow policy.
+def square(x: Int) -> Int = int.mul(x, x);

@@ -1,0 +1,6 @@
+name = "UFormal"
+version = "0.1.0"
+defaultTargets = ["U"]
+
+[[lean_lib]]
+name = "U"

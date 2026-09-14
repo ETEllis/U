@@ -1,0 +1,29 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Explicit native Turing-machine construction, ONLY a computational-
+// universality witness, NOT evidence of native foreign-language subsumption.
+// A finite transition function and a finite input tape are parameters.
+def Tape: Type = types.record(#{left: List(Nat), head: Nat, right: List(Nat)});
+def Config: Type = types.record(#{state: Nat, tape: Tape});
+def Move: Type = types.sum(#{halt: Unit,
+  left: Pair(Nat, Nat), right: Pair(Nat, Nat)});
+
+def execute(delta: Fn(Nat, Nat, Move), initial: Config) -> Partial(Config) =
+  core.fix_partial(
+    fn(again: Fn(Config, Partial(Config)), config: Config) =>
+      sum.case(delta(config.state, config.tape.head), #{
+        halt: fn(unit: Unit) => partial.done(config),
+        left: fn(next: Pair(Nat, Nat)) => again(#{
+          state: next.first,
+          tape: #{left: list.tail_or_empty(config.tape.left),
+                  head: list.head_or(config.tape.left, 0),
+                  right: list.cons(next.second, config.tape.right)}
+        }),
+        right: fn(next: Pair(Nat, Nat)) => again(#{
+          state: next.first,
+          tape: #{left: list.cons(next.second, config.tape.left),
+                  head: list.head_or(config.tape.right, 0),
+                  right: list.tail_or_empty(config.tape.right)}
+        })
+      }), initial);

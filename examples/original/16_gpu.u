@@ -1,0 +1,12 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// partition_launch derives a disjoint per-index lease from y. Padded lanes
+// outside n never enter the region. x's read lease lives until task completion.
+def saxpy(n: Nat, a: F32, x: GpuRead(F32, n), y: GpuOwn(F32, n))
+  -> GpuTask(GpuOwn(F32, n)) =
+  gpu.partition_launch(
+    #{grid: [nat.ceil_div(n, 256)], block: [256]}, y,
+    fn(thread: GpuThread, yi: GpuOwnElement(F32)) =>
+      gpu.write(yi,
+        f32.add(f32.mul(a, gpu.load(x, thread.global_x)), gpu.read(yi))));

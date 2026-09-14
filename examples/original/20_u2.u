@@ -1,0 +1,18 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+use "etellis.cdc/native-0.3.0-1307f2a7";
+
+// Analysis.then retains earlier earned artifacts on a downstream hold.
+// No test for a cover return is allowed to stand in for full recurrence.
+def variation(closed: U1Closure, request: RecurrenceRequest)
+  -> Analysis(Spectrum) =
+  analysis.then(ad.executed_path(closed), fn(tangent: PathTangent) =>
+    analysis.then(recurrence.check(tangent, request),
+      fn(recurrence: VerifiedRecurrence) =>
+        spectral.real_schur(
+          linear.return_map(tangent, recurrence),
+          #{residual_tolerance: 0.0000000001})));
+
+// return_map uses D(rho) * tangent for earned relative recurrence, not tangent
+// alone. The canonical loop-u720 holds before this constructor is available.

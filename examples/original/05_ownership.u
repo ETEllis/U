@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// with_mut suspends ownership, opens a fresh lifetime, and requires its
+// view back. The view cannot escape, alias a writer, or cross an await.
+def change_first(buf: Owned(Buffer(U8, 1))) -> Owned(Buffer(U8, 1)) =
+  mem.with_mut(buf, fn(view: MutView(Buffer(U8, 1))) =>
+    mem.write(view, 0, bits.u8(7)));

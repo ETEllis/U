@@ -1,0 +1,49 @@
+(* U stage-0 shared surface, version etellis.u/0.1.
+   Newly implemented grammar, not a recovered original surface.lark asset.
+   Whitespace and comments are trivia between tokens. Scanner retains both.
+   Identifiers are ASCII; Unicode is supported in strings and comments. *)
+
+module       = "u", string, ";", { import }, { definition }, EOF ;
+import       = "use", string, ";" ;
+definition   = "def", identifier,
+               ( parameters, "->", expression | ":", expression ),
+               "=", expression, ";" ;
+parameters   = "(", [ parameter, { ",", parameter }, [ "," ] ], ")" ;
+parameter    = identifier, ":", expression ;
+expression   = atom, { "(", arguments, ")" | ".", identifier } ;
+arguments    = [ expression, { ",", expression }, [ "," ] ] ;
+atom         = identifier | literal | lambda | list | record | block
+             | "(", ")"
+             | "(", expression, ")"
+             | "(", expression, ",", arguments, ")" ;
+lambda       = "fn", parameters, "=>", expression ;
+list         = "[", arguments, "]" ;
+record       = "#{", [ field, { ",", field }, [ "," ] ], "}" ;
+field        = identifier, ":", expression ;
+block        = "{", { statement }, "yield", expression, ";", "}" ;
+statement    = "let", identifier, "=", expression, ";"
+             | expression, ";" ;
+literal      = string | [ "-" ], number | "true" | "false" ;
+number       = digits, [ ".", digits ], [ ( "e" | "E" ), [ "+" | "-" ], digits ] ;
+digits       = digit, { digit } ;
+digit        = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+identifier   = ascii_letter_or_underscore, { ascii_letter_or_underscore | digit } ;
+string       = '"', { json_string_character_or_escape }, '"' ;
+line_comment = "//", { non_newline_character } ;
+block_comment = "/*", { character_until_first_closing_delimiter }, "*/" ;
+
+(* Semantic scanner restrictions:
+   - Supported header is exactly "etellis.u/0.1".
+   - fn, use, def, let, yield, true, false are contextual syntax words;
+     u is a normal expression identifier outside the header.
+   - Module definitions, imports, parameters in one parameter list, fields in
+     one record, and let names in one block must each be unique.
+   - Inner lexical scopes may shadow outer scopes.
+   - Strings use JSON escapes and exclude unpaired Unicode surrogates.
+   - Integer literals are bounded to 4096 digits; floating literals must be
+     finite binary64. Source is bounded to 2,000,000 Unicode code points,
+     100,000 returned tokens, and 128 nested expressions/postfix operations.
+   - No implicit infix, foreign-language strings, or alternate domain grammar.
+   - A single parenthesized expression is grouping; a trailing comma denotes
+     a one-element tuple. Empty parentheses denote Unit at type checking.
+*)

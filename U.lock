@@ -1,0 +1,41 @@
+{
+  "schema": "etellis.u.lock/1",
+  "packages": [
+    {
+      "name": "etellis.u",
+      "version": "0.1.0",
+      "members": {
+        "U.toml": "9ae357be1b01792e4ea95958b5dff2a065321f9f00bbe1079c5288fd6f5db8f3",
+        "examples/original/01_hello.u": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+        "examples/original/02_arithmetic.u": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+        "examples/original/03_fibonacci.u": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+        "examples/original/04_map_filter_reduce.u": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+        "examples/original/05_ownership.u": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+        "examples/original/06_async.u": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+        "examples/original/07_macro.u": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+        "examples/original/08_logic.u": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+        "examples/original/09_sql_join.u": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+        "examples/original/10_arrays.u": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+        "examples/original/11_bayes.u": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+        "examples/original/12_actors.u": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+        "examples/original/13_temporal.u": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+        "examples/original/14_proof.u": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+        "examples/original/15_hardware.u": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+        "examples/original/16_gpu.u": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+        "examples/original/17_quantum.u": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+        "examples/original/18_cdc.u": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+        "examples/original/19_u1.u": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+        "examples/original/20_u2.u": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+        "examples/original/21_acausal_dae.u": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+        "examples/original/22_native_universal_construction.u": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041"
+      },
+      "scripts": "never-executed",
+      "permissions": {
+        "filesystem": [],
+        "network": [],
+        "subprocess": false
+      },
+      "identity": "sha256:f55f9fdb4b0fb33f14cbb522099df5d6a106feeeb3dc3ba570745fff1af83d44"
+    }
+  ]
+}

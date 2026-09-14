@@ -1,0 +1,14 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def parent: Rel(Text, Text) =
+  rel.rows([("Ada", "Ben"), ("Ben", "Cara"), ("Ada", "Dana")]);
+
+def grandparent: Rel(Text, Text) =
+  logic.relation(fn(x: Logic(Text), z: Logic(Text)) =>
+    logic.exists(fn(y: Logic(Text)) =>
+      logic.and(logic.apply(parent, x, y), logic.apply(parent, y, z))));
+
+def query: Search(Substitution) =
+  logic.query("sld.leftmost.depth_first.finite_terms",
+    fn(who: Logic(Text)) => logic.apply(grandparent, "Ada", who));

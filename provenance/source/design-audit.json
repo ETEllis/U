@@ -1,0 +1,538 @@
+{
+  "audit": "U design candidate 0.1",
+  "bidi_sha": "1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157",
+  "scope": "local syntax and mathematical probes only",
+  "environment": {
+    "python": "3.13.5",
+    "lark": "1.3.1",
+    "numpy": "2.3.5"
+  },
+  "bidi_repository_tests_rerun": false,
+  "U_language_implemented": false,
+  "passed": 40,
+  "total": 40,
+  "results": [
+    {
+      "name": "syntax:01_hello.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+        "parse_tree_sha256": "c14c7ff56079fbd10bb5e84815bd857f18943829ee9923d583fb5e922310cddc",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:02_arithmetic.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+        "parse_tree_sha256": "e65089323b44a4757dce1bc56aada36b1eba0288aacc0e8f111fd6185912bae9",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:03_fibonacci.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+        "parse_tree_sha256": "b24c1a881625be6c3aa593ff23650c49d1988f185c02a70cca01b61f7b1afb7f",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:04_map_filter_reduce.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+        "parse_tree_sha256": "f472ccf1effbf0e4c4bde4f279190d0f86b155df2ad4f948ea555278521a4974",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:05_ownership.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+        "parse_tree_sha256": "b176e033d647e25efad1a1b754579a8af89b02e24354ce213c6c21db4d7445b6",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:06_async.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+        "parse_tree_sha256": "dc3cb7afe8ae498220a5c552502b6f86ab0595999ae0a9fed512b24415c075e7",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:07_macro.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+        "parse_tree_sha256": "32669a5717eefd6547f4591c12252c2abc63fe705f81169a68c0a8cc3d63b706",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:08_logic.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+        "parse_tree_sha256": "49b857608c33918345346a0ae4f6a4be23beea4958b933fbcc6fd721b1a74be4",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:09_sql_join.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+        "parse_tree_sha256": "50619490622a04a67ca6c0e74c4ffd3a6b34a8f04acfabdda1e1a8ca806d4f9e",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:10_arrays.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+        "parse_tree_sha256": "5ff82225a30243add3dd03bbd1561d719ede6e1e475c78f3c4b5f543d75b3b3f",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:11_bayes.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+        "parse_tree_sha256": "610541bc4475dc475c8adede487f3c067e585c5b52bba4f3fd9fcbad40404efb",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:12_actors.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+        "parse_tree_sha256": "900a022941981cd1b35ee16799fde743ee997cce7e693452c6e3b78b9098d680",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:13_temporal.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+        "parse_tree_sha256": "93a31a34c3396b0f231e43751ef31de65c1a70fdbc4a8268290d4a7cf9cefeb0",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:14_proof.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+        "parse_tree_sha256": "f47e97b4c725f565c33edf6d1f8bd5e51620d61068fb8b2dd996ad8ebdecc00b",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:15_hardware.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+        "parse_tree_sha256": "5c5957b83e2c28c311cc4e235288d57817824dbbdd1ff5fc0afb52e3437557e1",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:16_gpu.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+        "parse_tree_sha256": "ecdd5869356981d80e12606a01fbe187b455016a6bb91151c17bfedb0125f4f6",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:17_quantum.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+        "parse_tree_sha256": "d3ecf23f966509cfe0febbeb360199e5240bd8d5ce886f4a2f8210002013ec03",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:18_cdc.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+        "parse_tree_sha256": "3a0caa76aea283330151dc20d9874041e105a6605e3fb9c2afdb5d15391a9896",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:19_u1.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+        "parse_tree_sha256": "fcc8ce3b894280d4a5bef5c64640119cf7d9ff3f99bd23f3ab85451c8eaeebc5",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:20_u2.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+        "parse_tree_sha256": "83ef405e7bc984dd05ec24c632707cb2a688cf2f0ff4b84d9b5d177af30a2be7",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:21_acausal_dae.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+        "parse_tree_sha256": "1d780d6931dda3ae8c897aaa508a13f40d85117729da18c238fb520eea169511",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "syntax:22_native_universal_construction.u",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": {
+        "source_sha256": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041",
+        "parse_tree_sha256": "45bf44adfaa68c5ac19bc0642cadd42a512a49b766bfccfda65b198b00865e5d",
+        "comment_invariance": true,
+        "typechecked": false,
+        "executed_in_U": false
+      }
+    },
+    {
+      "name": "malformed syntax rejected",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": "u \"etellis.u/0.1\"; def x : Nat = @;"
+    },
+    {
+      "name": "malformed syntax rejected",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": "u \"etellis.u/0.1\"; def x : Nat = 1"
+    },
+    {
+      "name": "malformed syntax rejected",
+      "passed": true,
+      "scope": "surface grammar only",
+      "detail": "u \"etellis.u/0.1\"; def f(x Nat) -> Nat = x;"
+    },
+    {
+      "name": "CDC finite-step flow is not a semigroup",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "two_steps": 1.5403023058681398,
+        "one_double_step": 2.0,
+        "difference": 0.45969769413186023
+      }
+    },
+    {
+      "name": "prefix polarity counterexample",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "positive_negative": "accepted",
+        "negative_positive": "held"
+      }
+    },
+    {
+      "name": "finite ternary enumeration",
+      "passed": true,
+      "scope": "independent arithmetic reconstruction, not repository execution",
+      "detail": [
+        729,
+        267,
+        51,
+        20,
+        5
+      ]
+    },
+    {
+      "name": "executed nest overwrite derivative",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "jacobian": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            1.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "fd_error": 1.397779669787269e-10
+      }
+    },
+    {
+      "name": "ordered noncommuting tangent product",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "correct": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "reversed": [
+          [
+            2,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "name": "restoration derivative cannot be omitted",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "return_map": [
+          [
+            0.0,
+            -0.5
+          ],
+          [
+            2.0,
+            0.0
+          ]
+        ],
+        "scope": "algebra only; no symmetry/recurrence certificate asserted"
+      }
+    },
+    {
+      "name": "probability and demonic/angelic choice need an order",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "choose_before_observing_coin": 0.5,
+        "choose_after_observing_coin": 1.0
+      }
+    },
+    {
+      "name": "Bell phase information differs from a classical mixture",
+      "passed": true,
+      "scope": "classical finite quantum-state calculation, not quantum hardware",
+      "detail": {
+        "same_ZZ_probabilities": [
+          0.4999999999999999,
+          0.0,
+          0.0,
+          0.4999999999999999
+        ],
+        "Bell_XX_probabilities": [
+          0.49999999999999967,
+          0.0,
+          0.0,
+          0.49999999999999967
+        ],
+        "mixture_XX_probabilities": [
+          0.2499999999999999,
+          0.2499999999999999,
+          0.2499999999999999,
+          0.2499999999999999
+        ]
+      }
+    },
+    {
+      "name": "IEEE reassociation is observable",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "left": 1.0,
+        "right": 0.0
+      }
+    },
+    {
+      "name": "SQL bag multiplicity survives",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": {
+        "bag_count": 2,
+        "set_count": 1
+      }
+    },
+    {
+      "name": "shape-indexed contraction",
+      "passed": true,
+      "scope": "design microfixture",
+      "detail": [
+        [
+          20,
+          23,
+          26,
+          29
+        ],
+        [
+          56,
+          68,
+          80,
+          92
+        ]
+      ]
+    },
+    {
+      "name": "canonical causal scheduling",
+      "passed": true,
+      "scope": "bounded scheduler-order probe, not full CDC scheduler",
+      "detail": {
+        "canonical_keys": [
+          [
+            1,
+            1,
+            "b",
+            1,
+            1
+          ],
+          [
+            1,
+            2,
+            "b",
+            1,
+            3
+          ],
+          [
+            2,
+            1,
+            "a",
+            1,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "name": "temporal fairness distinction",
+      "passed": true,
+      "scope": "exact four-state graph argument, not general temporal model checker",
+      "detail": {
+        "reachable_states": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "invariant": "n <= 3",
+        "fairness_required_for_eventually_3": true,
+        "unfair_counterexample": "0,0,0,..."
+      }
+    },
+    {
+      "name": "Nat induction proof 0+n=n",
+      "passed": true,
+      "scope": "small independent symbolic proof checker",
+      "detail": {
+        "theorem": "forall n:Nat. add(0,n)=n",
+        "trusted_rules": [
+          "Nat induction",
+          "Eq refl",
+          "Eq congr_succ",
+          "definitional reduction"
+        ],
+        "checker": "audit/check_design.py",
+        "U_typechecker": false
+      }
+    },
+    {
+      "name": "bad induction step rejected",
+      "passed": true,
+      "scope": "small independent symbolic proof checker",
+      "detail": "Using ih without successor congruence fails the step goal"
+    }
+  ]
+}

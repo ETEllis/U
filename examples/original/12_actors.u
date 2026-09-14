@@ -1,0 +1,15 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def Message: Type = types.sum(#{inc: Unit, crash: Unit});
+
+def worker(state: Nat, message: Message) -> ActorStep(Nat) =
+  sum.case(message, #{
+    inc: fn(unit: Unit) => actor.continue(nat.succ(state)),
+    crash: fn(unit: Unit) => actor.fail("requested_failure")
+  });
+
+def start(system: ActorSystemCap) -> Effect(Actors, SupervisorRef) =
+  actor.supervise(system, "one_for_one",
+    [actor.child("counter", 0, worker)],
+    #{max_restarts: 3, window: duration.seconds(5)});

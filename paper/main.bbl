@@ -1,0 +1,58 @@
+\begin{thebibliography}{1}
+
+\bibitem{baez-courser}
+John~C. Baez and Kenny Courser.
+\newblock Structured cospans.
+\newblock {\em Theory and Applications of Categories}, 35(48):1771--1822, 2020.
+\newblock \url{https://arxiv.org/abs/1911.04630}.
+
+\bibitem{cross-openqasm}
+Andrew~W. Cross, Ali Javadi-Abhari, Thomas Alexander, Niel de~Beaudrap, Lev~S.
+  Bishop, Steven Heidel, Colm~A. Ryan, Prasahnt Sivarajah, John Smolin, Jay~M.
+  Gambetta, and Blake~R. Johnson.
+\newblock {OpenQASM 3}: A broader and deeper quantum assembly language.
+\newblock {\em ACM Transactions on Quantum Computing}, 3(3), 2022.
+\newblock \url{https://arxiv.org/abs/2104.14722}.
+
+\bibitem{ellis-bidi}
+Edward Ellis.
+\newblock {BiDi} universal operator system: Coherence-delta calculus, native
+  runtime and {U2} semantics.
+\newblock Software and repository documentation, 2026.
+\newblock Release 0.3.0; grammar 1; C ABI 1.5. Pinned commit
+  \texttt{1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157}.
+  \url{https://github.com/ETEllis/BiDi}.
+
+\bibitem{foster-lenses}
+J.~Nathan Foster, Michael~B. Greenwald, Jonathan~T. Moore, Benjamin~C. Pierce,
+  and Alan Schmitt.
+\newblock Combinators for bidirectional tree transformations: A linguistic
+  approach to the view-update problem.
+\newblock {\em ACM Transactions on Programming Languages and Systems}, 29(3),
+  2007.
+\newblock Article 17. Author manuscript:
+  \url{https://www.cis.upenn.edu/~bcpierce/papers/lenses-full.pdf}.
+
+\bibitem{lattner-mlir}
+Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques
+  Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, and Oleksandr
+  Zinenko.
+\newblock {MLIR}: A compiler infrastructure for the end of moore's law.
+\newblock {\em arXiv preprint arXiv:2002.11054}, 2020.
+\newblock \url{https://arxiv.org/abs/2002.11054}.
+
+\bibitem{leroy-compcert}
+Xavier Leroy.
+\newblock Formal verification of a realistic compiler.
+\newblock {\em Communications of the ACM}, 52(7):107--115, 2009.
+\newblock \url{https://xavierleroy.org/publi/compcert-CACM.pdf}.
+
+\bibitem{plotkin-handlers}
+Gordon Plotkin and Matija Pretnar.
+\newblock Handlers of algebraic effects.
+\newblock In {\em Programming Languages and Systems (ESOP)}, volume 5502 of
+  {\em Lecture Notes in Computer Science}, pages 80--94. Springer, 2009.
+\newblock Author manuscript:
+  \url{https://homepages.inf.ed.ac.uk/gdp/publications/Effect_Handlers.pdf}.
+
+\end{thebibliography}

@@ -1,0 +1,16 @@
+{
+  "schema": "etellis.u.browser-qa/1",
+  "date": "2026-09-14",
+  "url": "http://127.0.0.1:4287/landing/",
+  "desktop": {"width": 1440, "height": 1000, "horizontal_overflow": false, "visually_inspected": true},
+  "mobile": {"width": 390, "height": 844, "horizontal_overflow": false, "visually_inspected": true},
+  "tests": {
+    "kernel_par_tab_selected": true,
+    "shared_read_without_witness_held": true,
+    "shared_read_with_witness_admitted": true,
+    "read_write_overlap_rejected": true,
+    "paper_link_http_status": 200,
+    "console_errors": 0
+  },
+  "scope": "local browser presentation and explanatory instrument; no public deployment or compiler execution in the page"
+}

@@ -1,0 +1,13 @@
+[package]
+name = "etellis.u"
+version = "0.1.0"
+language = "etellis.u/0.1"
+
+[profiles]
+standard = "u.standard/0.1"
+cdc = "etellis.cdc/native-0.3.0-1307f2a7"
+
+[permissions]
+filesystem = []
+network = []
+subprocess = false

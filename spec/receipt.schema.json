@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ETEllis/U/spec/receipt.schema.json",
+  "title": "U reference receipt 1",
+  "type": "object",
+  "required": ["schema", "scope", "maturity", "verdict", "meaning", "realization", "source", "inputs", "output", "obligations", "assumptions", "observations", "identity"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "etellis.u.receipt/1"},
+    "scope": {"type": "string"},
+    "maturity": {"type": "object", "required": ["executed", "mechanized", "physical_device"], "additionalProperties": false, "properties": {"executed": {"type": "boolean"}, "mechanized": {"type": "boolean"}, "physical_device": {"type": "boolean"}}},
+    "verdict": {"enum": ["Done", "Held", "Rejected", "Fault", "Indeterminate", "Unsupported"]},
+    "meaning": {"type": "string"},
+    "realization": {"type": "string"},
+    "source": {"type": "string"},
+    "inputs": {}, "output": {}, "observations": {},
+    "obligations": {"type": "array"},
+    "assumptions": {"type": "array"},
+    "identity": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

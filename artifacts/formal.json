@@ -1,0 +1,38 @@
+{
+  "schema": "etellis.u.formal/1",
+  "command": [
+    "lean",
+    "+leanprover/lean4:v4.31.0",
+    "formal/U.lean"
+  ],
+  "exit_code": 0,
+  "source_sha256": "33c7e7f10a4a1643c1de3be3ce80adc69d60ce1bab50bbf119123d3248e7a10d",
+  "toolchain": "Lean (version 4.31.0, arm64-apple-darwin24.6.0, commit 68218e876d2a38b1985b8590fff244a83c321783, Release)",
+  "theorem_count": 23,
+  "theorem_dependency_results": [
+    "'UFormal.sequential_occurrences_associative' does not depend on any axioms",
+    "'UFormal.scope_preserves_occurrences' does not depend on any axioms",
+    "'UFormal.occurrence_order_is_not_automatically_commutative' does not depend on any axioms",
+    "'UFormal.runPath_append' does not depend on any axioms",
+    "'UFormal.source_order_composition_associative' does not depend on any axioms",
+    "'UFormal.reversing_source_order_changes_result' does not depend on any axioms",
+    "'UFormal.invertTrit_involutive' does not depend on any axioms",
+    "'UFormal.invertTrit_value' does not depend on any axioms",
+    "'UFormal.invert_involutive' does not depend on any axioms",
+    "'UFormal.both_polarities_iff_aperture' does not depend on any axioms",
+    "'UFormal.aperture_fixed_by_inversion' does not depend on any axioms",
+    "'UFormal.accepted_non_aperture_has_rejected_inverse' does not depend on any axioms",
+    "'UFormal.source_order_prefix_discriminator' does not depend on any axioms",
+    "'UFormal.exclusive_of_nodup_append' does not depend on any axioms",
+    "'UFormal.admitted_split_has_no_shared_exclusive_token' does not depend on any axioms",
+    "'UFormal.borrow_suspends_owning_access' does not depend on any axioms",
+    "'UFormal.stale_borrow_cannot_restore_owner' does not depend on any axioms",
+    "'UFormal.current_borrow_can_restore_owner' does not depend on any axioms",
+    "'UFormal.held_cannot_manufacture_output' does not depend on any axioms",
+    "'UFormal.held_cannot_add_earned_artifacts' does not depend on any axioms",
+    "'UFormal.downstream_hold_preserves_earlier_evidence' does not depend on any axioms",
+    "'UFormal.earlier_artifact_survives_downstream_hold' does not depend on any axioms",
+    "'UFormal.nonempty_compatible_checks_determine_one_path' does not depend on any axioms"
+  ],
+  "scope": "explicit abstract and finite definitions in formal/U.lean; not whole runtime correctness"
+}

@@ -1,0 +1,16 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+use "etellis.cdc/native-0.3.0-1307f2a7";
+
+// Every check binds the SAME immutable ExecutedPath identity. close cannot
+// accept checks from a different run, selected path, frame, or source.
+def guarded_closure(run: ExecutedPath(CdcNative), pair: ReciprocalBinding,
+                    target: DecisionCoordinate) -> Analysis(U1Closure) =
+  cdc.u1.close(run, #{
+    reciprocal: cdc.check_reciprocal(run, pair),
+    cover: topology.check_oriented_double_cover(run, pair),
+    commits: cdc.check_accepted_commits(run),
+    decision: cdc.check_generated_coordinate(run, target),
+    effects: cdc.check_effect_binding(run, target)
+  });

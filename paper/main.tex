@@ -1,0 +1,1215 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,tabularx,longtable,array}
+\usepackage{xcolor,listings,enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{fancyhdr}
+\definecolor{ink}{HTML}{20251F}
+\definecolor{green}{HTML}{536432}
+\definecolor{pale}{HTML}{F2F3ED}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\setlength{\emergencystretch}{3em}
+\setlength{\parskip}{.28em}
+\setlist{nosep,leftmargin=*}
+\pagestyle{plain}
+\fancyhf{}
+\fancyhead[L]{\small U: Law-Bearing Operations}
+\fancyhead[R]{\small Research manuscript}
+\fancyfoot[C]{\thepage}
+\setlength{\headheight}{14pt}
+\lstset{basicstyle=\ttfamily\footnotesize,breaklines=true,columns=fullflexible,
+  keepspaces=true,backgroundcolor=\color{pale},frame=single,
+  rulecolor=\color{pale},xleftmargin=.6em,xrightmargin=.6em,
+  aboveskip=1em,belowskip=1em,showstringspaces=false}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{lemma}[definition]{Lemma}
+\newtheorem{corollary}[definition]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{Scope}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\sem}[1]{\llbracket #1\rrbracket}
+\newcommand{\Ass}{\mathsf{Assumptions}}
+\newcommand{\dom}{\operatorname{dom}}
+\newcommand{\dep}{\operatorname{dep}}
+\newcommand{\canon}{\operatorname{canon}}
+\newcommand{\hash}{\operatorname{H}}
+\newcommand{\supp}{\operatorname{supp}}
+\newcommand{\Uop}{\mathcal U}
+\newcommand{\bidi}{\textsc{BiDi}}
+\newcommand{\cdc}{\textsc{CDC}}
+\newcommand{\hold}{\mathsf{Held}}
+\newcommand{\done}{\mathsf{Done}}
+\newcommand{\gen}{\mathsf{gen}}
+\newcommand{\seq}{\mathsf{seq}}
+\newcommand{\parop}{\mathsf{par}}
+\newcommand{\wire}{\mathsf{wire}}
+\newcommand{\scope}{\mathsf{scope}}
+\newcommand{\fix}{\mathsf{fix}}
+\title{\vspace{-1em}\textbf{U: Law-Bearing Operations}\\[.4em]
+  \large Explicit Semantic Composition and Earned Artifacts}
+\author{Edward Ellis}
+\date{September 14, 2026\\[.4em]\small ArXiv-intended manuscript; author review pending; not submitted}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\begin{abstract}
+U is a research language and semantic substrate organized around operations
+whose composition laws, resource interfaces, observations and evidential
+obligations remain explicit. A six-constructor structural calculus connects
+admitted generators without identifying their mathematical models. Seven
+theory families account for constructive values and proofs, resources and
+memory, relations and search, measures and probability, behaviors and clocks,
+continuous dynamics, and quantum channels. The proposal separates an
+operation's meaning from its realization and from the evidence produced by
+that realization. It requires checked composite profiles or adapters at
+mixed-theory boundaries, deterministic elaboration, conservative independence
+witnesses, distinct artifact identities, and residual-preserving source
+ingestion. We give conditional structural-preservation results, a finite
+resource nonduplication argument, a relational adapter-composition theorem
+with explicit assumptions, a quantitative error-composition bound, identity
+and invalidation lemmas, and an earned-artifact non-fabrication theorem. The
+Coherence-Delta Calculus supplies a demanding case study: its existing finite
+maps, scheduled resets and nested updates must be preserved before their
+derivatives can authorize recurrence-gated return analysis. CDC predates U;
+the proposed specialization is a new implementation relationship. An explicit
+Python stage-0 reference implementation accompanies the design. The
+mathematical results concern stated abstract models and do not constitute a
+mechanized correctness proof of the whole implementation. Neither complete
+foreign-language subsumption, globally minimal foundations, self-hosting,
+production completeness nor physical-backend execution follows from the
+present artifact.
+\end{abstract}
+\vspace{.7em}
+\noindent\textbf{Keywords:} programming-language semantics; typed operations;
+semantic preservation; resources; proof checking; hybrid systems; provenance.
+\vfill
+\noindent\small Repository: \url{https://github.com/ETEllis/U}.
+Companion system: \url{https://github.com/ETEllis/BiDi}.
+The paper and repository disclose AI assistance and separate historical
+evidence from fresh implementation evidence.
+\newpage
+\tableofcontents
+\newpage
+
+\section{Problem and contribution}
+
+A common representation is useful only if it preserves the distinctions that
+make the represented systems meaningful. An integer value, a mutable
+allocation, a search relation, a probability measure and a quantum channel can
+all appear behind a function-shaped interface. That fact does not authorize
+the same rules of copying, observation, reordering or execution for all of
+them. Similarly, a numerical trajectory and a differential equation may be
+connected without denoting the same mathematical object.
+
+U takes the operation at an interface as its structural unit. An operation
+includes a semantic profile, the resources and effects visible at its
+boundary, the observations under which its behavior is assessed, and the
+rules by which it may compose with other operations. A realization implements
+that contract in a specific evaluator, compiler, solver or device. Evidence
+records what was established about that realization and its outputs. These
+objects are connected by explicit dependencies rather than merged into a
+single status field.
+
+The proposal is motivated by an existing implementation lineage. In
+\bidi{}, \cdc{} connects canonical source to native state transitions,
+guarded effects and receipts; U1 adds lifted-cover acceptance and U2 adds
+variation followed by recurrence-qualified return analysis
+\cite{ellis-bidi}. U abstracts a broader composition discipline after that
+work. The historical order matters: \cdc{} was not previously implemented
+in U, and the existence of a native \cdc{} runtime cannot serve as evidence
+that a new U realization has preserved its semantics.
+
+The contribution is an integration protocol and a concrete proof program,
+not the invention of typed graphs, algebraic effects, linear resources or
+categorical composition. The paper develops four connected results:
+\begin{enumerate}
+\item a structural calculus whose admitted profiles retain domain-specific
+  law premises and whose derived operations remain inspectable;
+\item compositional obligations for resource independence and cross-theory
+  adapters, including explicit assumption and approximation accounting;
+\item identities and evidence rules that distinguish a represented meaning,
+  its implementation, its execution and its earned consequences; and
+\item a compatibility case study that retains \cdc{}'s actual finite maps,
+  derivatives, discrete modes and recurrence refusal.
+\end{enumerate}
+
+The ambition is a useful general programming language and semantic substrate.
+The design excludes an exact terminating evaluator for every admitted
+mathematical description, an automatic equivalence decision for arbitrary
+source languages, and the inference of physical execution from simulation.
+Those exclusions follow from the meaning of the proposed contracts; they
+are not temporary performance limitations.
+
+\subsection{Three discriminating examples}
+
+\paragraph{Copying.} A reusable integer admits a diagonal operation
+$x\mapsto(x,x)$. An owned resource does not acquire a second owner because
+its handle appears twice. Unknown quantum data does not acquire a general
+copy operation because its circuit description is classical data. Wiring
+must therefore lack implicit contraction.
+
+\paragraph{Observation order.} Let $C$ be a fair coin. A decision $b$ made
+without observing $C$ satisfies $\Pr[b=C]=1/2$, including randomized choices
+independent of $C$. If the decision observes $C$, the policy $b=C$ achieves
+probability one. These programs use the same ingredients with different
+information access. A transformation that interchanges probability and
+choice without preserving the observation policy is unsound.
+
+\paragraph{Finite time steps.} In a scalar instance of the pinned \cdc{}
+flow map, $F_d(x)=x+d\cos x$. Consequently,
+\[
+ F_1(F_1(0))=1+\cos 1 \ne 2=F_2(0).
+\]
+The exact-flow semigroup law is not available for this realization. A U
+import that replaces it with an ideal ODE has changed the operation that
+\cdc{} actually executes.
+
+\section{Semantic objects and admission}
+\label{sec:objects}
+
+\begin{definition}[Semantic profile]
+A profile $T$ specifies a class of interfaces $\mathcal I_T$, a class of
+operation meanings $\mathcal M_T(A,B)$ for admissible boundaries, an
+observation family $\mathcal O_T$, a signature of generators, their laws and
+side conditions, numeric and temporal conventions, and its assumptions.
+It also specifies which structural constructors it interprets and which
+compositions are defined.
+\end{definition}
+
+This definition does not require every model to be a set-theoretic total
+function. A profile may use partial maps, relations, measures, behavior
+sets, path spaces or quantum instruments. It must state its observation
+relation explicitly. Two profiles can interpret an apparent common carrier
+using different observables; a shared type name alone does not identify them.
+
+\begin{definition}[Operation descriptor]
+A generator descriptor is a tuple
+\[
+ o=(A,B,T,\epsilon,u,s,\mathcal L,r,\mathcal O,\mathcal A,\mathcal D),
+\]
+where $A,B$ are interfaces, $\epsilon$ is the effect interface, $u$ the
+resource-usage account, $s$ a stage, $\mathcal L$ the applicable laws and
+their premises, $r$ a direct rule or checked expansion, $\mathcal O$ the
+observations, $\mathcal A$ the assumptions and $\mathcal D$ immutable
+dependencies. The descriptor also records failure and hold conditions and
+the trusted implementation/checker boundary.
+\end{definition}
+
+The distinction between direct and derived operations is accountable, not
+cosmetic. A derived SQL join retains a visible join identity and a checked
+expansion dependency; lowering it to smaller operations need not erase that
+identity. Conversely, naming a foreign callback \texttt{join} does not
+establish a U relational semantics.
+
+\subsection{Admission is a product of dimensions}
+
+For an operation $o$, an admission record has the shape
+\[
+\operatorname{Adm}(o)=
+(\operatorname{origin},\operatorname{support},
+ \operatorname{laws},\operatorname{assumptions},\operatorname{trust}).
+\]
+Origin can identify a primitive, derived definition, library operation or
+foreign import. Support is indexed by realization: reference evaluation,
+compiled code, simulator or actual device. Laws identify particular checked
+statements, not a blanket proof badge. Trust lists checker and implementation
+dependencies. An admitted primitive can have a checked law and an unresolved
+assumption while lacking a hardware backend. Collapsing these fields into one
+exclusive enumeration loses information needed to judge a composition.
+
+The initial seven families, V/M/R/P/C/D/Q, organize this accounting. They do
+not assert seven irreducible axioms. The cost of generators, type rules,
+models, search strategies, solver assumptions and trusted code must remain
+visible beneath each family. Structural brevity is a separate measurement
+from semantic, implementation and human comprehension costs.
+
+\subsection{Configuration and outcomes}
+
+A reference configuration may be written
+\[
+ K=(G,\eta,S,\Delta,E,\kappa,\Xi),
+\]
+with graph $G$, bindings $\eta$, stores $S$, resource ledger $\Delta$,
+event structure $E$, continuation $\kappa$ and evidence context $\Xi$.
+A store is an indexed carrier appropriate to its profile, not a promise
+that physical quantum state or every continuous trajectory is a classical
+serializable heap value.
+
+An outcome distinguishes successful completion, semantic refusal, invalid
+input, execution failure and uncertainty about an external effect:
+\begin{align*}
+\operatorname{Outcome}(A)={}&\done(A,\text{receipt})\\
+ &+\hold(\text{obligations},\text{earned artifacts})\\
+ &+\mathsf{Rejected}(\text{diagnostic})\\
+ &+\mathsf{Fault}(\text{error},\text{known progress})\\
+ &+\mathsf{Indeterminate}(\text{recovery obligation},\text{known progress}).
+\end{align*}
+A hold protects the state designated by the refused operation. It need not
+roll back earlier effects, remove an audit event or restore consumed attempt
+identities. A budget interruption does not decide mathematical divergence.
+
+\section{Structural calculus and deterministic elaboration}
+\label{sec:structure}
+
+For admitted theory environment $\Theta$, the structural syntax is
+\begin{align*}
+p ::= {}&\wire[\pi]\mid\gen[T,o](\vec a;\vec r)
+ \mid\seq(p,p)\mid\parop(p,p)\\
+ &\mid\scope(n,p)\mid\fix[m](x,p).
+\end{align*}
+Here $\pi$ permutes compatible ports; $\vec a$ are static arguments;
+$\vec r$ are typed, staged regions; $n$ is a nominal binder; and $m$ names
+an admitted iteration discipline. This presentation is economical, not a
+proof that no five-tag presentation could encode the same information.
+
+Use the judgment
+\[
+ \Theta;\Gamma;\Delta\vdash p:A
+ \xrightarrow[T,\epsilon,u,s]{}B.
+\]
+$\Gamma$ contains reusable bindings and $\Delta$ affine or linear resources.
+Sequential composition connects the same boundary under the same admitted
+profile; a mixed boundary is first mediated by an explicit adapter. Parallel
+composition requires an independent-resource judgment. Scope binds names
+without capture or inadmissible escape. Iteration is qualified: partial
+computation, monotone relational iteration, clock-guarded feedback and total
+structural recursion have different premises.
+
+\subsection{Local obligations imply a structural theorem}
+
+Fix one admitted profile and its environment. Assume:
+\begin{enumerate}
+\item each generator reduction preserves its declared interface and usage;
+\item wiring is a type-preserving permutation with no copying or dropping;
+\item serial reduction composes only matching interfaces;
+\item parallel reduction respects its valid split and does not modify the
+  other branch's exclusive resources;
+\item substitution is capture-avoiding and preserves typing and usage; and
+\item the selected iteration discipline admits its unfolding or feedback
+  rule with the same input/output contract.
+\end{enumerate}
+These are admission obligations on a profile, not conclusions of graph
+shape alone. In particular, a generator with an incorrect local rule defeats
+the theorem's assumptions.
+
+\begin{theorem}[Conditional structural interface preservation]
+Under the six assumptions above, if $p$ has boundary $A\to B$ and
+resource account $\Delta$, a well-defined structural reduction of $p$
+preserves that boundary and the profile's resource invariant, up to the
+explicitly admitted consumption or creation of resources in generator rules.
+\end{theorem}
+\begin{proof}
+Induct on the derivation of the reduction. A generator step uses assumption
+1; a wiring reduction uses assumption 2. A left serial-context step changes
+only its subderivation, so its output remains the unchanged right operation's
+input by induction and assumption 3. The right-context case is symmetric
+after the left result has been obtained. A parallel-context step preserves
+its local boundary by induction and leaves the other resource partition
+untouched by assumption 4, so the tensor boundary and split are retained.
+Scope reduction uses freshness and assumption 5 to prevent capture or
+escape. Iteration unfolding is a permitted substitution with the same
+boundary by assumptions 5 and 6. These cases exhaust the structural rules;
+none permits an unadmitted generator or a boundary cast.
+\end{proof}
+
+\begin{remark}
+This is a compositional metatheorem. It is neither a complete subject-reduction
+proof for every proposed U domain nor a proof of the Python implementation.
+Progress additionally requires each active generator to make a valid step,
+return a permitted outcome, or be allowed to wait. Event waits, partial
+recursion and unsupported solvers preclude a universal termination theorem.
+\end{remark}
+
+\subsection{Whole-surface elaboration}
+
+Let $s$ be a parsed source tree, $M$ a fully resolved immutable manifest,
+and $v$ an elaboration version. Define
+\[
+ \mathcal E_v(s,M)=(G,B,W,U),
+\]
+where $G$ is the graph, $B$ explicit bindings, $W$ inferred adapter and
+profile evidence, and $U$ unresolved obligations. Source definitions,
+records, calls, lets, regions, staged syntax and derived operations all need
+versioned rules. A parser accepting their spelling is insufficient.
+
+\begin{proposition}[Deterministic elaboration contract]
+If the parser, name resolution, overload selection, traversal order,
+binder naming, adapter selection, expansion lookup and serialization are
+deterministic functions of $(s,M,v)$, repeated successful elaboration yields
+identical canonical bytes.
+\end{proposition}
+\begin{proof}
+Induct over the finite syntax tree. The leaf rules choose identical resolved
+identities. At an internal node, induction gives identical elaborated
+children; deterministic rule selection, binder construction and witness
+generation then give identical parent objects. The root objects are equal,
+and deterministic canonical serialization preserves equality.
+\end{proof}
+
+The premises explicitly exclude environment-dependent lookup, mutable package
+aliases, unordered iteration with observable serialization, and selection
+among ambiguous adapters without a rule. A fresh-name counter must derive
+from deterministic traversal rather than an ambient process clock. The
+result is deterministic representation, not uniqueness up to all semantic
+equivalences. An implementation must test this proposition's concrete
+premises rather than cite the proposition as evidence they were implemented.
+
+\section{Resources and conservative independence}
+\label{sec:resources}
+
+Let $\mathcal R$ be a finite set of nominal resource identities. A footprint
+for operation $p$ consists of owned resources $O_p$, reads $R_p$, writes
+$W_p$ and an effect/observation contract. Read and write sets denote actual
+resource identities after alias resolution. A read may use an owned resource
+or a separately admitted shared capability. Unknown aliasing produces an
+obligation rather than an assumption of disjointness.
+
+\begin{definition}[First independence witness]
+For explicit shared-read set $S$, define $I_S(p,q)$ by
+\begin{align*}
+ O_p\cap O_q&=\varnothing,\\
+ W_p\cap(R_q\cup W_q)&=\varnothing,\\
+ W_q\cap(R_p\cup W_p)&=\varnothing,\\
+ R_p\cap R_q&\subseteq S.
+\end{align*}
+The witness is valid only if its identities, footprints and read permissions
+are checked and the composite theory profile is admitted.
+\end{definition}
+
+\begin{theorem}[Owned-resource nonduplication in the finite model]
+Suppose the initial ledger assigns each linear resource at most one owner,
+every allocation creates a fresh identity, ownership transfer consumes the
+old owning permission, and every parallel split satisfies $I_S$. No finite
+execution composed of those steps contains two live owning permissions for
+one linear resource.
+\end{theorem}
+\begin{proof}
+Induct on the number of allocation, transfer, consumption and split steps.
+The initial property holds by assumption. Allocation adds an owner of an
+identity absent from the ledger. Transfer removes the old permission before
+inserting its replacement. Consumption removes a permission. A parallel
+split partitions owned identities into disjoint sets, so an identity cannot
+be assigned to both branches; shared-read witnesses add no owner. Joining
+the partitions preserves disjointness because each branch is constrained by
+the same rules and fresh allocation. These cases preserve the invariant.
+\end{proof}
+
+\begin{remark}
+The model trusts identity freshness and footprint correctness. It does not
+prove a hardware memory model, arbitrary alias analysis, distributed lease
+freshness or physical no-cloning. An implementation whose user can forge
+owning handles violates the premises. A read capability and an authority
+lease remain different contracts even when both have a scope.
+\end{remark}
+
+\begin{lemma}[Qualified commuting updates]
+Let $p,q$ be deterministic terminating store transformations with correct
+finite footprints. Suppose their reads include every store dependency,
+their writes contain every changed location, $I_S(p,q)$ holds, allocation
+and external effects are absent, and observations compare final stores and
+branch results without exposing order. Then executing $p;q$ and $q;p$
+produces the same observed result.
+\end{lemma}
+\begin{proof}
+Neither transformation changes any value read by the other, so determinism
+gives the same branch result and proposed writes in either order. Their
+write sets are disjoint, hence applying those updates in either order yields
+the same final store. The stipulated observation ignores execution order.
+\end{proof}
+
+This lemma explains why disjoint writes can support one particular
+optimization. It does not license the same rewrite when an observer sees
+event order, operations allocate nominal resources, time matters, or a
+device has unmodeled shared state. Named causal edges generally establish
+dependence, not the independence certificate needed by the lemma.
+
+\section{Adapters, assumptions and approximation}
+\label{sec:adapters}
+
+An adapter connects profiles through a declared relation; it need not assert
+an isomorphism. Typical boundaries include quantum measurement into a
+classical record, a probability measure into a sampled trace, a differential
+equation into a numerical trajectory, a store snapshot into a relational bag,
+and a CDC phase into a balanced-ternary observation.
+
+\begin{definition}[Relational adapter]
+An adapter $\alpha:T\rightsquigarrow S$ consists of an interface map,
+a translation on its admitted fragment, a relation
+$\mathcal R_\alpha\subseteq\mathcal O_T\times\mathcal O_S$, assumptions
+$A_\alpha$, a checker or explicitly trusted argument, a loss account and a
+residual policy. Its preservation assertion says that every admitted
+translated execution has the stated related source/target observations,
+under $A_\alpha$ and the chosen quantifier direction.
+\end{definition}
+
+Quantifier direction matters. Equality of all behavior sets, simulation,
+trace refinement, one paired execution and statistical comparison are
+different statements. A deterministic scheduler may refine permitted
+nondeterminism while failing to preserve all source schedules. An adapter
+must not report that refinement as equivalence.
+
+\begin{theorem}[Conditional relational composition]
+Suppose $\alpha:T\rightsquigarrow S$ and
+$\beta:S\rightsquigarrow V$ agree on the intermediate interface,
+observation semantics and translated object. Suppose their preservation
+assertions apply to that same intermediate execution, with compatible
+quantifier directions. Under $A_\alpha\cup A_\beta$, the composite has
+preservation relation
+\[
+ \mathcal R_{\beta\alpha}
+ =\{(x,z)\mid \exists y.\ (x,y)\in\mathcal R_\alpha
+                    \land(y,z)\in\mathcal R_\beta\}.
+\]
+\end{theorem}
+\begin{proof}
+For any admitted composite execution, the second preservation assertion
+provides its intermediate observation $y$ related to final observation $z$.
+Compatibility makes this the intermediate object governed by the first
+assertion, which provides $x$ with $(x,y)\in\mathcal R_\alpha$. Therefore
+$y$ witnesses membership of $(x,z)$ in the displayed relation. Both
+preservation uses retain their premises, so the combined assertion depends
+on their union. No assumption is discharged by composition alone.
+\end{proof}
+
+The theorem is deliberately conditional on a compatible intermediate
+observation and quantifiers. Two isolated success receipts cannot prove
+that compatibility. If one adapter hides information on which the second
+depends, a new contract is required. Likewise, reducing the written
+assumption set needs a checked implication or proof discharge; deleting a
+field from metadata does not strengthen a theorem.
+
+\begin{proposition}[A quantitative special case]
+Let $f:X\to Y$ and $g:Y\to Z$ be ideal maps between metric spaces, with
+realizations $\hat f,\hat g$. On an admitted domain suppose
+\[
+ d_Y(\hat f(x),f(x))\le\epsilon_f,\qquad
+ d_Z(\hat g(y),g(y))\le\epsilon_g,
+\]
+and $g$ is $L_g$-Lipschitz on a domain containing $f(x)$ and $\hat f(x)$.
+Then
+\[
+ d_Z(\hat g(\hat f(x)),g(f(x)))
+ \le \epsilon_g+L_g\epsilon_f.
+\]
+\end{proposition}
+\begin{proof}
+Insert $g(\hat f(x))$ and use the triangle inequality. The first distance
+is at most $\epsilon_g$ by the uniform realization guarantee at
+$\hat f(x)$; the second is at most $L_g\epsilon_f$ by Lipschitz continuity.
+\end{proof}
+
+A tolerance slider supplies neither a uniform error bound nor the required
+domain containment and Lipschitz constant. This proposition therefore gives
+an admissible composition rule when those facts are available, and an
+explicit obligation when they are not. Stochastic, hybrid and relational
+adapters may need different metrics and preservation relations.
+
+\section{A total proof boundary}
+\label{sec:proof}
+
+U's design permits programs to search, diverge, use IO and request solvers.
+Its logical conversion relation must have a smaller boundary. Proof terms
+may share some syntax with programs without inheriting unrestricted
+evaluation rights. A tactic can return a candidate whose acceptance is
+independently checked; a successful host callback cannot construct the
+authority-bearing result merely by returning its name.
+
+Consider a small illustrative arithmetic fragment with natural numbers,
+successor, addition recursing on the second argument, equality,
+reflexivity, congruence and induction. Its defining equations are
+\[
+ \operatorname{add}(a,0)=a,\qquad
+ \operatorname{add}(a,Sb)=S(\operatorname{add}(a,b)).
+\]
+For concrete natural inputs, the recursive evaluation decreases the second
+argument on each addition call. Equality proofs use these equations and
+the declared inference rules; general partial fixed points are absent.
+
+\begin{proposition}[An inductive witness]
+For every $n\in\N$, $\operatorname{add}(0,n)=n$.
+\end{proposition}
+\begin{proof}
+At zero, the left side reduces to zero. Assume
+$\operatorname{add}(0,k)=k$. By the successor equation and congruence,
+$\operatorname{add}(0,Sk)=S(\operatorname{add}(0,k))=Sk$. Natural-number
+induction concludes the statement.
+\end{proof}
+
+This example is intentionally not reflexivity at an arbitrary symbolic
+$n$: addition reduces on its second argument, so the universal statement
+needs induction. A checker that treats the spelling of a proposed proof
+as sufficient has skipped the central operation.
+
+\begin{proposition}[Constructor-bounded proof authority]
+Suppose the only way to create an accepted proof artifact is a checker that
+recursively validates a finite derivation using a fixed set of sound rules,
+with conversion performed solely by its terminating admitted conversion
+procedure. Suppose its proof-artifact constructor is inaccessible to
+untrusted programs. Then every artifact it issues has a valid derivation
+under its recorded assumptions; a partial computation's result alone is
+insufficient to obtain one.
+\end{proposition}
+\begin{proof}
+Induct on the finite checked derivation. Each leaf is a valid axiom or a
+recorded assumption. For an internal node, induction establishes its
+premises and the sound checked rule establishes the conclusion. The
+terminating conversion procedure only permits its declared equalities.
+Constructor exclusivity excludes creation outside this validation path.
+\end{proof}
+
+The theorem does not independently establish soundness or termination of an
+arbitrary extensible dependent type theory. Those are premises to discharge
+for each actual checker. Python object privacy is also not an adversarial
+process-isolation theorem. The stage-0 trust boundary includes its
+implementation and execution environment. Full universes, positivity,
+dependent elimination and metatheoretic correspondence remain separate
+release obligations beyond any smaller checked fragment.
+
+\section{Identity, dependencies and invalidation}
+\label{sec:identity}
+
+An artifact needs more than one identity. Original-source identity binds
+exact bytes and the source environment. Canonical-syntax identity binds
+normalized syntax and its version. Meaning identity binds graph, profiles,
+numeric and observation conventions, expansion dependencies and assumptions.
+Realization identity binds implementation. Execution identity also binds
+input and relevant scheduler, randomness or external decisions. Replay
+identity may select a declared projection of history. Resource identity is
+nominal and can include an epoch; equal contents do not imply equal resources.
+
+\begin{definition}[Canonical dependency identity]
+Let $D$ be a finite directed acyclic graph of canonical objects, whose edges
+point to immutable dependencies. For object $v$, define
+\[
+ h(v)=\hash\bigl(\canon(\operatorname{tag}(v),
+       \operatorname{payload}(v),[h(w)]_{w\in\dep(v)})\bigr),
+\]
+with an explicit dependency ordering or canonical set ordering. Recursive
+syntax is represented by binders and references within finite objects,
+not by circular content-hash equations.
+\end{definition}
+
+The canonical encoding must be unambiguous for its domain. Numeric values
+need a declared encoding, including finite IEEE bit patterns where relevant,
+and an explicit policy for signed zero, nonfinite values and mathematical
+integers. A serializer that conflates these values cannot preserve a profile
+that distinguishes them. Human-readable receipt rounding can coexist with
+an exact-bit sidecar; it cannot silently redefine legacy receipt identity.
+
+\begin{lemma}[Representation identity and backend separation]
+If two builds have identical canonical meaning objects and dependencies,
+they have equal meaning digests. A realization change outside those objects
+can preserve the meaning digest while changing realization identity.
+\end{lemma}
+\begin{proof}
+Evaluate the DAG in a topological order. Equal leaf encodings have equal
+digests; identical parent encodings and child digests then give equal parent
+digests. The realization's encoding is a distinct object, so changing it
+does not alter the fixed meaning object.
+\end{proof}
+
+The premise includes the whole semantic contract. Changing precision,
+rounding, observation order or time behavior that the profile exposes is a
+meaning-object change, even if described informally as a backend swap.
+Meaning identity is identity of a representation and contract; it is not a
+decision procedure for arbitrary extensional equivalence.
+
+\begin{lemma}[Dependency invalidation under a finite collision assumption]
+Assume the encoding is injective on encountered objects and the digest has
+no collisions among their encodings. If an object's payload or a referenced
+dependency changes, its digest changes, and the change propagates to every
+ancestor whose canonical object retains that dependency. A receipt bound
+to the old root cannot validate the new root by digest equality.
+\end{lemma}
+\begin{proof}
+At the changed object, injective encoding gives different bytes and the
+finite collision assumption gives different digests. At each retained
+parent edge, the changed child digest changes the canonical parent bytes;
+the same reasoning changes the parent digest. Induct on distance to each
+ancestor. The new root digest differs, so equality with the receipt's old
+subject fails.
+\end{proof}
+
+This lemma assumes dependency completeness. Omitting a law expansion, numeric
+profile or external contract from the dependency graph can leave an invalid
+receipt apparently current. Cryptographic collision resistance does not
+repair that modeling error. A digest also provides neither sender
+authentication nor truthfulness. Signed statements can be false, and a
+commitment to discarded history cannot reconstruct that history.
+
+\section{Earned artifacts and guarded consequences}
+\label{sec:evidence}
+
+For a fixed semantic subject $s$, let $\mathcal A_s$ be a set of possible
+artifact kinds with a prerequisite relation. For example, an accepted path
+may precede a tangent, a tangent plus recurrence may precede monodromy, and
+monodromy plus a valid spectrum computation may precede multipliers. The
+prerequisite relation is acyclic within a finite admission decision.
+
+\begin{definition}[Evidence transition]
+A state is $(s,E,O)$, with earned artifact set $E\subseteq\mathcal A_s$
+and outstanding obligations $O$. An earning step may add $a$ only when a
+trusted constructor validates its subject identity, every prerequisite is
+in $E$, and its own gate succeeds. A held step retains $E$ and records the
+unsatisfied obligation. Invalidation for a changed subject creates a new
+subject context; it does not relabel old evidence as evidence of the new one.
+\end{definition}
+
+\begin{theorem}[Monotonic earning and non-fabrication]
+For finite transitions governed by the definition, earned sets are monotone
+within one fixed subject. Every earned artifact has an earned prerequisite
+chain and a successful own gate. If an indispensable prerequisite is never
+earned, no artifact requiring it can be earned.
+\end{theorem}
+\begin{proof}
+Induct on transitions. A held step retains the set. An earning step adds a
+single artifact and removes none, proving monotonicity. Its constructor
+checks all prerequisites and its own gate; induction supplies the valid
+chains behind those prerequisites. If a required predecessor is absent,
+the insertion precondition is false, preventing that artifact and, by
+the same argument along the dependency chain, its dependents.
+\end{proof}
+
+The set model captures a guarantee about what is authorized, not a guarantee
+that every gate implementation is correct or every observation truthful.
+Those remain trusted dependencies. Artifacts can also expire or become
+inadmissible for a new request; that is a new validity decision, not a
+retroactive claim that a historical computation never happened.
+
+The \cdc{} example shows why an ordered Boolean success flag is inadequate.
+If recurrence fails, a valid tangent remains earned but monodromy and
+multipliers are absent. If recurrence and monodromy pass and a spectral
+backend is unavailable, monodromy remains earned while multipliers are
+held. A downstream refusal neither promotes weaker evidence nor destroys
+an independently valid earlier artifact.
+
+\subsection{Effects and durability}
+
+An admitted external effect adds obligations beyond the abstract artifact
+rule: capability scope, freshness, causal parent, replay protection and
+failure atomicity appropriate to that effect. Memory atomicity, a local
+durable transaction and a distributed command are not one universal
+primitive. A timeout after sending a command can leave completion
+indeterminate. Exactly-once external action does not follow from deterministic
+local replay.
+
+This distinction follows the pinned \bidi{} toolchain and RFTC contracts.
+Local journal replay and authenticated envelopes have particular mechanisms
+and counterexamples; their presence does not establish a deployed multi-host
+protocol or a physical law. U preserves these as distinct implementation
+gates rather than inheriting their strongest possible interpretation.
+
+\section{Residuals and native semantic possession}
+\label{sec:residuals}
+
+An import must declare a source fragment and an observational relation.
+For source bytes $P$, define
+\[
+ \operatorname{lift}(P)=(G,R,\Pi),
+\]
+where $G$ is a typed U graph, $R$ a residual and $\Pi$ provenance. Residuals
+may retain lexical layout, identifiers and intensional structure, unmodeled
+semantic regions, environment assumptions and approximation data. Retaining
+a source region does not imply U can execute or analyze it natively.
+
+\begin{definition}[Exact reconstruction]
+A lift/reconstruction pair is exact on fragment $F$ if for every $P\in F$,
+\[
+ \operatorname{reconstruct}(\operatorname{lift}(P))=P
+\]
+as bytes. Semantic preservation is a separate judgment relating the source
+and target observation sets under their named profiles.
+\end{definition}
+
+\begin{proposition}[Reconstruction is insufficient for possession]
+Exact reconstruction alone entails no semantic interpretation of the source.
+\end{proposition}
+\begin{proof}
+Define a lift that maps every $P$ to one constant graph and stores the whole
+$P$ in its residual. Reconstruction returns that residual. The equation
+holds for every source, although the graph contains no distinctions among
+their behaviors. Thus the equation cannot imply semantic interpretation.
+\end{proof}
+
+For structured edits, let $g:S\to V$ extract a view and
+$p:V\times S\to S$ put an updated view into an old source. On an admitted
+domain, the familiar lens laws are
+\[
+ p(g(s),s)=s,\qquad g(p(v,s))=v.
+\]
+They connect preservation of unchanged source with faithful propagation of a
+changed view; bidirectional transformation work supplies the relevant
+background \cite{foster-lenses}.
+
+\begin{proposition}[Scoped reconstruction after edits]
+If $g,p$ satisfy the two displayed laws on their admitted source/view domain,
+an unchanged view reconstructs the same source, and putting a valid changed
+view yields a source whose extracted view is that change. If semantic
+interpretation factors through $g$ on that domain, the reconstructed source
+has the changed view's semantics.
+\end{proposition}
+\begin{proof}
+The first two conclusions are the two laws instantiated at $s,v$. For the
+last conclusion, write source interpretation as $J\circ g$; then
+$J(g(p(v,s)))=J(v)$ by the second law.
+\end{proof}
+
+Factoring through the view is a substantial assumption. If behavior depends
+on residual content omitted from the view, the final conclusion is
+unavailable. A transformation without a valid residual-update rule must
+invalidate exact export or return a narrower guarantee. Reattaching stale
+comments or old tokens to a changed graph cannot certify reconstruction.
+
+\subsection{A fragment-indexed possession criterion}
+
+For an admitted source fragment, native possession requires six kinds of
+evidence: explicit target operators; compositional meanings; direct U rules
+or checked expansions; analysis of those operators; recoverability with
+declared loss; and differential/adversarial preservation checks. A hidden
+source-language interpreter behind one generic node fails this criterion
+even when it computes the correct output. Turing completeness says nothing
+about the representation preserving source laws in an inspectable form.
+
+Different source fragments need different relations. C and assembly need
+memory/ABI and defined-behavior boundaries; Haskell needs laziness and bottom;
+SQL needs bags, NULL and collation; temporal models need behavior and fairness;
+probabilistic programs need distributions and inference assumptions;
+hardware needs cycle and event-region semantics; quantum programs need
+joint-channel and measurement semantics. No one test transcript proves all
+of these relations.
+
+\section{CDC as a later specialization}
+\label{sec:cdc}
+
+The compatibility reference is \bidi{} commit
+\texttt{1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157}, release 0.3.0,
+grammar 1 and C ABI 1.5. Its native implementation and source contracts
+remain independent authority. U's later realization must preserve their
+observable maps before claiming parity. Historical CI and witness counts
+reported by that repository are historical evidence, not fresh U test
+results.
+
+The three primitive native reductions are flow, commit and nest. Frameworks,
+U1, U2, persistence and authority are derived protocols. The richer formal
+spine may specify amplitude, delays, plasticity, localized events or projected
+relations that the native realization does not consume as dynamics.
+Unconsumed declarations remain obligations rather than extra silently
+executed coordinates.
+
+\subsection{Synchronous flow and its actual Jacobian}
+
+For selected cell $i$, native flow uses one pre-step snapshot:
+\begin{equation}
+ \theta_i' = \theta_i + \omega_i d
+ +Gd\sum_{e:t(e)=i}w_e
+ \sin(\theta_{s(e)}+\alpha_e-\theta_i).
+ \label{eq:cdcflow}
+\end{equation}
+Only channels admitted by the pinned field/profile contract contribute.
+Parameters are frozen for this derivative. Direct differentiation gives
+\begin{equation}
+ \frac{\partial\theta_i'}{\partial\theta_\ell}
+ =\delta_{i\ell}+Gd\sum_{e:t(e)=i}w_e
+ \cos(\theta_{s(e)}+\alpha_e-\theta_i)
+ (\delta_{s(e)\ell}-\delta_{i\ell}).
+ \label{eq:cdcjac}
+\end{equation}
+The analytic derivative describes the real extension of the finite-step
+expression in Eq.~\eqref{eq:cdcflow}, not the exact solution map of a
+continuous equation or a derivative of literal IEEE rounding. In particular, a
+self-channel's phase differences have the cancellation expressed by the
+two Kronecker terms. Reversing or sequentializing the pre-step reads
+changes the map and its Jacobian.
+
+The numeric realization has an additional exact-bit contract. In the
+inspected arm64 Apple Clang 21 \texttt{-O2} oracle, generated fused
+multiply-add instructions make some expressions observably different from
+separate multiplication and addition. The U compatibility path therefore
+uses explicit fusion at the corresponding sites and requires Python 3.13's
+\texttt{math.fma}. Compiler flags and contraction policy belong in the
+realization/profile record. Matching binary64 storage alone is insufficient
+to establish bitwise parity. Analytic finite-map differentiation and
+numerical agreement with that pinned implementation are separate claims;
+the former does not differentiate the discontinuities of rounded machine
+arithmetic.
+
+\subsection{Commit and nest in a fixed discrete itinerary}
+
+With deadband $\delta$, native quantization is
+\[
+ \tau(\theta)=\begin{cases}
+ +1&\cos\theta>\delta,\\
+ -1&\cos\theta<-\delta,\\
+ 0&\text{otherwise}.
+ \end{cases}
+\]
+An ordered trit sequence is accepted only when every prefix sum is
+nonnegative. A scheduled accepted commit writes latch state while leaving
+the continuous coordinates unchanged. Its continuous reset derivative is
+identity within a fixed accepted itinerary. At a quantization boundary or
+when perturbation changes the discrete itinerary, that local derivative
+does not establish a derivative across the branch boundary.
+
+Let $u(q)$ be the child mean trit under the pinned latch/fallback rule.
+Within fixed discrete mode $q$, nest executes
+\[
+ b_p'=b_p+G u(q),\qquad p_c'=b_p'.
+\]
+The new child prior depends on the old parent belief, not on its own old
+prior. With respect to $(b_p,p_c)$ the affected Jacobian block is
+\[
+ \begin{pmatrix}1&0\\1&0\end{pmatrix}.
+\]
+The zeros assume fixed trits and frozen gain. A derivative of a richer
+theoretical feedback model is not a substitute for the derivative of this
+assignment.
+
+\subsection{Scheduled events versus localized guards}
+
+If an event is scheduled by the source, the reset derivative is $DR$ under
+that schedule. A state-localized transverse guard may instead require
+saltation. Under differentiability, fixed itinerary, guard
+$g(t,x)=0$ with $n=\nabla_xg$, reset $R(t,x)$ and nonzero denominator,
+the saltation expression has the form
+\[
+ S=DR+
+ \frac{(f^+-DRf^- -\partial_tR)n^{\mathsf T}}
+ {n^{\mathsf T}f^-+\partial_tg}.
+\]
+The localized event contract must establish the actual guard, crossing,
+vector fields and reset. A scheduled commit does not become such a
+localized event because a saltation formula is available. Grazing, missing
+event localization or altered order blocks the corresponding derivative
+claim. The pinned U2 contract makes these distinctions explicit
+\cite{ellis-bidi}.
+
+\subsection{Tangent, recurrence and return}
+
+Let the accepted finite path be
+$F=F_n\circ\cdots\circ F_1$ on a source-bound coordinate manifest.
+For column tangents, initialize $A_0=I$ and update
+\[
+ A_k=J_k A_{k-1},\qquad A_n=J_n\cdots J_1.
+\]
+The ordinary chain rule establishes this derivative wherever the admitted
+local differentiability and fixed-itinerary conditions hold. Reversing the
+product is generally wrong.
+
+Absolute recurrence requires the full declared continuous endpoint to
+return, together with discrete-mode restoration. Relative recurrence
+requires an explicit restoration $\rho$, its derivative, its domain and
+the requisite symmetry/equivariance contract. Only then is the relative
+return derivative
+\[
+ M_{\mathrm{rel}}=D\rho(F(x_0))A_n.
+\]
+A projected phase match cannot certify complete return. A matrix can have
+eigenvalues without those numbers being Floquet multipliers of a periodic
+orbit. Numerical tolerance creates a profile-qualified recurrence test;
+it is not an exact periodic-orbit theorem without further error analysis.
+
+\begin{corollary}[Recurrence-gated non-fabrication]
+If the evidence gate for monodromy requires a valid tangent and verified
+full or admitted relative recurrence, then a recurrence hold prevents
+monodromy and all dependent spectrum artifacts while retaining the valid
+tangent. If monodromy is already earned and a spectral backend holds, the
+monodromy remains earned.
+\end{corollary}
+\begin{proof}
+Apply the prerequisite and monotonicity theorem of
+Section~\ref{sec:evidence} to the tangent/recurrence/monodromy/spectrum graph.
+\end{proof}
+
+The pinned canonical two-turn loop illustrates the first case: lifted-cover
+U1 closure and a tangent do not imply full-state return when unwrapped
+phase, latch presence, belief and prior fail the return contract. The
+separate relative-return calibration declares a $4\pi$ endpoint restoration
+and its complete derivative. It is a different fixture, not a replacement
+interpretation of the canonical loop. U must preserve both distinctions.
+
+\subsection{Framework, toolchain and RFTC boundaries}
+
+\bidi{}'s frameworks attach role contracts and executed exemplars to
+existing machinery. U should retain their derived identities and checked
+bindings, rather than counting every task-shaped name as a new universal
+primitive. The toolchain's binding amendments distinguish canonical source
+parsing, ABI ownership, content digests, keyed authority, crash durability,
+per-check parity and trusted-local package execution.
+
+The native self-hosting mandate is a historical removal program whose
+current authority is qualified by the repository's release documents.
+\bidi{}'s C runtime and minimal declaration oracle do not make U's Python
+stage 0 self-hosted. RFTC's local classical kernels likewise do not
+establish multi-host deployment, nonclassical physical witnesses or
+computational advantage. A new U integration must name and exercise each
+cross-system gate separately.
+
+\section{Implementation artifact and verification program}
+\label{sec:artifact}
+
+The accompanying repository is the stage-0 implementation of this design.
+Its explicit bootstrap is Python 3.13+ using the standard library. The
+reference path parses U and evaluates its own expressions and operation
+rules; host evaluation of U or foreign source text is outside the contract.
+The code is partitioned into source, graph, checker, evaluator, theory,
+proof/resource/evidence, CDC and toolchain boundaries. Native and WASM
+compilation must identify the exact fragments for which parity is tested.
+
+The paper intentionally does not turn the presence of those modules or
+the 22 preserved source examples into a completeness result. Support is a
+relation between operation, source fragment, semantic profile and realization.
+The repository's \texttt{CLAIMS.md}, capability inventory and fresh
+verification receipts identify that relation for a concrete revision. Test
+counts change with the implementation; no historical audit count is copied
+here as a fresh result.
+
+\subsection{Discriminating checks}
+
+The verification program follows mechanisms and refusal conditions:
+\begin{itemize}
+\item elaborate repeated input with the same manifest to equal canonical
+  bytes; change an expansion dependency and invalidate dependent evidence;
+\item distinguish equal-named and equal-content resources from identical
+  allocations; reject duplicate ownership, shared writers and escaped views;
+\item preserve the coin/choice observation-order difference and SQL bag
+  multiplicities; hold undefined normalization instead of inventing a posterior;
+\item prevent partial recursion, unsafe coercion and external success
+  strings from producing accepted proof objects;
+\item compare direct evaluation with each admitted compiled fragment under
+  the same overflow, ordering and numeric contract;
+\item compare CDC state, decisions, effects and derivative products to the
+  pinned independent implementation; reject false projected recurrence;
+\item retain already earned artifacts when a later gate holds, while
+  rejecting stale subject identity or fabricated prerequisite records; and
+\item reconstruct original source bytes where promised, and refuse exact
+  export after edits that lack a valid residual update.
+\end{itemize}
+
+These are acceptance criteria, not a claim that all have been discharged
+merely by listing them. Unit, property, differential, mutation and security
+checks have different scopes. A mutation family should be tied to an
+actual mechanism: reversed Jacobian order, wrong nest derivative, omitted
+restoration derivative, false recurrence, or a stale capability receipt.
+Passing a finite sample is evidence about that sample and mechanism; it is
+not an unbounded theorem.
+
+\subsection{Reproduction and provenance}
+
+Clone the qualified repository and inspect its command help and current
+claim ledger. The expected reference environment is Python 3.13 or later;
+optional compiled and document paths have separately recorded tool
+dependencies. This manuscript builds from \texttt{paper/main.tex} and
+\texttt{paper/references.bib} with Tectonic, producing
+\texttt{paper/main.pdf}. The landing page is static and its interactive
+independence instrument is explicitly explanatory; it neither executes U
+nor issues proof or runtime receipts.
+
+The provenance directory preserves the five supplied source files and the
+review reconciliation. All 22 examples were recovered from supplied text.
+The original grammar, runnable audit checker, source-reference ledger and
+further structured package assets remain missing. Newly implemented grammar
+or verification files are new work, not a recovered historical package.
+The historical receipt is not a fresh rerun of the original audit.
+
+\section{Related work and research position}
+
+MLIR provides extensible typed operations, regions and progressive lowering
+across compiler and application domains \cite{lattner-mlir}. U's shared
+graph representation is therefore not by itself a novelty claim. The
+research question concerns contracts made mandatory and inspectable across
+meaning, realization, source reconstruction and evidence. A convincing
+evaluation must compare the cost and capability of that protocol with
+appropriate MLIR-based and domain-specific alternatives.
+
+Algebraic effects and handlers already organize computation using operations,
+equations and interpretations into models \cite{plotkin-handlers}. U builds
+on the idea that interpretation must respect laws. Its proposed additional
+boundary is an integrated user-visible account of resource authority,
+physical realization, residuals and evidence. The paper does not claim
+that all seven theory families are one algebraic theory or that every
+combination admits a distributive law.
+
+Structured cospans provide a principled account of open systems with
+interfaces and compositional network models \cite{baez-courser}. They
+support the plausibility of common structural composition across scientific
+domains. U still owes concrete generators, operational rules, usability and
+adapter checks; the availability of a categorical construction does not
+automatically supply an executable language or the conditions for every
+mixed-domain composition.
+
+Bidirectional transformation and lens work studies disciplined extraction
+and propagation of views \cite{foster-lenses}. U uses this perspective to
+separate byte reconstruction from semantic lifting, and to make source
+updates conditional on valid residual rules. The elementary lens proposition
+here is an application of those laws, not a new result about lenses.
+
+Verified compilation work, exemplified by CompCert, treats semantic
+preservation as a theorem about concrete compiler passes and source/target
+semantics \cite{leroy-compcert}. U's conditional metatheorems and tests do
+not attain that level of whole-implementation correspondence. A future
+proof must connect the implemented graph, checker, evaluator and compiler
+passes to their formal models, with the bootstrap and external calls in
+the trusted base.
+
+OpenQASM 3 distinguishes quantum computation, classical control and timing
+at multiple levels of circuit specificity \cite{cross-openqasm}. It provides
+a concrete comparison target for the Q/C boundary. U must preserve a
+declared OpenQASM fragment's semantics and execution assumptions before
+claiming native support; a Bell-state simulation or emitted circuit file
+does not establish that result for the full language or physical hardware.
+
+The present originality claim is thus a research hypothesis about the
+integrated protocol and its execution discipline. Demonstrating useful
+compression without hiding domain semantics requires comparative artifacts,
+preservation evidence, usability work and realistic maintenance accounting.
+
+\section{Limitations and full-completion program}
+
+The structural theorem depends on sound local generator rules and
+substitution. The resource theorem depends on unforgeable ownership and
+correct footprints. Adapter composition depends on a genuinely compatible
+intermediate observation. Identity invalidation depends on complete
+dependency capture and a finite collision assumption. Evidence
+non-fabrication depends on correct constructors and gates. These premises
+are obligations to implement and verify; writing them down does not prove
+them of every execution environment.
+
+The current work does not establish a globally minimal semantic basis,
+automatic subsumption of arbitrary source languages, a complete dependent
+type theory, a production distributed runtime, hostile-package isolation,
+formal correspondence of all host code, physical GPU/HDL/QPU execution or
+self-hosting. Classical simulation, interchange emission, numerical
+calibration and physical realization are distinct support classes.
+
+The original directive remains the completion target: foundational contracts
+and canonical syntax; executable values, resources and proofs; native CDC
+compatibility; theory conformance; faithful ingestion and law-aware
+transforms; production classical runtime; specialized execution gates;
+stronger formal correspondence; and staged self-hosting. Self-hosting requires
+a U-written parser, formatter and elaborator, a stage-1 compiler, reproducible
+stage-2 compilation, and continued checks against an independent oracle.
+Deleting the oracle would weaken the result rather than complete it.
+
+Progress should be measured independently in compile time, runtime,
+memory, semantic coverage, representation density, proof/analysis coverage
+and human comprehension. Performance comparisons require matched semantics,
+numeric modes, hardware and workloads. A compact graph is not automatically
+faster execution, and the ability to describe a physical process does not
+establish a new physical law.
+
+\section*{Authorship, AI assistance and submission status}
+Edward Ellis is the author and originator of the project direction. The
+preserved design includes a GPT-6 Pro design pass and subsequent Codex and
+Grok review. Codex assisted with implementation, mathematical exposition,
+proof drafting, documentation and presentation. The author is responsible
+for reviewing the manuscript, verifying its claims and approving any
+submission. No AI system is listed as an author. No affiliation, funding,
+DOI, arXiv identifier, peer review or submission is implied. This is an
+arXiv-intended manuscript prepared for author review.
+
+\appendix
+\section{Theory accounting and refusal cases}
+\label{app:theories}
+
+\begin{longtable}{P{.08\textwidth}P{.39\textwidth}P{.43\textwidth}}
+\toprule
+Family & Native meaning to retain & Representative refusal or distinction\\
+\midrule\endhead
+V & Natural data, closures, staged syntax, equality and admitted elimination &
+Partial computation does not enter total conversion; a quoted body does not
+execute merely because it is quoted.\\[.6em]
+M & Fresh allocation identity, layout, access, ownership and lifetime &
+Duplicate owner, escaped borrow, stale epoch or unadmitted raw access.\\[.6em]
+R & Variables, unification, relations, bags, search policy and fixed points &
+An occurs-check policy cannot silently become rational-tree unification;
+bags cannot become sets without a loss account.\\[.6em]
+P & Measures, likelihood weighting, conditioning and normalization &
+Zero or infinite normalization mass; sampler convergence cannot be inferred
+from a seed or a finite trace.\\[.6em]
+C & Event structure, mailbox policy, failures, fairness, clocks and registers &
+Trace order is not causal order; one finite schedule does not prove
+fairness or all-behavior equivalence.\\[.6em]
+D & Paths, equations, domains, guards, resets, derivatives and frames &
+A finite solver map does not inherit exact flow laws; changed itinerary or
+grazing blocks the corresponding derivative.\\[.6em]
+Q & Joint state, channels, instruments, measurement and reset &
+Classical circuit descriptions may be copied; an unknown physical state
+does not inherit copying or inspectable simulator storage.\\
+\bottomrule
+\end{longtable}
+
+Each family requires concrete operator accounting. The table records the
+architecture's minimum distinctions; it does not report complete implementation
+of the listed semantics. A quantum density simulator should, for example,
+distinguish $\lvert\Phi^+\rangle=(\lvert00\rangle+\lvert11\rangle)/\sqrt2$
+from its dephased mixture. Both have the same computational-basis
+probabilities, but $\langle X\otimes X\rangle$ is one for the coherent Bell
+state and zero for the mixture. Matching only one measurement basis is an
+insufficient conformance test. This is a mathematical/classical simulation
+probe, not a report of physical nonclassical evidence.
+
+\section{Formal claims and their exact boundaries}
+
+\begin{longtable}{P{.28\textwidth}P{.35\textwidth}P{.27\textwidth}}
+\toprule
+Claim & Indispensable premises & Excluded promotion\\
+\midrule\endhead
+Structural preservation & Locally sound rules, matching boundaries,
+capture-free substitution and admitted iteration & Whole-runtime soundness
+or universal progress\\[.6em]
+Deterministic elaboration & Fixed manifest/version and deterministic
+resolution, binding, adapter choice and encoding & Semantic-equivalence
+decision or unique global normal form\\[.6em]
+Resource nonduplication & Fresh identities, consuming transfer, checked
+disjoint owners and unforgeable permissions & Complete alias analysis,
+distributed authority or physical simultaneity\\[.6em]
+Adapter composition & Same intermediate object/observations, compatible
+quantifiers, retained assumptions & Arbitrary combination of theories or
+unconditional equivalence\\[.6em]
+Approximation bound & Metric domains, uniform local error and valid
+Lipschitz constant & Global error from a local tolerance setting alone\\[.6em]
+Identity invalidation & Injective canonical encoding, complete dependency
+DAG and no encountered hash collision & Authentication, truth or arbitrary
+semantic equivalence\\[.6em]
+Earned artifacts & Fixed subject, correct gates, prerequisite checks and
+trusted constructors & Truth of untrusted evidence or rollback of prior
+effects\\[.6em]
+Residual reconstruction & Correct left inverse; valid lens and semantics
+factorization for edit claims & Native possession from byte retention\\[.6em]
+CDC return analysis & Actual local Jacobians, accepted itinerary, complete
+or justified relative recurrence & Floquet interpretation of an arbitrary
+nonreturning path\\
+\bottomrule
+\end{longtable}
+
+\section{Source lineage and authority map}
+
+The preserved design dossier is the architectural source, with the
+operator-contract seed and original execution directive as its technical
+companions. The final review reconciliation refines whole-surface
+elaboration, checked graph adapters, multidimensional admission,
+contract-sensitive meaning identity and conservative independence. Original
+source files remain unchanged; new implementation decisions are recorded
+separately.
+
+At the pinned \bidi{} revision, the source language, formal semantic spine,
+Universal Operator System, verification matrix, frameworks, U2 semantics,
+toolchain amendments and RFTC matrix are read together. A historical
+self-hosting aspiration is not current implementation authority. The
+architecture document in this repository links those exact files at the pin
+and explains their U obligations. The independent repository is preserved
+as an oracle, and fresh compatibility results must state their executed
+scope without importing historical aggregate counts.
+
+\bibliographystyle{plain}
+\bibliography{references}
+\end{document}

@@ -1,0 +1,9 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// A two-state, positive-edge synchronous counter. reg's region receives
+// pre-edge q; all registers publish new q together. Initialization is explicit.
+def counter(clk: Clock, reset: Signal(Bit, clk)) -> Signal(Bits(8), clk) =
+  hw.reg(clk, bits.u8(0), fn(q: Bits(8)) =>
+    value.select(hw.at_tick(reset), bits.u8(0),
+      bits.add_wrap(q, bits.u8(1))));

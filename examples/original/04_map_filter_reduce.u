@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def sum_positive_squares(xs: List(Int)) -> Int =
+  list.fold_left(
+    list.map(list.filter(xs, fn(x: Int) => int.gt(x, 0)),
+      fn(x: Int) => int.mul(x, x)),
+    0, fn(acc: Int, x: Int) => int.add(acc, x));

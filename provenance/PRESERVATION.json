@@ -1,0 +1,237 @@
+{
+  "createdAt": "2026-09-10T06:19:18.199Z",
+  "sourceConversationId": "6aa20149-872c-83ea-906b-02a31e308da0",
+  "sourceTitle": "Design U Language",
+  "files": [
+    {
+      "name": "DOSSIER.md",
+      "origin": "/Users/edwardellis/Desktop/new language/DOSSIER.md",
+      "bytes": 136399,
+      "sha256": "7c55f4624c0a1de9b813556de5666313da495c222c7adcb542e44d943b8e454d",
+      "byteExact": true
+    },
+    {
+      "name": "CODEX_EXECUTION_DIRECTIVE.md",
+      "origin": "/Users/edwardellis/Desktop/new language/CODEX_EXECUTION_DIRECTIVE.md",
+      "bytes": 20797,
+      "sha256": "69d037f12753e67586d2e2395153eb3cb4689d259249a5a49f73b84ff7f80c4d",
+      "byteExact": true
+    },
+    {
+      "name": "OPERATOR_CONTRACTS.md",
+      "origin": "/Users/edwardellis/Desktop/new language/OPERATOR_CONTRACTS.md",
+      "bytes": 10711,
+      "sha256": "a5bcf6031f873ca49e2280d1dc6d665acc66bf3b601a9424f9bcbf340d15e73b",
+      "byteExact": true
+    },
+    {
+      "name": "design-audit.json",
+      "origin": "/Users/edwardellis/Desktop/new language/design-audit.json",
+      "bytes": 15415,
+      "sha256": "6505f8e06baa607128b0ebd2f3e3a8de90466e91389c599c00034d38e05c14e1",
+      "byteExact": true
+    },
+    {
+      "name": "GPT6_PRO_RESPONSE.txt",
+      "origin": "/Users/edwardellis/.codex/attachments/79d6f2e5-9dcb-425e-ae49-18b201cd48cf/pasted-text.txt",
+      "bytes": 84224,
+      "sha256": "7b31e9951b8ac1330938bb01e9dff32d7ebd9c074894f89c1f72684f63c47d10",
+      "byteExact": true
+    }
+  ],
+  "apiExport": {
+    "turns": 1,
+    "hasMore": false,
+    "clippedItems": [
+      "27e727b8-76f7-47a1-91a2-78577603545d",
+      "4b251d7a-1e22-4a22-bcac-d3a9c5731007"
+    ]
+  },
+  "examples": [
+    {
+      "name": "01_hello.u",
+      "sourceSection": "J.01",
+      "sourceStartLine": 635,
+      "sha256": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+      "receiptSha256": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "02_arithmetic.u",
+      "sourceSection": "J.02",
+      "sourceStartLine": 646,
+      "sha256": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+      "receiptSha256": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "03_fibonacci.u",
+      "sourceSection": "J.03",
+      "sourceStartLine": 656,
+      "sha256": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+      "receiptSha256": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "04_map_filter_reduce.u",
+      "sourceSection": "J.04",
+      "sourceStartLine": 669,
+      "sha256": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+      "receiptSha256": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "05_ownership.u",
+      "sourceSection": "J.05",
+      "sourceStartLine": 682,
+      "sha256": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+      "receiptSha256": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "06_async.u",
+      "sourceSection": "J.06",
+      "sourceStartLine": 695,
+      "sha256": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+      "receiptSha256": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "07_macro.u",
+      "sourceSection": "J.07",
+      "sourceStartLine": 708,
+      "sha256": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+      "receiptSha256": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "08_logic.u",
+      "sourceSection": "J.08",
+      "sourceStartLine": 721,
+      "sha256": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+      "receiptSha256": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "09_sql_join.u",
+      "sourceSection": "J.09",
+      "sourceStartLine": 740,
+      "sha256": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+      "receiptSha256": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "10_arrays.u",
+      "sourceSection": "J.10",
+      "sourceStartLine": 760,
+      "sha256": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+      "receiptSha256": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "11_bayes.u",
+      "sourceSection": "J.11",
+      "sourceStartLine": 773,
+      "sha256": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+      "receiptSha256": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "12_actors.u",
+      "sourceSection": "J.12",
+      "sourceStartLine": 793,
+      "sha256": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+      "receiptSha256": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "13_temporal.u",
+      "sourceSection": "J.13",
+      "sourceStartLine": 813,
+      "sha256": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+      "receiptSha256": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "14_proof.u",
+      "sourceSection": "J.14",
+      "sourceStartLine": 836,
+      "sha256": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+      "receiptSha256": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "15_hardware.u",
+      "sourceSection": "J.15",
+      "sourceStartLine": 854,
+      "sha256": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+      "receiptSha256": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "16_gpu.u",
+      "sourceSection": "J.16",
+      "sourceStartLine": 868,
+      "sha256": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+      "receiptSha256": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "17_quantum.u",
+      "sourceSection": "J.17",
+      "sourceStartLine": 885,
+      "sha256": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+      "receiptSha256": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "18_cdc.u",
+      "sourceSection": "J.18",
+      "sourceStartLine": 903,
+      "sha256": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+      "receiptSha256": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "19_u1.u",
+      "sourceSection": "J.19",
+      "sourceStartLine": 930,
+      "sha256": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+      "receiptSha256": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "20_u2.u",
+      "sourceSection": "J.20",
+      "sourceStartLine": 951,
+      "sha256": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+      "receiptSha256": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "21_acausal_dae.u",
+      "sourceSection": "J.21",
+      "sourceStartLine": 974,
+      "sha256": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+      "receiptSha256": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+      "receiptHashMatches": true
+    },
+    {
+      "name": "22_native_universal_construction.u",
+      "sourceSection": "J.22",
+      "sourceStartLine": 994,
+      "sha256": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041",
+      "receiptSha256": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041",
+      "receiptHashMatches": true
+    }
+  ],
+  "suppliedExamples": 22,
+  "allExampleHashesMatch": true,
+  "missingPackageFiles": [
+    "spec/surface.lark",
+    "audit/check_design.py",
+    "sources.json",
+    "structured theory/profile/adapter and conformance records mentioned by the dossier"
+  ],
+  "verificationScope": "Exact byte copies and comparison of mechanically extracted examples with historical receipt hashes. No historical checks rerun. No U implementation executed."
+}

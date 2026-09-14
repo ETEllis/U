@@ -1,0 +1,18 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// spec includes stuttering and weak fairness of advance.
+def advance(n: Nat) -> Option(Nat) =
+  option.when(nat.lt(n, 3), fn() => nat.succ(n));
+
+def system: BehaviorSet(Nat) =
+  temporal.spec(0, advance, temporal.stutter(), temporal.weak_fair(advance));
+
+def safe: Temporal(Nat) =
+  temporal.always(fn(n: Nat) => nat.le(n, 3));
+def live: Temporal(Nat) =
+  temporal.eventually(fn(n: Nat) => nat.eq(n, 3));
+
+def verification: FiniteModelReport =
+  temporal.check(system, temporal.and(safe, live),
+    model.closed_reachable_states([0, 1, 2, 3]));

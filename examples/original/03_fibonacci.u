@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// nat.rec is structural recursion. The pair is (F(k), F(k+1)).
+def fib(n: Nat) -> Nat =
+  tuple.first(nat.rec(n, (0, 1),
+    fn(k: Nat, pair: Pair(Nat, Nat)) =>
+      (pair.second, nat.add(pair.first, pair.second))));

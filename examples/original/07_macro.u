@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// bind_once generates a hygienic let: an effectful argument is not duplicated.
+// quote captures its region body at stage+1; splice is typed stage crossing.
+def twice(argument: Code(Int)) -> Code(Int) =
+  syntax.bind_once(argument, fn(x: Code(Int)) =>
+    syntax.quote(fn() => int.add(syntax.splice(x), syntax.splice(x))));

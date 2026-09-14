@@ -1,0 +1,2161 @@
+{
+  "schema": "etellis.u.verification/1",
+  "date_utc": "2026-09-14T16:58:11.290427+00:00",
+  "python": "3.13.12 (main, Feb  3 2026, 17:53:27) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "tests_run": 121,
+  "passed": 121,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "test_results": [
+    {
+      "test": "test_formal_mirrors.FormalInspiredRuntimeTests.test_both_polarities_only_admit_aperture_exhaustively_through_six_cells",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_formal_mirrors.FormalInspiredRuntimeTests.test_held_prefix_does_not_overwrite_existing_latches",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_formal_mirrors.FormalInspiredRuntimeTests.test_hold_stops_analysis_without_manufacturing_new_value",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_formal_mirrors.FormalInspiredRuntimeTests.test_later_hold_retains_earlier_artifacts_in_order",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_executed_three_operations",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_hold_does_not_rollback_earlier_or_skip_later",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_native_first_registry_last",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_nest_actual_jacobian",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_non_semigroup",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_post_step_fault_retains_progress",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_prefix_order_and_aperture",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_recurrence_cannot_be_forged_or_rebound",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.CdcTests.test_tangent_multiplication_order",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.IdentityTests.test_canonical_order_and_exact_bits",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.IdentityTests.test_dependency_cycles_and_direction",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.IdentityTests.test_duplicate_keys_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.IdentityTests.test_journal_torn_tail_and_corruption",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.IdentityTests.test_receipt_binding_and_mutation",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ProofTests.test_bad_induction_step_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ProofTests.test_capture_avoidance",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ProofTests.test_induction_checked_independently",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ProofTests.test_no_type_in_type_or_partial_conversion",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ResourceTests.test_borrow_suspends_owner_and_cannot_escape",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ResourceTests.test_composite_order_is_semantic",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ResourceTests.test_forged_handle_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ResourceTests.test_independence",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_foundations.ResourceTests.test_lease_scope_replay_and_expiry",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_advanced_originals_preserve_uncertainty",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_arity_and_callback_errors",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_block_effects_cannot_be_erased",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_core_originals_checked_with_no_type_holes",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_literal_and_return_type_errors",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_mutual_recursion_cannot_claim_totality",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_owned_borrow_cannot_escape",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_parameter_kind_checks",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_quantum_alias_and_capture_are_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_quantum_duplicate_discard_and_wrong_index",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_shadowing_is_lexical",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_structural_record_and_list_types",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_unchecked_dependency_does_not_gain_trust",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.CheckerTests.test_undefined_names_and_operators",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.FormatterTests.test_all_originals_idempotent_semantics_and_comments",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.FormatterTests.test_comments_do_not_change_meaning",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_actual_graph_execution_classical_examples",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_all_originals_deterministic_six_tag_lowering",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_all_originals_reconstruct_from_graph_without_source_payload",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_alpha_renaming_preserves_structure_and_binding_shadowing",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_cdc_profile_binds_actual_numeric_contract",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_derived_rule_change_invalidates_identity",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_graph_cannot_inject_nonfinite_source_literal",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_graph_rejects_dangling_binder",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_kernel_nodes_are_immutable_snapshots",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_probability_search_mix_requires_admitted_order",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_tampered_graph_or_dependencies_are_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.GraphTests.test_type_resource_and_operator_name_not_conflated",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_all_preserved_examples_share_one_parser",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_contextual_header_u_can_be_a_parameter",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_lexical_errors",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_lossless_unicode_comments_strings_and_spans",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_malformed_programs_fail_with_spans",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_negative_numbers_unit_singletons_and_records",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_parser_bounds_nested_and_postfix_structures",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_seeded_malformed_fuzz_is_bounded",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_frontend.ScannerParserTests.test_version_and_duplicate_import_are_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_actual_http_task_with_loopback_capability",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_cli_arbitrary_precision_and_proof",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_local_package_lock_install_tamper_and_no_scripts",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_lsp_real_framing_and_diagnostics",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_native_wasm_and_reference_parity_with_bounds",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_integration.IntegrationTests.test_receipt_roundtrip_and_changed_graph_export",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_compiled_fragment_cannot_bypass_import_admission",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_dependent_shadow_cannot_prove_zero_equals_one",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_invalid_access_shapes_never_earn_independence",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_marker_shaped_records_do_not_collide_with_typed_values",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_meaning_cannot_depend_transitively_on_execution_evidence",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_nonfinite_json_cannot_hide_in_exponent_notation",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_nonfinite_source_expectation_faults_after_the_step",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_nonfinite_time_neither_issues_nor_admits_a_lease",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_probability_order_must_be_valid_and_match_import",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_review_regressions.FinalAuthorityRegressions.test_recurrence_retains_its_quantitative_qualification",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_arbitrary_precision_and_nat_structure",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_borrow_escape_nested_borrow_and_await_rejected",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_console_capability_cannot_be_forged",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_free_consumes_handle",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_hygienic_binding_evaluates_effectful_argument_once",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_lexical_closures_and_shadowing",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_map_filter_reduce",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_mutable_borrow_restores_owner_and_expires_view",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_non_tail_partial_context_is_refused_not_silently_dropped",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_partial_nontermination_reports_budget_not_halt",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_splice_cannot_escape_stage",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_turing_construction_moves_and_terminates",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_ungranted_console_is_denied",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_unguarded_function_recursion_cannot_hide_partiality",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.CoreRuntimeTests.test_unknown_operator_is_explicit",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_acausal_rc_solver_satisfies_equations_and_converges",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_array_argument_retains_declared_shape",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_complex_unitary_and_kraus_completeness",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_dae_requires_explicit_admitted_method",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_hmc_is_reproducible_and_data_influences_posterior",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_measure_construction_does_not_draw",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_quantum_handle_consumption_and_interference",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_quantum_program_requires_explicit_realization",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_rectangular_matrix_contraction",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_strict_reduction_order_and_shape_failure",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.NumericTests.test_zero_mass_is_held_and_densities_may_exceed_one",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_actor_supervision_and_restart_intensity",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_cancelled_gpu_task_restores_reserved_owner",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_gpu_dependent_length_is_checked",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_gpu_partition_masks_padding_and_consumes_owner",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_hardware_registers_publish_simultaneously",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_hardware_reset_and_wrapping",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_http_requires_authority_without_network_call",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_task_can_run_before_observation",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_task_completion_failure_and_cancellation",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_temporal_closed_state_certificate_is_checked",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.ProcessTests.test_temporal_fairness_changes_liveness_verdict",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.RelationalTests.test_occurs_check_and_typed_unification",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.RelationalTests.test_original_logic_query",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.RelationalTests.test_sql_bags_multiply_multiplicity_and_null_does_not_join",
+      "verdict": "passed"
+    },
+    {
+      "test": "test_runtime.RelationalTests.test_sql_three_valued_conjunction",
+      "verdict": "passed"
+    }
+  ],
+  "preserved_sources": [
+    {
+      "file": "provenance/source/DOSSIER.md",
+      "sha256": "7c55f4624c0a1de9b813556de5666313da495c222c7adcb542e44d943b8e454d",
+      "byte_exact": true
+    },
+    {
+      "file": "provenance/source/CODEX_EXECUTION_DIRECTIVE.md",
+      "sha256": "69d037f12753e67586d2e2395153eb3cb4689d259249a5a49f73b84ff7f80c4d",
+      "byte_exact": true
+    },
+    {
+      "file": "provenance/source/OPERATOR_CONTRACTS.md",
+      "sha256": "a5bcf6031f873ca49e2280d1dc6d665acc66bf3b601a9424f9bcbf340d15e73b",
+      "byte_exact": true
+    },
+    {
+      "file": "provenance/source/design-audit.json",
+      "sha256": "6505f8e06baa607128b0ebd2f3e3a8de90466e91389c599c00034d38e05c14e1",
+      "byte_exact": true
+    },
+    {
+      "file": "provenance/source/GPT6_PRO_RESPONSE.txt",
+      "sha256": "7b31e9951b8ac1330938bb01e9dff32d7ebd9c074894f89c1f72684f63c47d10",
+      "byte_exact": true
+    }
+  ],
+  "examples": [
+    {
+      "name": "01_hello.u",
+      "source_sha256": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "main",
+          "status": "checked",
+          "declared_type": "Effect(IO, Unit)",
+          "inferred_type": "Effect(IO, Unit)"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "02_arithmetic.u",
+      "source_sha256": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "square",
+          "status": "checked",
+          "declared_type": "Int",
+          "inferred_type": "Int"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "03_fibonacci.u",
+      "source_sha256": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "fib",
+          "status": "checked",
+          "declared_type": "Nat",
+          "inferred_type": "Nat"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "04_map_filter_reduce.u",
+      "source_sha256": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "sum_positive_squares",
+          "status": "checked",
+          "declared_type": "Int",
+          "inferred_type": "Int"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "05_ownership.u",
+      "source_sha256": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "change_first",
+          "status": "checked",
+          "declared_type": "Owned(Buffer(U8, Index(1)))",
+          "inferred_type": "Owned(Buffer(U8, Index(1)))"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "06_async.u",
+      "source_sha256": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "async.then has no complete stage-0 static domain derivation",
+          "definition": "fetch_text",
+          "span": {
+            "start": 257,
+            "end": 337,
+            "line": 7,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "http.get interface checked; authority/domain obligations require its runtime contract",
+          "definition": "fetch_text",
+          "span": {
+            "start": 268,
+            "end": 286,
+            "line": 7,
+            "column": 14
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "http.body_text interface checked; authority/domain obligations require its runtime contract",
+          "definition": "fetch_text",
+          "span": {
+            "start": 315,
+            "end": 336,
+            "line": 8,
+            "column": 28
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "fetch_text",
+          "status": "unsupported",
+          "declared_type": "Task(Text)",
+          "inferred_type": "Task(Text)"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "07_macro.u",
+      "source_sha256": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "syntax.bind_once has no complete stage-0 static domain derivation",
+          "definition": "twice",
+          "span": {
+            "start": 248,
+            "end": 365,
+            "line": 7,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "syntax.quote has no complete stage-0 static domain derivation",
+          "definition": "twice",
+          "span": {
+            "start": 299,
+            "end": 364,
+            "line": 8,
+            "column": 5
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "syntax.splice has no complete stage-0 static domain derivation",
+          "definition": "twice",
+          "span": {
+            "start": 328,
+            "end": 344,
+            "line": 8,
+            "column": 34
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "syntax.splice has no complete stage-0 static domain derivation",
+          "definition": "twice",
+          "span": {
+            "start": 346,
+            "end": 362,
+            "line": 8,
+            "column": 52
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "twice",
+          "status": "unsupported",
+          "declared_type": "Code(Int)",
+          "inferred_type": "Code(Int)"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000002",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "08_logic.u",
+      "source_sha256": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "rel.rows has no complete stage-0 static domain derivation",
+          "definition": "parent",
+          "span": {
+            "start": 74,
+            "end": 134,
+            "line": 5,
+            "column": 3
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Rel(Text, Text)",
+          "definition": "parent",
+          "span": {
+            "start": 74,
+            "end": 134,
+            "line": 5,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.relation has no complete stage-0 static domain derivation",
+          "definition": "grandparent",
+          "span": {
+            "start": 174,
+            "end": 337,
+            "line": 8,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.exists has no complete stage-0 static domain derivation",
+          "definition": "grandparent",
+          "span": {
+            "start": 231,
+            "end": 336,
+            "line": 9,
+            "column": 5
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.and has no complete stage-0 static domain derivation",
+          "definition": "grandparent",
+          "span": {
+            "start": 272,
+            "end": 335,
+            "line": 10,
+            "column": 7
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.apply has no complete stage-0 static domain derivation",
+          "definition": "grandparent",
+          "span": {
+            "start": 282,
+            "end": 307,
+            "line": 10,
+            "column": 17
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.apply has no complete stage-0 static domain derivation",
+          "definition": "grandparent",
+          "span": {
+            "start": 309,
+            "end": 334,
+            "line": 10,
+            "column": 44
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Rel(Text, Text)",
+          "definition": "grandparent",
+          "span": {
+            "start": 174,
+            "end": 337,
+            "line": 8,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.query has no complete stage-0 static domain derivation",
+          "definition": "query",
+          "span": {
+            "start": 376,
+            "end": 494,
+            "line": 13,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "logic.apply has no complete stage-0 static domain derivation",
+          "definition": "query",
+          "span": {
+            "start": 457,
+            "end": 493,
+            "line": 14,
+            "column": 29
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Search(Substitution)",
+          "definition": "query",
+          "span": {
+            "start": 376,
+            "end": 494,
+            "line": 13,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "parent",
+          "status": "unsupported",
+          "declared_type": "Rel(Text, Text)",
+          "inferred_type": "Unresolved"
+        },
+        {
+          "name": "grandparent",
+          "status": "unsupported",
+          "declared_type": "Rel(Text, Text)",
+          "inferred_type": "Unresolved"
+        },
+        {
+          "name": "query",
+          "status": "unsupported",
+          "declared_type": "Search(Substitution)",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000005",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "09_sql_join.u",
+      "source_sha256": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "sql.project has no complete stage-0 static domain derivation",
+          "definition": "join_orders",
+          "span": {
+            "start": 439,
+            "end": 632,
+            "line": 11,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "sql.inner_join has no complete stage-0 static domain derivation",
+          "definition": "join_orders",
+          "span": {
+            "start": 456,
+            "end": 541,
+            "line": 12,
+            "column": 5
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "sql.eq has no complete stage-0 static domain derivation",
+          "definition": "join_orders",
+          "span": {
+            "start": 517,
+            "end": 540,
+            "line": 13,
+            "column": 32
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Bag(Record{name: Text, total: Decimal})",
+          "definition": "join_orders",
+          "span": {
+            "start": 439,
+            "end": 632,
+            "line": 11,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "User",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "Order",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "Row",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "join_orders",
+          "status": "unsupported",
+          "declared_type": "Bag(Record{name: Text, total: Decimal})",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000008",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "10_arrays.u",
+      "source_sha256": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "array.contract has no complete stage-0 static domain derivation",
+          "definition": "multiply",
+          "span": {
+            "start": 271,
+            "end": 325,
+            "line": 8,
+            "column": 3
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Array(F64, Shape(Index(2), Index(4)))",
+          "definition": "multiply",
+          "span": {
+            "start": 271,
+            "end": 325,
+            "line": 8,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "multiply",
+          "status": "unsupported",
+          "declared_type": "Array(F64, Shape(Index(2), Index(4)))",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "11_bayes.u",
+      "source_sha256": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "prob.model has no complete stage-0 static domain derivation",
+          "definition": "model",
+          "span": {
+            "start": 239,
+            "end": 377,
+            "line": 7,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "prob.sample has no complete stage-0 static domain derivation",
+          "definition": "model",
+          "span": {
+            "start": 273,
+            "end": 307,
+            "line": 8,
+            "column": 14
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dist.normal interface checked; authority/domain obligations require its runtime contract",
+          "definition": "model",
+          "span": {
+            "start": 285,
+            "end": 306,
+            "line": 8,
+            "column": 26
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "prob.observe_all has no complete stage-0 static domain derivation",
+          "definition": "model",
+          "span": {
+            "start": 313,
+            "end": 357,
+            "line": 9,
+            "column": 5
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dist.normal interface checked; authority/domain obligations require its runtime contract",
+          "definition": "model",
+          "span": {
+            "start": 330,
+            "end": 350,
+            "line": 9,
+            "column": 22
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "prob.infer has no complete stage-0 static domain derivation",
+          "definition": "infer",
+          "span": {
+            "start": 448,
+            "end": 534,
+            "line": 14,
+            "column": 3
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : ApproxPosterior(Real)",
+          "definition": "infer",
+          "span": {
+            "start": 448,
+            "end": 534,
+            "line": 14,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "model",
+          "status": "unsupported",
+          "declared_type": "Measure(Real)",
+          "inferred_type": "Measure(Real)"
+        },
+        {
+          "name": "infer",
+          "status": "unsupported",
+          "declared_type": "ApproxPosterior(Real)",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000003",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "12_actors.u",
+      "source_sha256": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "actor.continue has no complete stage-0 static domain derivation",
+          "definition": "worker",
+          "span": {
+            "start": 212,
+            "end": 243,
+            "line": 8,
+            "column": 28
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "actor.fail has no complete stage-0 static domain derivation",
+          "definition": "worker",
+          "span": {
+            "start": 274,
+            "end": 305,
+            "line": 9,
+            "column": 30
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "actor.supervise has no complete stage-0 static domain derivation",
+          "definition": "start",
+          "span": {
+            "start": 384,
+            "end": 516,
+            "line": 13,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "actor.child has no complete stage-0 static domain derivation",
+          "definition": "start",
+          "span": {
+            "start": 428,
+            "end": 461,
+            "line": 14,
+            "column": 6
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "duration.seconds has no complete stage-0 static domain derivation",
+          "definition": "start",
+          "span": {
+            "start": 495,
+            "end": 514,
+            "line": 15,
+            "column": 32
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Effect(Actors, SupervisorRef)",
+          "definition": "start",
+          "span": {
+            "start": 384,
+            "end": 516,
+            "line": 13,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "Message",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "worker",
+          "status": "unsupported",
+          "declared_type": "ActorStep(Nat)",
+          "inferred_type": "ActorStep(Nat)"
+        },
+        {
+          "name": "start",
+          "status": "unsupported",
+          "declared_type": "Effect(Actors, SupervisorRef)",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "13_temporal.u",
+      "source_sha256": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "temporal.spec has no complete stage-0 static domain derivation",
+          "definition": "system",
+          "span": {
+            "start": 221,
+            "end": 295,
+            "line": 9,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.stutter has no complete stage-0 static domain derivation",
+          "definition": "system",
+          "span": {
+            "start": 247,
+            "end": 265,
+            "line": 9,
+            "column": 29
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.weak_fair has no complete stage-0 static domain derivation",
+          "definition": "system",
+          "span": {
+            "start": 267,
+            "end": 294,
+            "line": 9,
+            "column": 49
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : BehaviorSet(Nat)",
+          "definition": "system",
+          "span": {
+            "start": 221,
+            "end": 295,
+            "line": 9,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.always has no complete stage-0 static domain derivation",
+          "definition": "safe",
+          "span": {
+            "start": 326,
+            "end": 369,
+            "line": 12,
+            "column": 3
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Temporal(Nat)",
+          "definition": "safe",
+          "span": {
+            "start": 326,
+            "end": 369,
+            "line": 12,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.eventually has no complete stage-0 static domain derivation",
+          "definition": "live",
+          "span": {
+            "start": 399,
+            "end": 446,
+            "line": 14,
+            "column": 3
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Temporal(Nat)",
+          "definition": "live",
+          "span": {
+            "start": 399,
+            "end": 446,
+            "line": 14,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.check has no complete stage-0 static domain derivation",
+          "definition": "verification",
+          "span": {
+            "start": 489,
+            "end": 586,
+            "line": 17,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "temporal.and has no complete stage-0 static domain derivation",
+          "definition": "verification",
+          "span": {
+            "start": 512,
+            "end": 536,
+            "line": 17,
+            "column": 26
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "model.closed_reachable_states has no complete stage-0 static domain derivation",
+          "definition": "verification",
+          "span": {
+            "start": 542,
+            "end": 585,
+            "line": 18,
+            "column": 5
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : FiniteModelReport",
+          "definition": "verification",
+          "span": {
+            "start": 489,
+            "end": 586,
+            "line": 17,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "advance",
+          "status": "checked",
+          "declared_type": "Option(Nat)",
+          "inferred_type": "Option(Nat)"
+        },
+        {
+          "name": "system",
+          "status": "unsupported",
+          "declared_type": "BehaviorSet(Nat)",
+          "inferred_type": "Unresolved"
+        },
+        {
+          "name": "safe",
+          "status": "unsupported",
+          "declared_type": "Temporal(Nat)",
+          "inferred_type": "Unresolved"
+        },
+        {
+          "name": "live",
+          "status": "unsupported",
+          "declared_type": "Temporal(Nat)",
+          "inferred_type": "Unresolved"
+        },
+        {
+          "name": "verification",
+          "status": "unsupported",
+          "declared_type": "FiniteModelReport",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "14_proof.u",
+      "source_sha256": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "dependent_conversion",
+          "message": "dependent equality/product conversion requires the independent proof kernel",
+          "definition": "zero_add",
+          "span": {
+            "start": 213,
+            "end": 261,
+            "line": 6,
+            "column": 15
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "nat.induction has no complete stage-0 static domain derivation",
+          "definition": "zero_add",
+          "span": {
+            "start": 280,
+            "end": 451,
+            "line": 7,
+            "column": 17
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Fn(Nat, Unresolved) : Unresolved",
+          "definition": "zero_add",
+          "span": {
+            "start": 266,
+            "end": 451,
+            "line": 7,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "proof.check has no complete stage-0 static domain derivation",
+          "definition": "checked",
+          "span": {
+            "start": 482,
+            "end": 503,
+            "line": 13,
+            "column": 29
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "zero_add",
+          "status": "unsupported",
+          "declared_type": "Unresolved",
+          "inferred_type": "Fn(Nat, Unresolved)"
+        },
+        {
+          "name": "checked",
+          "status": "unsupported",
+          "declared_type": "ProofReceipt",
+          "inferred_type": "ProofReceipt"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "15_hardware.u",
+      "source_sha256": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "hw.reg has no complete stage-0 static domain derivation",
+          "definition": "counter",
+          "span": {
+            "start": 273,
+            "end": 399,
+            "line": 7,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "hw.at_tick has no complete stage-0 static domain derivation",
+          "definition": "counter",
+          "span": {
+            "start": 332,
+            "end": 349,
+            "line": 8,
+            "column": 18
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Bool",
+          "definition": "counter",
+          "span": {
+            "start": 332,
+            "end": 349,
+            "line": 8,
+            "column": 18
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Signal(Bits(Index(8)), Index(clk))",
+          "definition": "counter",
+          "span": {
+            "start": 273,
+            "end": 399,
+            "line": 7,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "counter",
+          "status": "unsupported",
+          "declared_type": "Signal(Bits(Index(8)), Index(clk))",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000001",
+          "capability": "Copy",
+          "occurrences": 3,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "16_gpu.u",
+      "source_sha256": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "gpu.partition_launch has no complete stage-0 static domain derivation",
+          "definition": "saxpy",
+          "span": {
+            "start": 297,
+            "end": 519,
+            "line": 8,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "gpu.write has no complete stage-0 static domain derivation",
+          "definition": "saxpy",
+          "span": {
+            "start": 432,
+            "end": 518,
+            "line": 11,
+            "column": 7
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "gpu.load has no complete stage-0 static domain derivation",
+          "definition": "saxpy",
+          "span": {
+            "start": 473,
+            "end": 501,
+            "line": 12,
+            "column": 28
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "gpu.read has no complete stage-0 static domain derivation",
+          "definition": "saxpy",
+          "span": {
+            "start": 504,
+            "end": 516,
+            "line": 12,
+            "column": 59
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "saxpy",
+          "status": "unsupported",
+          "declared_type": "GpuTask(GpuOwn(F32, Index(n)))",
+          "inferred_type": "GpuTask(GpuOwn(F32, Index(n)))"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000006",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "17_quantum.u",
+      "source_sha256": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "bell",
+          "status": "checked",
+          "declared_type": "QReg(Index(2))",
+          "inferred_type": "QReg(Index(2))"
+        },
+        {
+          "name": "experiment",
+          "status": "checked",
+          "declared_type": "QuantumProgram(Bits(Index(2)))",
+          "inferred_type": "QuantumProgram(Bits(Index(2)))"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "18_cdc.u",
+      "source_sha256": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "cdc.make_state has no complete stage-0 static domain derivation",
+          "definition": "initial",
+          "span": {
+            "start": 187,
+            "end": 542,
+            "line": 7,
+            "column": 25
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.flow has no complete stage-0 static domain derivation",
+          "definition": "run",
+          "span": {
+            "start": 606,
+            "end": 631,
+            "line": 17,
+            "column": 16
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.commit has no complete stage-0 static domain derivation",
+          "definition": "run",
+          "span": {
+            "start": 651,
+            "end": 684,
+            "line": 18,
+            "column": 19
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.nest has no complete stage-0 static domain derivation",
+          "definition": "run",
+          "span": {
+            "start": 841,
+            "end": 885,
+            "line": 21,
+            "column": 9
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "initial",
+          "status": "unsupported",
+          "declared_type": "CdcState",
+          "inferred_type": "CdcState"
+        },
+        {
+          "name": "run",
+          "status": "unsupported",
+          "declared_type": "CdcStepResult",
+          "inferred_type": "CdcStepResult"
+        }
+      ],
+      "graph_obligations": []
+    },
+    {
+      "name": "19_u1.u",
+      "source_sha256": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "cdc.u1.close has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 382,
+            "end": 672,
+            "line": 10,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.check_reciprocal has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 419,
+            "end": 450,
+            "line": 11,
+            "column": 17
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "topology.check_oriented_double_cover has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 463,
+            "end": 510,
+            "line": 12,
+            "column": 12
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.check_accepted_commits has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 525,
+            "end": 556,
+            "line": 13,
+            "column": 14
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.check_generated_coordinate has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 572,
+            "end": 615,
+            "line": 14,
+            "column": 15
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "cdc.check_effect_binding has no complete stage-0 static domain derivation",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 630,
+            "end": 667,
+            "line": 15,
+            "column": 14
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Analysis(U1Closure)",
+          "definition": "guarded_closure",
+          "span": {
+            "start": 382,
+            "end": 672,
+            "line": 10,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "guarded_closure",
+          "status": "unsupported",
+          "declared_type": "Analysis(U1Closure)",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000001",
+          "capability": "Copy",
+          "occurrences": 6,
+          "status": "requires-resource-checker",
+          "witness": null
+        },
+        {
+          "kind": "resource-usage",
+          "binder": "b000002",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        },
+        {
+          "kind": "resource-usage",
+          "binder": "b000003",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "20_u2.u",
+      "source_sha256": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "analysis.then has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 319,
+            "end": 612,
+            "line": 10,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "ad.executed_path has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 333,
+            "end": 357,
+            "line": 10,
+            "column": 17
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "analysis.then has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 391,
+            "end": 611,
+            "line": 11,
+            "column": 5
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "recurrence.check has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 405,
+            "end": 439,
+            "line": 11,
+            "column": 19
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "spectral.real_schur has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 493,
+            "end": 610,
+            "line": 13,
+            "column": 9
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "linear.return_map has no complete stage-0 static domain derivation",
+          "definition": "variation",
+          "span": {
+            "start": 524,
+            "end": 562,
+            "line": 14,
+            "column": 11
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : Analysis(Spectrum)",
+          "definition": "variation",
+          "span": {
+            "start": 319,
+            "end": 612,
+            "line": 10,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "variation",
+          "status": "unsupported",
+          "declared_type": "Analysis(Spectrum)",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000003",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "21_acausal_dae.u",
+      "source_sha256": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "unsupported",
+      "obligations": [
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.dae has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 290,
+            "end": 597,
+            "line": 8,
+            "column": 3
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.equal has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 374,
+            "end": 454,
+            "line": 10,
+            "column": 9
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.add has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 407,
+            "end": 453,
+            "line": 11,
+            "column": 11
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.scale has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 423,
+            "end": 452,
+            "line": 11,
+            "column": 27
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.equal has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 464,
+            "end": 544,
+            "line": 12,
+            "column": 9
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.scale has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 492,
+            "end": 543,
+            "line": 13,
+            "column": 11
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.derivative has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 520,
+            "end": 542,
+            "line": 13,
+            "column": 39
+          }
+        },
+        {
+          "code": "domain_obligation",
+          "message": "dynamics.at has no complete stage-0 static domain derivation",
+          "definition": "rc",
+          "span": {
+            "start": 570,
+            "end": 594,
+            "line": 15,
+            "column": 17
+          }
+        },
+        {
+          "code": "unresolved_type",
+          "message": "cannot establish Unresolved : DAE",
+          "definition": "rc",
+          "span": {
+            "start": 290,
+            "end": 597,
+            "line": 8,
+            "column": 3
+          }
+        }
+      ],
+      "definitions": [
+        {
+          "name": "rc",
+          "status": "unsupported",
+          "declared_type": "DAE",
+          "inferred_type": "Unresolved"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000004",
+          "capability": "Copy",
+          "occurrences": 3,
+          "status": "requires-resource-checker",
+          "witness": null
+        },
+        {
+          "kind": "resource-usage",
+          "binder": "b000005",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    },
+    {
+      "name": "22_native_universal_construction.u",
+      "source_sha256": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041",
+      "parsed": true,
+      "formatted_idempotently": true,
+      "graph_reconstruction": true,
+      "static_status": "checked",
+      "obligations": [],
+      "definitions": [
+        {
+          "name": "Tape",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "Config",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "Move",
+          "status": "checked",
+          "declared_type": "Type",
+          "inferred_type": "Type"
+        },
+        {
+          "name": "execute",
+          "status": "checked",
+          "declared_type": "Partial(Record{state: Nat, tape: Record{left: List(Nat), head: Nat, right: List(Nat)}})",
+          "inferred_type": "Partial(Record{state: Nat, tape: Record{left: List(Nat), head: Nat, right: List(Nat)}})"
+        }
+      ],
+      "graph_obligations": [
+        {
+          "kind": "resource-usage",
+          "binder": "b000006",
+          "capability": "Copy",
+          "occurrences": 2,
+          "status": "requires-resource-checker",
+          "witness": null
+        },
+        {
+          "kind": "resource-usage",
+          "binder": "b000007",
+          "capability": "Copy",
+          "occurrences": 9,
+          "status": "requires-resource-checker",
+          "witness": null
+        }
+      ]
+    }
+  ],
+  "scope": "fresh local reference, frontend, graph, proof kernel, resource, CLI/LSP, packages, bounded native/WASM tests",
+  "historical_audit_rerun": false,
+  "full_U_complete": false,
+  "implementation_files": {
+    "u/__init__.py": "e4bd166364f692f1368e0d419ccf8364235a5bc1858e4efdd979999cb4119d43",
+    "u/admission.py": "8be881f1bde9bb107d484943ebcf3a62442289b959e58e855fdc6b668e9c01d2",
+    "u/backend.py": "22f53512b75ee3e9d4f43414e68f2b6c956ddf1da53ae40d136640c8084b9b2f",
+    "u/cdc.py": "ebe1e06ff8baf75a008c776a005c3bae4a94e74ed98543e0bf189bd8fa05c0c4",
+    "u/checker.py": "52dfe8b371a6bd7d91b71e14e9fc83c99e6aad3a210360a113ed31ec43a9198f",
+    "u/cli.py": "c9a8a6d3fc7d3d0228e339b9a13cf573e842fb881baca0d28cd651d993f1d547",
+    "u/evaluator.py": "a26815a1915cb290d54e09daad01922b4f7fb15e888a1803e0753545eeb53ce2",
+    "u/evidence.py": "8e058a3d8ae6fe812e6d0d7865da2c3e6c06007f57a2d7c5384772b5302d6fcf",
+    "u/graph.py": "f70aff6672e15a123ff6cab93e8d2ef72fa098b40d67d67e982cc08154f60c41",
+    "u/graph_execution.py": "a8d230cad0ace32dfadce8e2e5f13f5251511205abc27bb5f2ab0c5a1b9016aa",
+    "u/lsp.py": "a637dab1f372a314051f7a3998336f52fa4812f5526cd17d8cf20088ee1ec907",
+    "u/packages.py": "a0d6f4dee7ff03c0cfc231a47172ae461fbd24ab32ab646ef0f12fff28d577a0",
+    "u/proof.py": "db6b5b7add42c29f36170a5024df57c3df504ba6a12e69cf3e860d24ff28f9bd",
+    "u/resources.py": "cbf123f9d413d62e870d32520e9fe632399289e59def65f0c9c58e1283b4ed36",
+    "u/source.py": "ea5f679abd129738a0071dbbcb4a766941c976b70b0fe120b0b073f32ce7aa40",
+    "u/theories/__init__.py": "c170b6f4f6a0d8576d15e6ede141170093e33ffbc2e4bfe13eb7abf29a42881b",
+    "u/theories/base.py": "c604f2f3cd3d9653008033ef1d8600bbf01f7d9a700f5bfcd60faab299ed8616",
+    "u/theories/numeric.py": "b8519e18fdc59f4f7fb51a22dca2dc5bcd7a4737fb62c0605fe70f9c4fa040bf",
+    "u/theories/processes.py": "2b4beb733e2cb71e1eb3c5631b8fc0736177cd152ae2ab63c8f2e55d4e6e1682",
+    "u/theories/relational.py": "098fed20dc679fdaa426866a0f17ff464dd931b52e133ad15c30f670c3823138"
+  },
+  "identity": "sha256:d216d166856c800e2a0bac9968519e171f19606f1f8c35852714efc1eddb2ef2"
+}

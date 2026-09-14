@@ -1,0 +1,6 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// ConsoleCap is an explicit, nonforgeable permission; this profile borrows it.
+def main(out: ConsoleCap) -> Effect(IO, Unit) =
+  io.println(out, "Hello, world!");

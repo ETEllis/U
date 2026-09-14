@@ -1,0 +1,15 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Acausal RC equations. The solver chooses causality after analyzing the
+// equations; these are not preordered assignments or discrete samples.
+def rc(resistance: PositiveReal, capacitance: PositiveReal,
+       source: RealTrajectory) -> DAE =
+  dynamics.dae(fn(v: RealTrajectory, i: RealTrajectory) =>
+    #{equations: [
+        dynamics.equal(source,
+          dynamics.add(v, dynamics.scale(resistance, i))),
+        dynamics.equal(i,
+          dynamics.scale(capacitance, dynamics.derivative(v)))
+      ],
+      initial: [dynamics.at(v, 0.0, 0.0)]});
