@@ -3,6 +3,11 @@
   "profile": "etellis.cdc/native-0.3.0@1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157",
   "bidi_sha": "1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157",
   "scope": "finite well-formed field/module/cell/channel + flow/commit/nest; exact binary64 values and trit outcomes",
+  "numeric_profile": "binary64-Apple-arm64-explicit-fma-libm/1",
+  "exact_binary64": true,
+  "numeric_tolerance_absolute": 0.0,
+  "nonidentical_binary64_values": 0,
+  "observed_max_absolute_error": 0.0,
   "cases": [
     {
       "source_sha256": "fceb0df8444cae43b767cb9e0998479e1789c1b3dc81ef04f02d9d280c24ad90",

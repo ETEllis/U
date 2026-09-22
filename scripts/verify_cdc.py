@@ -47,6 +47,23 @@ def main():
     subprocess.run(command, check=True, capture_output=True, text=True)
     rng = random.Random(0xE7E1115)
     cases = []
+    exact_numeric_profile = platform.system() == 'Darwin' and platform.machine() in {'arm64', 'aarch64'}
+    numeric_tolerance = 0.0 if exact_numeric_profile else 1e-12
+    max_abs_error = 0.0
+    nonidentical_values = 0
+    def compare_real(case, label, expected_hex, observed):
+        nonlocal max_abs_error, nonidentical_values
+        expected = float.fromhex(expected_hex)
+        error = abs(expected - float(observed))
+        max_abs_error = max(max_abs_error, error)
+        if expected.hex() != float(observed).hex():
+            nonidentical_values += 1
+        if exact_numeric_profile:
+            assert expected.hex() == float(observed).hex(), (case, label, expected_hex, float(observed).hex())
+        else:
+            assert error <= numeric_tolerance, (case, label, expected_hex, float(observed).hex(), error)
+            if expected == 0.0 and observed == 0.0:
+                assert math.copysign(1.0, expected) == math.copysign(1.0, observed), (case, label, 'signed zero changed')
     with tempfile.TemporaryDirectory(prefix='u-cdc-parity-') as folder:
         for i in range(args.cases):
             gain, deadband = rng.uniform(-2, 2), rng.choice([0.0, .1, .5])
@@ -68,11 +85,11 @@ def main():
             actual = json.loads(subprocess.check_output([str(u_cdc_executable), 'run', str(path)], text=True, env=native_env))
             assert actual['verdict'] == 'Done', actual
             for native, computed in zip(oracle['cells'], actual['state']['cells']):
-                assert float.fromhex(native['theta']).hex() == computed['theta'].hex(), (i, native, computed)
+                compare_real(i, 'theta', native['theta'], computed['theta'])
                 assert native['has_latch'] == computed['has_latch'] and native['latch'] == computed['latch'], (i, native, computed)
             for native, computed in zip(oracle['modules'], actual['state']['modules']):
                 for key in ('belief', 'prior'):
-                    assert float.fromhex(native[key]).hex() == float(computed[key]).hex(), (i, key, native, computed)
+                    compare_real(i, key, native[key], computed[key])
             for native, computed in zip(oracle['steps'], actual['trace']):
                 if native['kind'] == 'commit':
                     assert native['status'] == computed['status']
@@ -81,7 +98,15 @@ def main():
     after = git('status', '--porcelain=v1', '--untracked-files=no') if external else ''
     assert before == after
     receipt = {'schema': 'etellis.u.cdc-parity/1', 'profile': PROFILE, 'bidi_sha': PIN,
-               'scope': 'finite well-formed field/module/cell/channel + flow/commit/nest; exact binary64 values and trit outcomes',
+               'scope': ('finite well-formed field/module/cell/channel + flow/commit/nest; exact binary64 values and trit outcomes'
+                         if exact_numeric_profile else
+                         'finite well-formed field/module/cell/channel + flow/commit/nest; exact trit and latch outcomes, binary64 values within 1e-12 absolute error on a distinct platform numeric profile'),
+               'numeric_profile': ('binary64-Apple-arm64-explicit-fma-libm/1' if exact_numeric_profile else
+                                   'cross-platform-empirical-absolute-1e-12/1'),
+               'exact_binary64': exact_numeric_profile,
+               'numeric_tolerance_absolute': numeric_tolerance,
+               'nonidentical_binary64_values': nonidentical_values,
+               'observed_max_absolute_error': max_abs_error,
                'cases': cases, 'passed': len(cases), 'total': args.cases, 'host': platform.platform(),
                'u_execution': 'native U-written CDC parser and reduction algorithms',
                'native_executable_sha256': hashlib.sha256(u_cdc_executable.read_bytes()).hexdigest(),
@@ -89,7 +114,9 @@ def main():
                'oracle_snapshot_hashes_verified':True, 'external_bidi_checkout_checked':external,
                'bidi_tracked_source_unchanged':True if external else None, 'full_cdc_compatibility': False}
     (ROOT/'artifacts/native-cdc-parity.json').write_text(json.dumps(receipt, indent=2)+'\n')
-    print(f'CDC primitive differential parity: {len(cases)}/{args.cases}; exact binary64 and latch state; BiDi unchanged')
+    print(f'CDC primitive differential parity: {len(cases)}/{args.cases}; '
+          f'{"exact binary64" if exact_numeric_profile else "cross-platform bounded numeric difference"}; '
+          'exact trits and latches; BiDi unchanged')
 
 
 if __name__ == '__main__':
