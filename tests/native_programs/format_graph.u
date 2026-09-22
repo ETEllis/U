@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def format_graph_test(path: Text) -> Value = {
+  let source = sys.read(path); let graph = gg_lower(cc_parse(source));
+  yield #{status: "passed", file: path, structural_identity: graph.structural_identity};
+};
+def format_graph_identity(source: Text) -> Text = gg_lower(cc_parse(source)).structural_identity;

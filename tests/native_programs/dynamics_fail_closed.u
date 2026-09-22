@@ -1,0 +1,11 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def main(mode: Int) -> Value = {
+  let system = dynamics.dae(fn(x: Value) => #{equations: [
+    u_choose(native.int_eq(mode, 1), fn() => dynamics.equal(0.0, 0.0), fn() =>
+      u_choose(native.int_eq(mode, 2), fn() => dynamics.equal(dynamics.derivative(4.0), 1.0), fn() =>
+        u_choose(native.int_eq(mode, 3), fn() => dynamics.equal(#{kind: "multiply", args: [x, x]}, 1.0), fn() => dynamics.equal(dynamics.derivative(x), 1.0))))],
+    initial: u_choose(u_contains([0, 1], mode), fn() => [], fn() => [dynamics.at(x, 0.0, 0.0)])});
+  yield dynamics.solve(system, u_choose(native.int_eq(mode, 5), fn() => "exact_magic", fn() => "backward_euler.affine_index1"),
+    #{dt: u_choose(native.int_eq(mode, 4), fn() => 0.0, fn() => 0.1), steps: 1});
+};

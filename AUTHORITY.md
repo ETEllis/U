@@ -1,10 +1,14 @@
-# Authority and implementation decisions
+# Project contracts and provenance
 
-1. Edward's 2026-09-14 instruction authorizes the complete build, new GitHub repository, substantial README/landing page, formal paper and commits. It supersedes the prior review-only boundary.
-2. The preserved GPT-6 Pro dossier and execution directive define the end state. `provenance/review/RECONCILIATION.md` qualifies both reviews and is the final review authority.
-3. `docs/SPEC.md` defines the implemented reference contracts. `CLAIMS.md`, fresh artifacts and `spec/capabilities.json` delimit demonstrated scope. Tests and views cannot silently extend it.
-4. Original source documents and the 22 examples remain unchanged. New grammar, checker, formalization and implementation are new work, not recovered historical package files.
+The repository distinguishes its implemented contracts, implementation evidence and wider research target.
 
-The sibling U and BiDi checkouts keep their histories independent. ETEllis/U uses private visibility, matching BiDi. The repository, manuscript and local landing page cross-reference BiDi. No change to BiDi's source, remote, naming, runtime or published claims is authorized by that cross-reference.
+1. [Native specification](docs/SPEC.md) defines the current source and execution contracts.
+2. [Support and evidence](CLAIMS.md), together with revision-specific verification reports, identifies what has been exercised or established.
+3. The preserved design dossier and operator contracts define the wider architecture. The [review reconciliation](provenance/review/RECONCILIATION.md) records the accepted refinements to elaboration, adapters, admission, identity and independence.
+4. Original design documents and the 22 source examples retain their provenance. New grammar, compiler, verification and formalization work is versioned separately.
 
-Stage0 uses available stable Python 3.13 with separately inspected modules. The initial environment had no Rust compiler; this choice makes a direct reference semantics executable and reviewable while retaining native-backend and self-hosting removal gates. It does not rename Python execution native machine-code execution. The repository's MIT license matches Edward's BiDi licensing.
+CDC predates U. The BiDi source contract and pinned native implementation remain independent references for compatibility; U's results are verified against them rather than inherited from their historical evidence.
+
+The implementation repositories are private. Public U and BiDi websites are distributed through separate assets-only repositories, with their manuscripts and source bundles. The project uses the MIT License.
+
+The current implementation is the U-written compiler and libraries. A checked generated-C seed starts the ordinary build; the independent Python parser and seed remain optional comparison tools. The [native ABI](native/ABI.md) discloses handwritten platform code and its trust boundaries.

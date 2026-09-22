@@ -1,0 +1,28 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def ft_check(source: Text) -> Text = {
+  let formatted = ff_format(source);
+  cc_require(text.eq(formatted, ff_format(formatted)), #{start: 0}, "format_test", "formatter is not idempotent");
+  cc_require(ff_same_tokens(cc_scan(source), cc_scan(formatted)), #{start: 0}, "format_test", "literal or semantic tokens changed");
+  cc_parse(formatted); yield formatted;
+};
+def format_test_main() -> Value = {
+  let compact = "u \"etellis.u/0.1\";def main()->Int={let x=int.add(1,2);yield x;};";
+  let expected = "u \"etellis.u/0.1\";\ndef main() -> Int = {\n  let x = int.add(1, 2);\n  yield x;\n};\n";
+  cc_require(text.eq(ft_check(compact), expected), #{start: 0}, "format_test", "block, indentation or operator spacing mismatch");
+  let records = "u \"etellis.u/0.1\";def main()->Value=#{a:1,b:[2,3],c:fn(x:Int)=>#{value:x}};";
+  let result = ft_check(records);
+  cc_require(int.ge(bytes.find(result, "  b: [2, 3],\n", 0), 0), #{start: 0}, "format_test", "record or list formatting mismatch");
+  let comments = "u \"etellis.u/0.1\";/* preserve  spaces\n   and indent */def main()->Text=\"λ\\u0000\\\"/*literal*/\";// trailing  comment";
+  let commented = ft_check(comments);
+  cc_require(int.ge(bytes.find(commented, "/* preserve  spaces\n   and indent */", 0), 0), #{start: 0}, "format_test", "block comment interior changed");
+  cc_require(int.ge(bytes.find(commented, "// trailing  comment\n", 0), 0), #{start: 0}, "format_test", "line comment changed");
+  let negative = ft_check("u \"etellis.u/0.1\";def main()->Value=(- 1,-0.0,1e+03,\"a\\/b\");");
+  cc_require(int.ge(bytes.find(negative, "(-1, -0.0, 1e+03, \"a\\/b\")", 0), 0), #{start: 0}, "format_test", "numeric or escaped literal spelling changed");
+  let inline = ft_check("u \"etellis.u/0.1\";def/*name*/ main( /*unit*/ )->Unit={yield();};");
+  cc_require(int.ge(bytes.find(inline, "/*name*/", 0), 0), #{start: 0}, "format_test", "inline comment lost");
+  let crlf = ft_check("u \"etellis.u/0.1\";\r\n// original CRLF\r\ndef main()->Int=1;\r\n");
+  cc_require(int.ge(bytes.find(crlf, "// original CRLF\r\n", 0), 0), #{start: 0}, "format_test", "comment line ending changed");
+  yield #{status: "passed", cases: 6, idempotent: true, literal_tokens_preserved: true, comments_preserved: true};
+};

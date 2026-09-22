@@ -1,0 +1,11 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Four finite resource arrangements: disjoint, shared read, read/write overlap,
+// and duplicated linear ownership. Codes name the first unmet obligation.
+// 0 duplicate; 1 conflict; 2 sharing witness; 3 profile; 4 admissible.
+def decide(scenario: Int, sharing: Int, profile: Int) -> Int =
+  value.select(int.eq(scenario, 3), 0,
+    value.select(int.eq(scenario, 2), 1,
+      value.select(bool.and(int.eq(scenario, 1), int.eq(sharing, 0)), 2,
+        value.select(int.eq(profile, 0), 3, 4))));

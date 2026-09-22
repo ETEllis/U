@@ -54,9 +54,9 @@
 \newcommand{\scope}{\mathsf{scope}}
 \newcommand{\fix}{\mathsf{fix}}
 \title{\vspace{-1em}\textbf{U: Law-Bearing Operations}\\[.4em]
-  \large Explicit Semantic Composition and Earned Artifacts}
+  \large Explicit Semantic Composition and Evidence-Bound Computation}
 \author{Edward Ellis}
-\date{September 14, 2026\\[.4em]\small ArXiv-intended manuscript; author review pending; not submitted}
+\date{September 2026\\[.4em]\small Research preprint}
 
 \begin{document}
 \maketitle
@@ -68,7 +68,10 @@ obligations remain explicit. A six-constructor structural calculus connects
 admitted generators without identifying their mathematical models. Seven
 theory families account for constructive values and proofs, resources and
 memory, relations and search, measures and probability, behaviors and clocks,
-continuous dynamics, and quantum channels. The proposal separates an
+continuous dynamics, and coherent state with observation instruments. Q's
+current mathematical profile uses complex Hilbert spaces and quantum channels;
+its architectural role is to preserve joint-state composition and observation
+contracts. The proposal separates an
 operation's meaning from its realization and from the evidence produced by
 that realization. It requires checked composite profiles or adapters at
 mixed-theory boundaries, deterministic elaboration, conservative independence
@@ -80,13 +83,14 @@ and invalidation lemmas, and an earned-artifact non-fabrication theorem. The
 Coherence-Delta Calculus supplies a demanding case study: its existing finite
 maps, scheduled resets and nested updates must be preserved before their
 derivatives can authorize recurrence-gated return analysis. CDC predates U;
-the proposed specialization is a new implementation relationship. An explicit
-Python stage-0 reference implementation accompanies the design. The
-mathematical results concern stated abstract models and do not constitute a
-mechanized correctness proof of the whole implementation. Neither complete
-foreign-language subsumption, globally minimal foundations, self-hosting,
-production completeness nor physical-backend execution follows from the
-present artifact.
+the specialization is a new implementation relationship. The compiler,
+structural graph, standard libraries, proof kernel and CDC analysis are
+implemented in U and compile to native functions. The compiler reproduces
+its translation through three executable stages without a Python runtime.
+The mathematical results concern stated abstract models; self-compilation
+and executable conformance checks provide separate implementation evidence.
+Complete foreign-language subsumption, general dependent type soundness and
+physical-backend execution remain outside the established scope.
 \end{abstract}
 \vspace{.7em}
 \noindent\textbf{Keywords:} programming-language semantics; typed operations;
@@ -94,10 +98,9 @@ semantic preservation; resources; proof checking; hybrid systems; provenance.
 \vfill
 \noindent\small Repository: \url{https://github.com/ETEllis/U}.
 Companion system: \url{https://github.com/ETEllis/BiDi}.
-The paper and repository disclose AI assistance and separate historical
-evidence from fresh implementation evidence.
+Interactive introduction: \url{https://etellis.github.io/U-web/}.
 \newpage
-\tableofcontents
+{\footnotesize\setlength{\parskip}{0pt}\tableofcontents}
 \newpage
 
 \section{Problem and contribution}
@@ -119,18 +122,17 @@ records what was established about that realization and its outputs. These
 objects are connected by explicit dependencies rather than merged into a
 single status field.
 
-The proposal is motivated by an existing implementation lineage. In
+The proposal develops from an existing implementation. In
 \bidi{}, \cdc{} connects canonical source to native state transitions,
 guarded effects and receipts; U1 adds lifted-cover acceptance and U2 adds
 variation followed by recurrence-qualified return analysis
 \cite{ellis-bidi}. U abstracts a broader composition discipline after that
-work. The historical order matters: \cdc{} was not previously implemented
-in U, and the existence of a native \cdc{} runtime cannot serve as evidence
-that a new U realization has preserved its semantics.
+work. \cdc{} predates U and provides an independent reference against which
+the corresponding U operations can be compared.
 
-The contribution is an integration protocol and a concrete proof program,
-not the invention of typed graphs, algebraic effects, linear resources or
-categorical composition. The paper develops four connected results:
+The contribution is an integration protocol and a concrete proof program
+built on typed graphs, algebraic effects, linear resources and categorical
+composition. The paper develops four connected results:
 \begin{enumerate}
 \item a structural calculus whose admitted profiles retain domain-specific
   law premises and whose derived operations remain inspectable;
@@ -323,7 +325,7 @@ none permits an unadmitted generator or a boundary cast.
 
 \begin{remark}
 This is a compositional metatheorem. It is neither a complete subject-reduction
-proof for every proposed U domain nor a proof of the Python implementation.
+proof for every proposed U domain nor a proof of the complete native implementation.
 Progress additionally requires each active generator to make a valid step,
 return a permitted outcome, or be allowed to wait. Event waits, partial
 recursion and unsupported solvers preclude a universal termination theorem.
@@ -568,11 +570,12 @@ Constructor exclusivity excludes creation outside this validation path.
 
 The theorem does not independently establish soundness or termination of an
 arbitrary extensible dependent type theory. Those are premises to discharge
-for each actual checker. Python object privacy is also not an adversarial
-process-isolation theorem. The stage-0 trust boundary includes its
-implementation and execution environment. Full universes, positivity,
-dependent elimination and metatheoretic correspondence remain separate
-release obligations beyond any smaller checked fragment.
+for each actual checker. U implements the admitted Nat/Pi/Eq fragment as a
+separate kernel and checks the preserved induction example through that
+kernel. Its native code, representation guards and execution environment
+remain in the trusted implementation boundary. These checks do not establish
+adversarial process isolation, full universes, positivity, general dependent
+elimination or metatheoretic correspondence for the complete language.
 
 \section{Identity, dependencies and invalidation}
 \label{sec:identity}
@@ -787,7 +790,7 @@ hardware needs cycle and event-region semantics; quantum programs need
 joint-channel and measurement semantics. No one test transcript proves all
 of these relations.
 
-\section{CDC as a later specialization}
+\section{CDC specialization and compatibility}
 \label{sec:cdc}
 
 The compatibility reference is \bidi{} commit
@@ -834,8 +837,10 @@ The numeric realization has an additional exact-bit contract. In the
 inspected arm64 Apple Clang 21 \texttt{-O2} oracle, generated fused
 multiply-add instructions make some expressions observably different from
 separate multiplication and addition. The U compatibility path therefore
-uses explicit fusion at the corresponding sites and requires Python 3.13's
-\texttt{math.fma}. Compiler flags and contraction policy belong in the
+uses explicit \texttt{math.fma} operations from U at the corresponding
+sites. The native bridge realizes those operations through the platform's
+fused arithmetic primitive; the independent Python reference uses its own
+explicit FMA path. Compiler flags and contraction policy belong in the
 realization/profile record. Matching binary64 storage alone is insufficient
 to establish bitwise parity. Analytic finite-map differentiation and
 numerical agreement with that pinned implementation are separate claims;
@@ -945,32 +950,137 @@ primitive. The toolchain's binding amendments distinguish canonical source
 parsing, ABI ownership, content digests, keyed authority, crash durability,
 per-check parity and trusted-local package execution.
 
-The native self-hosting mandate is a historical removal program whose
-current authority is qualified by the repository's release documents.
-\bidi{}'s C runtime and minimal declaration oracle do not make U's Python
-stage 0 self-hosted. RFTC's local classical kernels likewise do not
-establish multi-host deployment, nonclassical physical witnesses or
-computational advantage. A new U integration must name and exercise each
-cross-system gate separately.
+\bidi{}'s earlier native runtime remains an independent implementation.
+Compatibility is assessed through explicit source, state, numeric and
+observation contracts. RFTC supplies local classical synchronization and
+record-closure mechanisms; distributed and physical realizations require
+separate evidence. A U integration must identify and exercise the specific
+contract at each boundary.
 
-\section{Implementation artifact and verification program}
+\section{Native implementation and verification}
 \label{sec:artifact}
 
-The accompanying repository is the stage-0 implementation of this design.
-Its explicit bootstrap is Python 3.13+ using the standard library. The
-reference path parses U and evaluates its own expressions and operation
-rules; host evaluation of U or foreign source text is outside the contract.
-The code is partitioned into source, graph, checker, evaluator, theory,
-proof/resource/evidence, CDC and toolchain boundaries. Native and WASM
-compilation must identify the exact fragments for which parity is tested.
+The compiler is a U program. It owns scanning, parsing, lexical and core
+annotation checks, closure conversion and deterministic native-code
+emission. A second U module lowers executable bodies into the six structural
+constructors and reconstructs the program from graph regions and bindings.
+Declared types remain interface metadata; no generator stores an executable
+body as an opaque syntax tree. The command-line path compiles the reconstructed
+program with the selected U libraries.
 
-The paper intentionally does not turn the presence of those modules or
-the 22 preserved source examples into a completeness result. Support is a
-relation between operation, source fragment, semantic profile and realization.
-The repository's \texttt{CLAIMS.md}, capability inventory and fresh
-verification receipts identify that relation for a concrete revision. Test
-counts change with the implementation; no historical audit count is copied
-here as a fresh result.
+\subsection{Source, graph and native execution}
+
+The graph retains qualified operator names, nominal binding identities,
+ordered operands, stages, imported profile identifiers and resource-use
+obligations. Reconstruction checks tags, arities, scopes, literal encodings
+and canonical metadata. Literal-only operand groups have an explicit empty
+resource-footprint witness; other operand groups remain ordered. This local
+structural rule does not establish independence for arbitrary effectful
+branches.
+
+All 22 preserved examples reconstruct to their native-parser ASTs and agree
+with the independent reference parser after accounting for their different
+coordinate and record-field encodings. Repeated lowering is deterministic;
+source-offset changes leave the structural identity unchanged. Corrupted
+tags, arities, binders, stages, operator identities, parallel witnesses and
+literal encodings are rejected even when the enclosing digest is recomputed.
+Source bytes are auxiliary provenance. Replacing them cannot replace the
+executable regions reconstructed from the graph.
+
+The resulting C contains native functions for U functions and closures.
+Generated C is a portable machine realization; U owns the algorithms that
+construct it. A handwritten bridge supplies generic values, arbitrary-
+precision integers, storage, function application and platform access. TLS
+and SHA-256 use declared platform implementations. The bridge does not parse
+or interpret a U program or implement the CDC, inference or proof algorithms.
+Its default allocation arena is bounded at 1 GiB and released at process
+exit. That budget is neither a tracing collector nor a bound on total
+operating-system memory use.
+
+The formatter is also a U program. It preserves comment, string and numeric
+lexemes, reparses its output and is idempotent on the verified source corpus.
+A separate U-written backend performs interval analysis and emits WebAssembly
+bytes directly for admitted integer expressions and Boolean predicates.
+Every intermediate must fit its certified signed-i64 interval. The host must
+check exact integer inputs before ABI conversion; an in-module guard cannot
+recover bits already truncated by the host. This target is narrower than
+the general native compiler.
+
+\subsection{Executable library scope}
+
+Table~\ref{tab:native-scope} summarizes the current U-owned responsibilities.
+Support remains a relation between an operation, source fragment, semantic
+profile and realization; the table does not turn a family name into complete
+domain support.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Native U responsibilities and their present boundaries.}\label{tab:native-scope}
+\begin{tabular}{P{.18\textwidth}P{.40\textwidth}P{.32\textwidth}}
+\toprule
+Area & Implemented in U & Boundary\\
+\midrule
+Values and syntax & Collections, natural recursion, lexical closures,
+quotation, splicing and single-evaluation binding & General staged-type and
+resource theorems require separate correspondence.\\[.5em]
+Relations and probability & Occurs-checked unification, relational search,
+bag joins, weighted models, conditioning and seeded HMC & Declared search
+and numerical inference policies; no convergence or arbitrary import claim.\\[.5em]
+Behavior & Local tasks, cancellation, HTTP operations, actor supervision and
+finite temporal checks & Local execution does not establish distributed or
+all-schedule correctness.\\[.5em]
+Models & Array operations, affine index-1 backward Euler, clocked-register and
+partitioned-launch simulation, joint statevectors & Numerical and simulated
+realizations retain their declared scope.\\[.5em]
+Proof and evidence & Total Nat/Pi/Eq checking, subject identities, checked
+handles and guarded consequences & No complete dependent type theory or
+whole-runtime correctness theorem.\\[.5em]
+CDC & Finite reductions, executed paths, ordered tangents, recurrence,
+return operators and triangular spectra & Full U1 binding, localized events
+and general dense Schur analysis remain open.\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+HMC preserves its seeded random stream and Markov state across bounded,
+unprivileged worker batches. The original four-chain workload completes with
+1,000 retained draws and 500 warmup transitions per chain; a shorter execution
+checks exact agreement with the unbatched stream. Those results establish
+execution and reproducibility, not statistical convergence.
+
+The CDC analysis issues opaque handles through a private U registry.
+Matching a label or constructing a new generic resource cannot insert an
+entry into that registry. Tangent, recurrence and return constructors check
+the same live path identity, canonical input binding and coordinate manifest.
+The source identity supplied by a caller is a bound label, not an
+authenticated claim about an external file.
+
+Relative restoration currently supports explicitly declared uniform integer
+phase turns on coupled state. Its restoration derivative is constructed as
+identity. The certificate records numerical endpoint agreement and the
+periodic real-map interpretation; it does not assert exact global
+IEEE-arithmetic equivariance. Upper or lower triangular return matrices have
+a validated real-Schur path with reconstruction and orthogonality residuals.
+A general dense matrix produces a hold while retaining the checked return
+operator. The complete U1 role, cover, decision and effect bindings are
+required separately and cannot be supplied as caller Boolean certificates.
+
+\subsection{Reproducible self-compilation}
+
+A checked generated-C seed establishes the initial executable. Subsequent
+translation is performed by the U compiler. The reproduction procedure
+compiles the compiler, uses that executable to compile the same U source
+again, and repeats the process through a third stage. Generated C agrees
+byte-for-byte across the tested stages. Native executables also agree under
+the recorded toolchain when built with the same output basename, which
+matters for macOS ad-hoc signature identity.
+
+Compiler and program tests run with no interpreter in their executable search
+path. The independent historical Python implementation and optional seed
+translator remain comparison tools; ordinary compilation and execution do
+not invoke them. Self-compilation establishes a reproducible translator
+fixed point. It does not by itself exclude a compromised seed, prove the C
+toolchain correct or discharge a domain's mathematical laws.
 
 \subsection{Discriminating checks}
 
@@ -994,9 +1104,9 @@ The verification program follows mechanisms and refusal conditions:
   export after edits that lack a valid residual update.
 \end{itemize}
 
-These are acceptance criteria, not a claim that all have been discharged
-merely by listing them. Unit, property, differential, mutation and security
-checks have different scopes. A mutation family should be tied to an
+These acceptance criteria test different aspects of the implementation.
+Unit, property, differential, mutation and security checks have different
+scopes. A mutation family is tied to an
 actual mechanism: reversed Jacobian order, wrong nest derivative, omitted
 restoration derivative, false recurrence, or a stale capability receipt.
 Passing a finite sample is evidence about that sample and mechanism; it is
@@ -1004,21 +1114,33 @@ not an unbounded theorem.
 
 \subsection{Reproduction and provenance}
 
-Clone the qualified repository and inspect its command help and current
-claim ledger. The expected reference environment is Python 3.13 or later;
-optional compiled and document paths have separately recorded tool
-dependencies. This manuscript builds from \texttt{paper/main.tex} and
-\texttt{paper/references.bib} with Tectonic, producing
-\texttt{paper/main.pdf}. The landing page is static and its interactive
-independence instrument is explicitly explanatory; it neither executes U
-nor issues proof or runtime receipts.
+With a C11 toolchain installed, the public launcher compiles and runs U
+programs through the native path:
+\begin{verbatim}
+./bin/etellis-u run examples/original/02_arithmetic.u \
+  --entry square --args '[7]'
+./bin/etellis-u prove examples/original/14_proof.u \
+  --entry checked
+\end{verbatim}
+The arithmetic example returns 49. A Fibonacci program compiled through the
+graph returns the exact integer $354224848179261915075$ at input 100. The proof
+example is checked by the U Nat/Pi/Eq kernel rather than accepted from its
+annotation. Build records identify source, graph, compiler, runtime and
+selected library dependencies. Aggregate results are recorded with their
+revision in \path{artifacts/native-verification.json}; the self-compilation
+record gives the relevant stage and binary hashes.
 
-The provenance directory preserves the five supplied source files and the
-review reconciliation. All 22 examples were recovered from supplied text.
-The original grammar, runnable audit checker, source-reference ledger and
-further structured package assets remain missing. Newly implemented grammar
-or verification files are new work, not a recovered historical package.
-The historical receipt is not a fresh rerun of the original audit.
+This manuscript builds from \path{paper/main.tex} and
+\path{paper/references.bib} with Tectonic. The public introduction at
+\url{https://etellis.github.io/U-web/} runs an interactive finite independence
+model written in U and compiled to WebAssembly. It checks that declared
+model's conditions; it does not issue general proof or physical-device
+evidence.
+
+The provenance directory preserves the design documents, review refinements
+and 22 original examples. Implementation results bind to the tested revision.
+The repository's design history separately records the recovery of source
+material and the limits of the historical package.
 
 \section{Related work and research position}
 
@@ -1072,7 +1194,7 @@ integrated protocol and its execution discipline. Demonstrating useful
 compression without hiding domain semantics requires comparative artifacts,
 preservation evidence, usability work and realistic maintenance accounting.
 
-\section{Limitations and full-completion program}
+\section{Limitations and further work}
 
 The structural theorem depends on sound local generator rules and
 substitution. The resource theorem depends on unforgeable ownership and
@@ -1086,18 +1208,23 @@ them of every execution environment.
 The current work does not establish a globally minimal semantic basis,
 automatic subsumption of arbitrary source languages, a complete dependent
 type theory, a production distributed runtime, hostile-package isolation,
-formal correspondence of all host code, physical GPU/HDL/QPU execution or
-self-hosting. Classical simulation, interchange emission, numerical
-calibration and physical realization are distinct support classes.
+formal correspondence of all implementation code, or physical GPU/HDL/QPU
+execution. Full U1 compatibility, general dense spectral analysis and
+long-running memory reclamation also remain incomplete. Classical
+simulation, interchange emission, numerical calibration and physical
+realization are distinct support classes.
 
-The original directive remains the completion target: foundational contracts
-and canonical syntax; executable values, resources and proofs; native CDC
-compatibility; theory conformance; faithful ingestion and law-aware
-transforms; production classical runtime; specialized execution gates;
-stronger formal correspondence; and staged self-hosting. Self-hosting requires
-a U-written parser, formatter and elaborator, a stage-1 compiler, reproducible
-stage-2 compilation, and continued checks against an independent oracle.
-Deleting the oracle would weaken the result rather than complete it.
+The development program connects foundational contracts and canonical
+syntax to executable values, resources and proofs; native CDC compatibility;
+theory conformance; faithful ingestion and law-aware transforms; production
+classical runtime; specialized execution; stronger formal correspondence;
+and continued self-hosting. The compiler and structural graph now execute
+in U, with reproducible stages and independent comparison. Formatting preserves
+comment and literal lexemes while canonicalizing the supported layout, with
+idempotence checked on the source corpus. Broader
+law-aware source transformations and general WebAssembly lowering remain
+further work. Independent implementations remain useful checks as the
+native system grows.
 
 Progress should be measured independently in compile time, runtime,
 memory, semantic coverage, representation density, proof/analysis coverage
@@ -1106,15 +1233,12 @@ numeric modes, hardware and workloads. A compact graph is not automatically
 faster execution, and the ability to describe a physical process does not
 establish a new physical law.
 
-\section*{Authorship, AI assistance and submission status}
-Edward Ellis is the author and originator of the project direction. The
-preserved design includes a GPT-6 Pro design pass and subsequent Codex and
-Grok review. Codex assisted with implementation, mathematical exposition,
-proof drafting, documentation and presentation. The author is responsible
-for reviewing the manuscript, verifying its claims and approving any
-submission. No AI system is listed as an author. No affiliation, funding,
-DOI, arXiv identifier, peer review or submission is implied. This is an
-arXiv-intended manuscript prepared for author review.
+\section*{Authorship and disclosure}
+Edward Ellis is the author. AI systems assisted with design exploration,
+implementation, mathematical exposition, proof drafting and editorial review.
+Responsibility for the manuscript and its claims remains with the author.
+This research preprint is prepared for arXiv; it has not been submitted or
+peer reviewed.
 
 \appendix
 \section{Theory accounting and refusal cases}
@@ -1141,7 +1265,8 @@ fairness or all-behavior equivalence.\\[.6em]
 D & Paths, equations, domains, guards, resets, derivatives and frames &
 A finite solver map does not inherit exact flow laws; changed itinerary or
 grazing blocks the corresponding derivative.\\[.6em]
-Q & Joint state, channels, instruments, measurement and reset &
+Q & Coherent joint state, channels, instruments, measurement and reset under
+the declared complex Hilbert-space profile &
 Classical circuit descriptions may be copied; an unknown physical state
 does not inherit copying or inspectable simulator storage.\\
 \bottomrule
@@ -1157,6 +1282,7 @@ state and zero for the mixture. Matching only one measurement basis is an
 insufficient conformance test. This is a mathematical/classical simulation
 probe, not a report of physical nonclassical evidence.
 
+\clearpage
 \section{Formal claims and their exact boundaries}
 
 \begin{longtable}{P{.28\textwidth}P{.35\textwidth}P{.27\textwidth}}
@@ -1191,24 +1317,20 @@ nonreturning path\\
 \bottomrule
 \end{longtable}
 
-\section{Source lineage and authority map}
+\section{Source and reproducibility record}
 
-The preserved design dossier is the architectural source, with the
-operator-contract seed and original execution directive as its technical
-companions. The final review reconciliation refines whole-surface
-elaboration, checked graph adapters, multidimensional admission,
-contract-sensitive meaning identity and conservative independence. Original
-source files remain unchanged; new implementation decisions are recorded
-separately.
+The repository preserves the initial design and subsequent refinements to
+whole-surface elaboration, graph adapters, multidimensional admission,
+contract-sensitive meaning identity and conservative independence. These
+documents provide a versioned record of the design's development.
 
-At the pinned \bidi{} revision, the source language, formal semantic spine,
-Universal Operator System, verification matrix, frameworks, U2 semantics,
-toolchain amendments and RFTC matrix are read together. A historical
-self-hosting aspiration is not current implementation authority. The
-architecture document in this repository links those exact files at the pin
-and explains their U obligations. The independent repository is preserved
-as an oracle, and fresh compatibility results must state their executed
-scope without importing historical aggregate counts.
+The \bidi{} compatibility reference binds a specific revision of the source
+language, formal semantic spine, verification matrix, frameworks, U2
+semantics, toolchain contracts and RFTC definitions. The architecture
+document links those files and identifies the corresponding U obligations.
+Comparisons against the independent runtime report their executed scope and
+numeric profile. Historical aggregate counts are distinct from those
+revision-specific results.
 
 \bibliographystyle{plain}
 \bibliography{references}

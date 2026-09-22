@@ -1,0 +1,162 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def ls_find(text_value: Text, pattern: Text, start: Int) -> Int = {
+  let i = cell.new(start); let found = cell.new(false);
+  control.while(fn() => bool.and(bool.not(cell.get(found)), int.le(
+    int.add(cell.get(i), bytes.length(pattern)), bytes.length(text_value))), fn() => {
+    cc_choose(text.eq(bytes.slice(text_value, cell.get(i), int.add(cell.get(i), bytes.length(pattern))), pattern),
+      fn() => cell.set(found, true), fn() => cell.set(i, int.add(cell.get(i), 1))); yield ();
+  });
+  yield cc_choose(cell.get(found), fn() => cell.get(i), fn() => -1);
+};
+def ls_trim(s: Text) -> Text = {
+  let start = cell.new(0); let end = cell.new(bytes.length(s));
+  control.while(fn() => cc_choose(int.lt(cell.get(start), cell.get(end)),
+    fn() => cc_space(cc_char(s, cell.get(start))), fn() => false), fn() => cell.set(start, int.add(cell.get(start), 1)));
+  control.while(fn() => cc_choose(int.gt(cell.get(end), cell.get(start)),
+    fn() => cc_space(cc_char(s, int.sub(cell.get(end), 1))), fn() => false), fn() => cell.set(end, int.sub(cell.get(end), 1)));
+  yield bytes.slice(s, cell.get(start), cell.get(end));
+};
+def ls_send(message: Value) -> Unit = {
+  let body = json.encode(message);
+  yield sys.stdout_write(cc_cat(cc_cat(cc_cat("Content-Length: ", cc_num(bytes.length(body))), "\r\n\r\n"), body));
+};
+def ls_reply(id: Value, result: Value) -> Unit = ls_send(#{jsonrpc: "2.0", id: id, result: result});
+def ls_read() -> Value = {
+  let length = cell.new(-1); let done = cell.new(false); let eof = cell.new(false);
+  control.while(fn() => bool.not(cell.get(done)), fn() => {
+    let line = sys.stdin_line();
+    cc_choose(text.eq(value.kind(line), "unit"), fn() => {cell.set(eof, true); cell.set(done, true); yield ();}, fn() =>
+      cc_choose(text.eq(line, ""), fn() => cell.set(done, true), fn() => {
+        let colon = ls_find(line, ":", 0);
+        cc_require(int.ge(colon, 0), #{start: 0}, "lsp_header", "invalid header");
+        let key = ls_trim(bytes.slice(line, 0, colon));
+        cc_choose(cc_has(["Content-Length", "content-length"], key), fn() =>
+          cell.set(length, text.parse_int(ls_trim(bytes.slice(line, int.add(colon, 1), bytes.length(line))))), fn() => ());
+        yield ();
+      }));
+    yield ();
+  });
+  yield cc_choose(cell.get(eof), fn() => #{eof: true}, fn() => {
+    cc_require(bool.and(int.gt(cell.get(length), 0), int.le(cell.get(length), 4000000)), #{start: 0}, "lsp_length", "invalid message length");
+    let body = sys.stdin_read(cell.get(length));
+    cc_require(bool.and(text.eq(value.kind(body), "text"), int.eq(bytes.length(body), cell.get(length))), #{start: 0}, "lsp_eof", "incomplete message");
+    yield #{eof: false, message: json.parse(body)};
+  });
+};
+def ls_position(source: Text, stop: Int) -> Value = {
+  let i = cell.new(0); let line = cell.new(0); let column = cell.new(0);
+  control.while(fn() => bool.and(int.lt(cell.get(i), stop), int.lt(cell.get(i), bytes.length(source))), fn() => {
+    let byte = bytes.at(source, cell.get(i));
+    cc_choose(int.eq(byte, 10), fn() => {cell.set(line, int.add(cell.get(line), 1)); cell.set(column, 0); cell.set(i, int.add(cell.get(i), 1)); yield ();}, fn() => {
+      cell.set(column, int.add(cell.get(column), cc_choose(int.ge(byte, 240), fn() => 2, fn() => 1)));
+      cell.set(i, int.add(cell.get(i), cc_choose(int.lt(byte, 128), fn() => 1,
+        fn() => cc_choose(int.lt(byte, 224), fn() => 2, fn() => cc_choose(int.lt(byte, 240), fn() => 3, fn() => 4)))));
+      yield ();
+    }); yield ();
+  });
+  yield #{line: cell.get(line), character: cell.get(column)};
+};
+def ls_error_position(source: Text, message: Text) -> Value = {
+  let at = ls_find(message, " at ", 0);
+  yield cc_choose(int.ge(at, 0), fn() => {
+    let colon = ls_find(message, ":", int.add(at, 4));
+    yield cc_choose(int.ge(colon, 0), fn() => ls_position(source,
+      text.parse_int(bytes.slice(message, int.add(at, 4), colon))), fn() => #{line: 0, character: 0});
+  }, fn() => #{line: 0, character: 0});
+};
+def ls_diagnose(uri: Text, source: Text) -> Unit = {
+  let parsed = value.try_call(cc_parse, [source]);
+  let diagnostics = cc_choose(parsed.ok, fn() => [], fn() => {
+    let start = ls_error_position(source, parsed.message);
+    yield [#{range: #{start: start, end: #{line: start.line, character: int.add(start.character, 1)}},
+      severity: 1, source: "etellis-u", code: parsed.code, message: parsed.message}];
+  });
+  yield ls_send(#{jsonrpc: "2.0", method: "textDocument/publishDiagnostics",
+    params: #{uri: uri, diagnostics: diagnostics}});
+};
+def ls_offset(source: Text, position: Value) -> Int = {
+  let i = cell.new(0); let done = cell.new(false);
+  control.while(fn() => bool.and(bool.not(cell.get(done)), int.lt(cell.get(i), bytes.length(source))), fn() => {
+    let at = ls_position(source, cell.get(i));
+    cc_choose(bool.or(int.gt(at.line, position.line), bool.and(int.eq(at.line, position.line),
+      int.ge(at.character, position.character))), fn() => cell.set(done, true), fn() => {
+      let byte = bytes.at(source, cell.get(i));
+      cell.set(i, int.add(cell.get(i), cc_choose(int.lt(byte, 128), fn() => 1,
+        fn() => cc_choose(int.lt(byte, 224), fn() => 2, fn() => cc_choose(int.lt(byte, 240), fn() => 3, fn() => 4)))));
+      yield ();
+    }); yield ();
+  });
+  yield cell.get(i);
+};
+def ls_word_char(c: Text) -> Bool = bool.or(text.eq(c, "."), bool.or(cc_alpha(c), cc_digit(c)));
+def ls_word(source: Text, offset: Int) -> Text = {
+  let start = cell.new(offset); let end = cell.new(offset);
+  control.while(fn() => cc_choose(int.gt(cell.get(start), 0), fn() => ls_word_char(cc_char(source, int.sub(cell.get(start), 1))), fn() => false),
+    fn() => cell.set(start, int.sub(cell.get(start), 1)));
+  control.while(fn() => cc_choose(int.lt(cell.get(end), bytes.length(source)), fn() => ls_word_char(cc_char(source, cell.get(end))), fn() => false),
+    fn() => cell.set(end, int.add(cell.get(end), 1)));
+  yield bytes.slice(source, cell.get(start), cell.get(end));
+};
+def ls_dispatch(message: Value, documents: Value, shutdown: Value) -> Unit = {
+  let method = message.method;
+  cc_choose(text.eq(method, "initialize"), fn() => ls_reply(message.id,
+    #{serverInfo: #{name: "etellis-u", version: "0.2.0"}, capabilities: #{textDocumentSync: 1,
+      hoverProvider: true, definitionProvider: true, documentFormattingProvider: true, positionEncoding: "utf-16"}}), fn() =>
+  cc_choose(text.eq(method, "shutdown"), fn() => {cell.set(shutdown, true); ls_reply(message.id, ()); yield ();}, fn() =>
+  cc_choose(text.eq(method, "exit"), fn() => sys.exit(cc_choose(cell.get(shutdown), fn() => 0, fn() => 1)), fn() =>
+  cc_choose(text.eq(method, "textDocument/didOpen"), fn() => {
+    let document = message.params.textDocument;
+    table.set(documents, document.uri, document.text); ls_diagnose(document.uri, document.text); yield ();
+  }, fn() =>
+  cc_choose(text.eq(method, "textDocument/didChange"), fn() => {
+    let uri = message.params.textDocument.uri; let changes = message.params.contentChanges;
+    let source = list.get(changes, int.sub(list.length(changes), 1)).text;
+    table.set(documents, uri, source); ls_diagnose(uri, source); yield ();
+  }, fn() =>
+  cc_choose(text.eq(method, "textDocument/didClose"), fn() => {table.set(documents, message.params.textDocument.uri, ""); yield ();}, fn() =>
+  cc_choose(cc_has(["textDocument/hover", "textDocument/definition", "textDocument/formatting"], method), fn() => {
+    let uri = message.params.textDocument.uri; let source = table.get(documents, uri, "");
+    cc_choose(text.eq(method, "textDocument/formatting"), fn() => {
+      let formatted = ff_format(source);
+      ls_reply(message.id, [#{range: #{start: #{line: 0, character: 0}, end: ls_position(source, bytes.length(source))}, newText: formatted}]); yield ();
+    }, fn() => {
+      let word = ls_word(source, ls_offset(source, message.params.position));
+      cc_choose(text.eq(method, "textDocument/hover"), fn() =>
+        ls_reply(message.id, #{contents: #{kind: "markdown", value: cc_cat(cc_cat("`", word),
+          "`\n\nU operation or binding. The compiler retains its declared interface; `etellis-u check` reports unresolved theory and resource obligations.")}}), fn() => {
+        let parsed = cc_parse(source);
+        let found = list.filter(parsed.definitions, fn(d: Value) => text.eq(d.name, word));
+        ls_reply(message.id, cc_choose(int.eq(list.length(found), 1), fn() => {
+          let position = ls_position(source, list.get(found, 0).start);
+          yield #{uri: uri, range: #{start: position, end: position}};
+        }, fn() => ())); yield ();
+      }); yield ();
+    }); yield ();
+  }, fn() => cc_choose(record.has(message, "id"), fn() =>
+    ls_send(#{jsonrpc: "2.0", id: message.id, error: #{code: -32601, message: "method not supported"}}), fn() => ()))))))));
+  yield ();
+};
+def ls_main() -> Unit = {
+  let documents = table.new(); let shutdown = cell.new(false);
+  control.while(fn() => true, fn() => {
+    let received = value.try_call(ls_read, []);
+    cc_choose(received.ok, fn() => {
+      cc_choose(received.value.eof, fn() => sys.exit(cc_choose(cell.get(shutdown), fn() => 0, fn() => 1)), fn() => {
+        let message = received.value.message;
+        let valid = cc_choose(text.eq(value.kind(message), "record"), fn() =>
+          cc_choose(bool.and(record.has(message, "method"), record.has(message, "jsonrpc")), fn() =>
+            bool.and(text.eq(value.kind(message.method), "text"), value.equal(message.jsonrpc, "2.0")), fn() => false), fn() => false);
+        cc_choose(valid, fn() => {
+          let result = value.try_call(ls_dispatch, [message, documents, shutdown]);
+          cc_choose(bool.and(bool.not(result.ok), record.has(message, "id")), fn() =>
+            ls_send(#{jsonrpc: "2.0", id: message.id, error: #{code: -32602, message: result.message}}), fn() => ());
+          yield ();
+        }, fn() => ls_send(#{jsonrpc: "2.0", id: (), error: #{code: -32600, message: "expected a JSON-RPC 2.0 request object"}}));
+        yield ();
+      }); yield ();
+    }, fn() => {ls_send(#{jsonrpc: "2.0", id: (), error: #{code: -32700, message: received.message}}); sys.exit(2); yield ();});
+    yield ();
+  }); yield ();
+};

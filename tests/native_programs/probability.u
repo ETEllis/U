@@ -1,0 +1,13 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def main() -> Value = {
+  let model = prob.model(fn() => {
+    let mu = prob.sample(dist.normal(0.0, 1.0));
+    prob.observe_all(dist.normal(mu, 1.0), [1.0, 2.0, 3.0]);
+    yield mu;
+  });
+  let result = prob.infer(model, "hmc", #{seed: 81, chains: 1, draws: 32,
+    warmup: 16, leapfrog_steps: 4, step_size: 0.1});
+  yield result;
+};

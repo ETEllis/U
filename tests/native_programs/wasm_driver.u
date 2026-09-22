@@ -1,0 +1,7 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+def wasm_main() -> Value = {
+  let args = sys.args();
+  yield ww_build(cc_parse(sys.read(list.get(args, 1))), list.get(args, 2),
+    json.parse(list.get(args, 3)), list.get(args, 4));
+};

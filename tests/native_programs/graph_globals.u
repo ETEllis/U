@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def graph_count: Value = cell.new(0);
+def graph_unused: Value = { cell.set(graph_count, 7); yield 0; };
+def graph_forward: Int = graph_later;
+def graph_later: Int = 41;
+def graph_globals() -> Value = #{forward: int.add(graph_forward, 1), unused_effect: cell.get(graph_count)};

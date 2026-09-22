@@ -1,0 +1,338 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+// The native compiler's inspectable six-constructor representation.
+// Executable bodies are recursively lowered; no generator contains a saved
+// executable AST. Type annotations remain explicitly declared interface data.
+// Source and spans are auxiliary provenance, never reconstruction instructions.
+// This is structural elaboration, not a domain soundness or adapter proof.
+
+def gg_get(object: Value, key: Text, fallback: Value) -> Value =
+  cc_choose(record.has(object, key), fn() => record.get(object, key), fn() => fallback);
+def gg_assert(test: Bool, message: Text) -> Unit =
+  cc_choose(test, fn() => (), fn() => value.fail(cc_cat("U_GRAPH: ", message)));
+def gg_range(n: Int) -> Value = {
+  let result = buffer.new(); let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), n), fn() => {
+    buffer.push(result, cell.get(i)); cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield buffer.freeze(result);
+};
+def gg_all(items: Value, test: Value) -> Bool = {
+  let result = cell.new(true);
+  cc_each(items, fn(item: Value) => cc_choose(cell.get(result), fn() => cell.set(result, test(item)), fn() => ()));
+  yield cell.get(result);
+};
+def gg_canonical(value: Value) -> Value =
+  cc_choose(text.eq(native.value_kind(value), "record"), fn() => {
+    let keys = list.filter(record.keys(value), fn(key: Text) => bool.not(cc_has(["origin", "start", "source"], key)));
+    yield native.record_make(keys, list.map(keys, fn(key: Text) => gg_canonical(record.get(value, key))));
+  }, fn() => cc_choose(text.eq(native.value_kind(value), "list"),
+    fn() => list.map(value, gg_canonical), fn() => value));
+def gg_node(tag: Text, role: Text, stage: Int, start: Int, attributes: Value, regions: Value) -> Value =
+  #{tag: tag, role: role, stage: stage, origin: #{start: start}, attributes: attributes, regions: regions};
+def gg_context() -> Value = #{serial: cell.new(0), bindings: buffer.new(), uses: table.new()};
+def gg_binder(c: Value, name: Text, role: Text, type: Value, stage: Int, start: Int) -> Value = {
+  let id = cc_cat("b", cc_num(cell.get(c.serial)));
+  cell.set(c.serial, int.add(cell.get(c.serial), 1));
+  let binding = #{id: id, name: name, role: role, type: type, stage: stage, origin: #{start: start}};
+  buffer.push(c.bindings, binding);
+  yield binding;
+};
+def gg_parameters(c: Value, params: Value, env: Value, stage: Int) -> Value = {
+  let local = cell.new(env); let bindings = buffer.new();
+  cc_each(params, fn(param: Value) => {
+    let binding = gg_binder(c, param.name, "parameter", param.type, stage, param.start);
+    buffer.push(bindings, binding);
+    cell.set(local, native.record_put(cell.get(local), param.name, binding)); yield ();
+  });
+  yield #{env: cell.get(local), bindings: buffer.freeze(bindings)};
+};
+def gg_theory(name: Text) -> Text = {
+  let dot = bytes.find(name, ".", 0);
+  let prefix = cc_choose(int.lt(dot, 0), fn() => name, fn() => bytes.slice(name, 0, dot));
+  let mapping = #{mem: "M", gpu: "M", io: "M", http: "C", async: "C", actor: "C", temporal: "C", model: "C", duration: "C",
+    rel: "R", logic: "R", sql: "R", prob: "P", dist: "P", dynamics: "D", hw: "D", cdc: "D", topology: "D",
+    ad: "D", recurrence: "D", spectral: "D", linear: "D", quantum: "Q"};
+  yield gg_get(mapping, prefix, "V");
+};
+def gg_region_policy(name: Text) -> Text = gg_get(#{
+  syntax: "strict-left-to-right"}, name,
+  cc_choose(text.eq(name, "syntax.quote"), fn() => "staged-quotation",
+    fn() => cc_choose(text.eq(name, "syntax.splice"), fn() => "explicit-stage-crossing",
+      fn() => cc_choose(cc_has(["logic.relation", "logic.exists", "dynamics.dae", "prob.model", "quantum.program"], name),
+        fn() => "declared-description-region", fn() => "strict-left-to-right"))));
+def gg_iteration(name: Text) -> Text =
+  cc_choose(cc_has(["core.fix_partial", "native.core_fix_partial"], name), fn() => "partial-computation",
+    fn() => cc_choose(cc_has(["nat.rec", "native.nat_rec"], name), fn() => "structural-natural-recursion",
+      fn() => cc_choose(cc_has(["control.while", "native.control_while"], name), fn() => "guarded-runtime-loop", fn() => "")));
+def gg_operands(c: Value, items: Value, env: Value, stage: Int, start: Int) -> Value = {
+  let literal = gg_all(items, fn(item: Value) => text.eq(item.kind, "literal"));
+  yield gg_node(cc_choose(literal, fn() => "par", fn() => "seq"), "operands", stage, start,
+    #{order: "source-order", independence: cc_choose(literal,
+      fn() => "literal-values-empty-resource-footprints", fn() => "not-assumed"),
+      realization_order: "left-to-right"}, list.map(items, fn(item: Value) => gg_expr(c, item, env, stage)));
+};
+def gg_block(c: Value, expr: Value, env: Value, stage: Int) -> Value = {
+  let local = cell.new(env); let pending = buffer.new();
+  cc_each(expr.statements, fn(statement: Value) => {
+    let initial = gg_expr(c, statement.value, cell.get(local), stage);
+    let is_let = text.eq(statement.kind, "let");
+    let binding = cc_choose(is_let, fn() => gg_binder(c, statement.name, "let", cc_type("Value"), stage, statement.start), fn() => ());
+    cc_choose(is_let, fn() => cell.set(local, native.record_put(cell.get(local), statement.name, binding)), fn() => ());
+    buffer.push(pending, #{initial: initial, binding: binding, is_let: is_let, start: statement.start}); yield ();
+  });
+  let result = cell.new(gg_node("gen", "block-yield", stage, expr.result.start, #{}, [gg_expr(c, expr.result, cell.get(local), stage)]));
+  cc_each(list.reverse(buffer.freeze(pending)), fn(item: Value) => {
+    let continuation = cc_choose(item.is_let, fn() => gg_node("scope", "let", stage, item.start,
+      #{binding: item.binding, visibility: "after-initializer"}, [cell.get(result)]), fn() => cell.get(result));
+    cell.set(result, gg_node("seq", cc_choose(item.is_let, fn() => "let-step", fn() => "expression-step"), stage, item.start,
+      #{order: "strict-left-to-right", discarded_result: bool.not(item.is_let),
+        drop_policy: cc_choose(item.is_let, fn() => "bound-result", fn() => "requires-result-resource-check")}, [item.initial, continuation])); yield ();
+  });
+  yield gg_node("scope", "block", stage, expr.start, #{}, [cell.get(result)]);
+};
+def gg_expr(c: Value, expr: Value, env: Value, stage: Int) -> Value = {
+  let kind = expr.kind;
+  yield cc_choose(text.eq(kind, "literal"), fn() => gg_node("gen", "literal", stage, expr.start,
+    #{type: expr.literal_type, raw: expr.raw, value: expr.value}, []), fn() =>
+  cc_choose(text.eq(kind, "name"), fn() => {
+    let bound = record.has(env, expr.name);
+    let binding = gg_get(env, expr.name, #{id: "", stage: stage});
+    cc_choose(bound, fn() => table.set(c.uses, binding.id, int.add(table.get(c.uses, binding.id, 0), 1)), fn() => ());
+    yield gg_node("wire", "reference", stage, expr.start, #{name: expr.name, binder: binding.id,
+      resolution: cc_choose(bound, fn() => "lexical", fn() => "external-obligation"),
+      binder_stage: binding.stage, stage_delta: int.sub(stage, binding.stage), permutation: [0]}, []);
+  }, fn() => cc_choose(text.eq(kind, "member"), fn() => gg_node("gen", "member", stage, expr.start,
+    #{field: expr.name, qualified_name: cc_qname(expr)}, [gg_expr(c, expr.object, env, stage)]), fn() =>
+  cc_choose(text.eq(kind, "call"), fn() => {
+    let name = cc_qname(expr.callee);
+    let bound = record.has(env, cc_root_name(expr.callee));
+    let argument_stage = cc_choose(text.eq(name, "syntax.quote"), fn() => int.add(stage, 1), fn() => stage);
+    let regions = list.append([gg_expr(c, expr.callee, env, stage)],
+      list.map(expr.args, fn(arg: Value) => gg_expr(c, arg, env, argument_stage)));
+    let attributes = #{qualified_name: name, arity: list.length(expr.args),
+      resolution: cc_choose(bound, fn() => "lexical", fn() => "imported-or-primitive-obligation"),
+      theory_hint: gg_theory(name), region_policy: gg_region_policy(name),
+      law_status: "requires-operator-and-composition-admission", order: "callee-then-arguments-left-to-right"};
+    let call = gg_node("seq", "apply", stage, expr.start, attributes,
+      list.append(regions, [gg_node("gen", "invoke", stage, expr.start, #{arity: list.length(expr.args), qualified_name: name}, [])]));
+    let iteration = cc_choose(bound, fn() => "", fn() => gg_iteration(name));
+    yield cc_choose(text.eq(iteration, ""), fn() => call,
+      fn() => gg_node("fix", "iteration", stage, expr.start,
+        #{discipline: iteration, operator: name, total_conversion: false, law_status: "requires-discipline-check"}, [call]));
+  }, fn() => cc_choose(text.eq(kind, "lambda"), fn() => {
+    let params = gg_parameters(c, expr.params, env, stage);
+    yield gg_node("scope", "lambda", stage, expr.start,
+      #{bindings: params.bindings, capture: "lexical", escape_status: "requires-resource-and-stage-check"},
+      [gg_expr(c, expr.body, params.env, stage)]);
+  }, fn() => cc_choose(cc_has(["list", "tuple"], kind), fn() => gg_node("gen", kind, stage, expr.start,
+    #{arity: list.length(expr.items)}, [gg_operands(c, expr.items, env, stage, expr.start)]), fn() =>
+  cc_choose(text.eq(kind, "record"), fn() => gg_node("gen", "record", stage, expr.start,
+    #{arity: list.length(expr.fields), fields: list.map(expr.fields, fn(field: Value) => field.name)},
+    [gg_operands(c, list.map(expr.fields, fn(field: Value) => field.value), env, stage, expr.start)]), fn() =>
+  cc_choose(text.eq(kind, "block"), fn() => gg_block(c, expr, env, stage),
+    fn() => value.fail(cc_cat("U_GRAPH unsupported AST kind: ", kind))))))))));
+};
+def gg_classical(type: Value) -> Bool = {
+  let name = cc_tname(type);
+  yield cc_choose(cc_has(["Int", "Nat", "Bool", "Text", "Unit", "F32", "F64", "Real", "U8", "U64", "I64", "Decimal", "Type"], name),
+    fn() => true, fn() => cc_choose(bool.and(text.eq(type.kind, "call"), cc_has(["List", "Pair"], name)),
+      fn() => gg_all(type.args, gg_classical), fn() => false));
+};
+def gg_payload(graph: Value) -> Value = gg_canonical(#{version: graph.version, kernel: graph.kernel, root: graph.root,
+  bindings: graph.bindings, profiles: graph.profiles, usage: graph.usage, obligations: graph.obligations});
+def gg_identity(graph: Value) -> Text = native.crypto_sha256(json.encode(gg_payload(graph)));
+def gg_lower(module: Value) -> Value = {
+  let c = gg_context();
+  let globals = list.map(module.definitions, fn(d: Value) => gg_binder(c, d.name, "definition", d.type, 0, d.start));
+  let names = list.map(globals, fn(binding: Value) => binding.name);
+  let env = native.record_make(names, globals);
+  let definitions = list.map(module.definitions, fn(d: Value) => {
+    let params = gg_parameters(c, d.params, env, 0);
+    let body = gg_expr(c, d.body, params.env, 0);
+    let interface = gg_node("scope", "definition-parameters", 0, d.start,
+      #{bindings: params.bindings, result_type: d.type, type_status: "declared-interface",
+        body_policy: cc_choose(bool.and(bool.not(d.is_function), text.eq(cc_tname(d.type), "Type")),
+          fn() => "inert-type-description", fn() => "executable")}, [body]);
+    yield gg_node("gen", "definition", 0, d.start,
+      #{name: d.name, binder: record.get(env, d.name).id, is_function: d.is_function, arity: list.length(d.params)}, [interface]);
+  });
+  let ordered = gg_node("seq", "definitions", 0, 0, #{order: "source-order"}, definitions);
+  let recursive = gg_node("fix", "global-environment", 0, 0,
+    #{discipline: "partial-global-functions", function_binding: "before-initializers",
+      constant_binding: "source-order", constant_initialization: "on-first-use-memoized"}, [ordered]);
+  let root = gg_node("scope", "module", 0, 0, #{bindings: globals, language: "etellis.u/0.1", imports: module.imports}, [recursive]);
+  let bindings = buffer.freeze(c.bindings);
+  let usage = list.map(list.filter(bindings, fn(b: Value) => bool.not(text.eq(b.role, "definition"))), fn(b: Value) => {
+    let count = table.get(c.uses, b.id, 0);
+    let requirement = cc_choose(int.eq(count, 1), fn() => "single-occurrence", fn() => cc_choose(int.eq(count, 0), fn() => "Drop", fn() => "Copy"));
+    yield #{binder: b.id, occurrences: count, requirement: requirement,
+      status: cc_choose(int.eq(count, 1), fn() => "syntactic-only", fn() =>
+        cc_choose(gg_classical(b.type), fn() => "classical-value-rule", fn() => "requires-resource-check"))};
+  });
+  let graph = #{version: "etellis.u/native-graph/1", kernel: ["wire", "gen", "seq", "par", "scope", "fix"], root: root,
+    bindings: bindings, profiles: module.imports, usage: usage,
+    obligations: ["operator admission and mixed-theory adapters", "resource ownership, aliases and escape",
+      "declared type refinements and stage crossings", "primitive realization and numeric contracts"]};
+  let identity = gg_identity(graph);
+  yield native.record_put(native.record_put(graph, "structural_identity", identity), "origin",
+    #{source: module.source, source_sha256: native.crypto_sha256(module.source), structural_identity: identity});
+};
+
+def gg_expect(node: Value, tag: Text, role: Text, arity: Int, stage: Int) -> Unit = {
+  gg_assert(text.eq(value.kind(node), "record"), "node must be a record");
+  gg_assert(bool.and(text.eq(node.tag, tag), text.eq(node.role, role)), cc_cat("unexpected node role; expected ", cc_cat(tag, cc_cat("/", role))));
+  gg_assert(int.eq(node.stage, stage), "stage mismatch");
+  gg_assert(cc_has(["wire", "gen", "seq", "par", "scope", "fix"], node.tag), "unknown kernel tag");
+  cc_choose(int.ge(arity, 0), fn() => gg_assert(int.eq(list.length(node.regions), arity), "region arity mismatch"), fn() => ());
+  yield ();
+};
+def gg_accept_binding(c: Value, binding: Value) -> Value = {
+  let expected = gg_binder(c, binding.name, binding.role, binding.type, binding.stage, binding.origin.start);
+  gg_assert(value.equal(gg_canonical(expected), gg_canonical(binding)), "invalid or reused nominal binder identity");
+  yield expected;
+};
+def gg_restore_params(c: Value, bindings: Value, env: Value, stage: Int) -> Value = {
+  let local = cell.new(env); let names = buffer.new(); let params = buffer.new();
+  cc_each(bindings, fn(b: Value) => {
+    gg_assert(bool.and(text.eq(b.role, "parameter"), int.eq(b.stage, stage)), "invalid parameter binder role");
+    gg_assert(bool.not(cc_has(buffer.freeze(names), b.name)), "duplicate parameter name");
+    gg_accept_binding(c, b); buffer.push(names, b.name);
+    cell.set(local, native.record_put(cell.get(local), b.name, b));
+    buffer.push(params, #{name: b.name, type: b.type, start: b.origin.start}); yield ();
+  });
+  yield #{env: cell.get(local), params: buffer.freeze(params)};
+};
+def gg_restore_operands(c: Value, node: Value, env: Value, stage: Int) -> Value = {
+  gg_assert(cc_has(["seq", "par"], node.tag), "aggregate requires ordered or independently checked operands");
+  gg_expect(node, node.tag, "operands", -1, stage);
+  cc_choose(text.eq(node.tag, "par"), fn() => {
+    gg_assert(text.eq(node.attributes.independence, "literal-values-empty-resource-footprints"), "unverified par witness");
+    gg_assert(gg_all(node.regions, fn(item: Value) => bool.and(text.eq(item.tag, "gen"), text.eq(item.role, "literal"))),
+      "par footprint witness is valid only for literal values"); yield ();
+  }, fn() => ());
+  yield list.map(node.regions, fn(item: Value) => gg_restore_expr(c, item, env, stage));
+};
+def gg_restore_block(c: Value, node: Value, env: Value, stage: Int, names: Value) -> Value =
+  cc_choose(text.eq(node.tag, "gen"), fn() => {
+    gg_expect(node, "gen", "block-yield", 1, stage);
+    yield #{statements: [], result: gg_restore_expr(c, list.get(node.regions, 0), env, stage)};
+  }, fn() => {
+    gg_assert(cc_has(["let-step", "expression-step"], node.role), "unknown block sequence role");
+    gg_expect(node, "seq", node.role, 2, stage);
+    let initial = gg_restore_expr(c, list.get(node.regions, 0), env, stage);
+    let continuation = list.get(node.regions, 1);
+    yield cc_choose(text.eq(node.role, "let-step"), fn() => {
+      gg_expect(continuation, "scope", "let", 1, stage);
+      let b = continuation.attributes.binding;
+      gg_assert(bool.and(text.eq(b.role, "let"), int.eq(b.stage, stage)), "invalid let binder role");
+      gg_assert(bool.not(cc_has(names, b.name)), "duplicate let in one block");
+      gg_accept_binding(c, b);
+      let rest = gg_restore_block(c, list.get(continuation.regions, 0), native.record_put(env, b.name, b), stage, list.cons(b.name, names));
+      yield #{statements: list.cons(#{kind: "let", name: b.name, value: initial, start: node.origin.start}, rest.statements), result: rest.result};
+    }, fn() => {
+      let rest = gg_restore_block(c, continuation, env, stage, names);
+      yield #{statements: list.cons(#{kind: "expr", value: initial, start: node.origin.start}, rest.statements), result: rest.result};
+    });
+  });
+def gg_restore_expr(c: Value, node: Value, env: Value, stage: Int) -> Value = {
+  let tag = node.tag; let role = node.role; let start = node.origin.start; let a = node.attributes;
+  yield cc_choose(text.eq(tag, "wire"), fn() => {
+    gg_expect(node, "wire", "reference", 0, stage);
+    let bound = record.has(env, a.name);
+    gg_assert(bool.and(value.equal(a.permutation, [0]), text.eq(a.resolution,
+      cc_choose(bound, fn() => "lexical", fn() => "external-obligation"))), "invalid reference resolution");
+    let b = gg_get(env, a.name, #{id: "", stage: stage});
+    gg_assert(bool.and(text.eq(a.binder, b.id), bool.and(int.eq(a.binder_stage, b.stage), int.eq(a.stage_delta, int.sub(stage, b.stage)))),
+      "reference escapes scope or names a different binder");
+    yield #{kind: "name", name: a.name, start: start};
+  }, fn() => cc_choose(text.eq(tag, "fix"), fn() => {
+    gg_expect(node, "fix", "iteration", 1, stage);
+    let body = gg_restore_expr(c, list.get(node.regions, 0), env, stage);
+    gg_assert(bool.and(text.eq(body.kind, "call"), text.eq(gg_iteration(cc_qname(body.callee)), a.discipline)), "invalid iteration discipline");
+    yield body;
+  }, fn() => cc_choose(text.eq(tag, "seq"), fn() => {
+    gg_expect(node, "seq", "apply", int.add(a.arity, 2), stage);
+    let callee = gg_restore_expr(c, list.get(node.regions, 0), env, stage);
+    let argument_stage = cc_choose(text.eq(a.qualified_name, "syntax.quote"), fn() => int.add(stage, 1), fn() => stage);
+    let args = list.map(gg_range(a.arity), fn(i: Int) => gg_restore_expr(c, list.get(node.regions, int.add(i, 1)), env, argument_stage));
+    let invoke = list.get(node.regions, int.add(a.arity, 1));
+    gg_expect(invoke, "gen", "invoke", 0, stage);
+    gg_assert(bool.and(int.eq(invoke.attributes.arity, a.arity), bool.and(text.eq(invoke.attributes.qualified_name, a.qualified_name),
+      text.eq(cc_qname(callee), a.qualified_name))), "call identity or input arity mismatch");
+    yield #{kind: "call", callee: callee, args: args, start: start};
+  }, fn() => cc_choose(text.eq(tag, "scope"), fn() =>
+    cc_choose(text.eq(role, "lambda"), fn() => {
+      gg_expect(node, "scope", "lambda", 1, stage);
+      let params = gg_restore_params(c, a.bindings, env, stage);
+      yield #{kind: "lambda", params: params.params, body: gg_restore_expr(c, list.get(node.regions, 0), params.env, stage), start: start};
+    }, fn() => {
+      gg_expect(node, "scope", "block", 1, stage);
+      let block = gg_restore_block(c, list.get(node.regions, 0), env, stage, []);
+      yield #{kind: "block", statements: block.statements, result: block.result, start: start};
+    }), fn() => {
+    gg_assert(text.eq(tag, "gen"), "unsupported expression tag");
+    yield cc_choose(text.eq(role, "literal"), fn() => {
+      gg_expect(node, "gen", "literal", 0, stage);
+      gg_assert(cc_has(["Text", "Bool", "Int", "F64"], a.type), "invalid literal type");
+      let decoded = cc_choose(text.eq(a.type, "Text"), fn() => json.parse(a.raw), fn() =>
+        cc_choose(text.eq(a.type, "Bool"), fn() => {
+          gg_assert(cc_has(["true", "false"], a.raw), "invalid boolean literal"); yield text.eq(a.raw, "true");
+        }, fn() => cc_choose(text.eq(a.type, "Int"), fn() => text.parse_int(a.raw), fn() => text.parse_real(a.raw))));
+      let storage = cc_choose(text.eq(a.type, "Text"), fn() => "text", fn() =>
+        cc_choose(text.eq(a.type, "Bool"), fn() => "bool", fn() => cc_choose(text.eq(a.type, "Int"), fn() => "int", fn() => "real")));
+      gg_assert(text.eq(value.kind(decoded), storage), "literal storage does not match its declared type");
+      cc_choose(text.eq(a.type, "F64"), fn() => gg_assert(math.is_finite(decoded), "nonfinite literal"), fn() => ());
+      gg_assert(value.equal(decoded, a.value), "literal payload and encoding disagree");
+      yield #{kind: "literal", literal_type: a.type, raw: a.raw, value: a.value, start: start};
+    }, fn() => cc_choose(text.eq(role, "member"), fn() => {
+      gg_expect(node, "gen", "member", 1, stage);
+      let expression = #{kind: "member", object: gg_restore_expr(c, list.get(node.regions, 0), env, stage), name: a.field, start: start};
+      gg_assert(text.eq(cc_qname(expression), a.qualified_name), "qualified member identity mismatch"); yield expression;
+    }, fn() => {
+      gg_assert(cc_has(["list", "tuple", "record"], role), "unknown generator role");
+      gg_expect(node, "gen", role, 1, stage);
+      let items = gg_restore_operands(c, list.get(node.regions, 0), env, stage);
+      gg_assert(int.eq(list.length(items), a.arity), "aggregate arity mismatch");
+      yield cc_choose(text.eq(role, "record"), fn() => {
+        gg_assert(int.eq(list.length(a.fields), a.arity), "record field arity mismatch");
+        native.record_make(a.fields, items);
+        yield #{kind: "record", fields: list.map(gg_range(a.arity), fn(i: Int) => #{name: list.get(a.fields, i), value: list.get(items, i)}), start: start};
+      }, fn() => #{kind: role, items: items, start: start});
+    }));
+  }))));
+};
+def gg_reconstruct(graph: Value) -> Value = {
+  gg_assert(text.eq(graph.version, "etellis.u/native-graph/1"), "unsupported graph version");
+  gg_assert(value.equal(graph.kernel, ["wire", "gen", "seq", "par", "scope", "fix"]), "kernel contract mismatch");
+  gg_assert(text.eq(gg_identity(graph), graph.structural_identity), "stale or altered structural identity");
+  let root = graph.root; gg_expect(root, "scope", "module", 1, 0);
+  gg_assert(bool.and(text.eq(root.attributes.language, "etellis.u/0.1"), value.equal(root.attributes.imports, graph.profiles)), "language/profile mismatch");
+  let c = gg_context(); let globals = root.attributes.bindings;
+  cc_each(globals, fn(b: Value) => {
+    gg_assert(bool.and(text.eq(b.role, "definition"), int.eq(b.stage, 0)), "invalid global binder"); gg_accept_binding(c, b); yield ();
+  });
+  let env = native.record_make(list.map(globals, fn(b: Value) => b.name), globals);
+  let recursive = list.get(root.regions, 0); gg_expect(recursive, "fix", "global-environment", 1, 0);
+  let ordered = list.get(recursive.regions, 0); gg_expect(ordered, "seq", "definitions", list.length(globals), 0);
+  let definitions = list.map(gg_range(list.length(globals)), fn(i: Int) => {
+    let b = list.get(globals, i); let node = list.get(ordered.regions, i); gg_expect(node, "gen", "definition", 1, 0);
+    gg_assert(bool.and(text.eq(node.attributes.name, b.name), text.eq(node.attributes.binder, b.id)), "definition binder mismatch");
+    let scope = list.get(node.regions, 0); gg_expect(scope, "scope", "definition-parameters", 1, 0);
+    let params = gg_restore_params(c, scope.attributes.bindings, env, 0);
+    gg_assert(bool.and(int.eq(node.attributes.arity, list.length(params.params)), value.equal(gg_canonical(scope.attributes.result_type), gg_canonical(b.type))), "definition interface mismatch");
+    gg_assert(bool.or(node.attributes.is_function, int.eq(list.length(params.params), 0)), "constant definition cannot bind parameters");
+    yield #{name: b.name, params: params.params, type: scope.attributes.result_type,
+      body: gg_restore_expr(c, list.get(scope.regions, 0), params.env, 0), is_function: node.attributes.is_function, start: node.origin.start};
+  });
+  let origin = gg_get(graph, "origin", #{source: "", source_sha256: "", structural_identity: ""});
+  let source = cc_choose(bool.and(text.eq(origin.structural_identity, graph.structural_identity),
+    text.eq(native.crypto_sha256(origin.source), origin.source_sha256)), fn() => origin.source, fn() => "");
+  let module = #{definitions: definitions, imports: graph.profiles, source: source};
+  // This second structural pass validates every metadata field and use account;
+  // it never parses the retained source or runs an expression from the graph.
+  let canonical = gg_lower(module);
+  gg_assert(value.equal(gg_payload(canonical), gg_payload(graph)), "noncanonical graph, altered metadata, scope or resource account");
+  yield module;
+};

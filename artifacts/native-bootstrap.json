@@ -1,0 +1,68 @@
+{
+  "schema": "etellis.u.no-python-bootstrap/1",
+  "date": "2026-09-22",
+  "passed": true,
+  "procedure": "Fresh output directory, PATH containing only symlinks to cc, sh, dirname, mkdir, cmp, uname and touch. Checked-C bootstrap built every U tool without a Python executable available.",
+  "python_available_in_path": false,
+  "generated_seed_compared": true,
+  "same_basename_binary_comparison": true,
+  "toolchain_platform": "macOS arm64",
+  "results": [
+    {
+      "file": "compiler-stage1.c",
+      "sha256": "82e72bc3a5c392b454b464a0bac20fe628d3a1834ef3ee922d49793df96e439f",
+      "byte_identical": true
+    },
+    {
+      "file": "compiler-stage2.c",
+      "sha256": "82e72bc3a5c392b454b464a0bac20fe628d3a1834ef3ee922d49793df96e439f",
+      "byte_identical": true
+    },
+    {
+      "file": "compiler-stage3.c",
+      "sha256": "82e72bc3a5c392b454b464a0bac20fe628d3a1834ef3ee922d49793df96e439f",
+      "byte_identical": true
+    },
+    {
+      "file": "driver.c",
+      "sha256": "d1fc2ad5d716aca82f09a52e18227456f00b16698e0f57711b6b29d9ff3e6721",
+      "byte_identical": true
+    },
+    {
+      "file": "package.c",
+      "sha256": "5633ddc990fe0425c188a8dde8fc03f1dbb1d22be91b0b2c2b0aea51d5afd0da",
+      "byte_identical": true
+    },
+    {
+      "file": "audit.c",
+      "sha256": "07e1666ea296107a524f1041b77adc55332701a2f75163d230d95560d7922840",
+      "byte_identical": true
+    },
+    {
+      "file": "cdc.c",
+      "sha256": "a03b8f93b48a0a972b792725d2058d981daac145fa8ec151ce3d1f0e89a4a4d3",
+      "byte_identical": true
+    },
+    {
+      "file": "etellis-u-driver",
+      "sha256": "9987874492f9b56342b238ceb67cdc850ef5bcb2f9b5ca04671ea41ee875439f",
+      "byte_identical": true
+    },
+    {
+      "file": "etellis-u-package",
+      "sha256": "a3d3af13cf11dbc50776485750d1ba38aef13b010fd82595708d6259c84b34ba",
+      "byte_identical": true
+    },
+    {
+      "file": "etellis-u-audit",
+      "sha256": "8a578f8767af679478fc0fb99c79f736b65145e2e73791cea2b615af1f520689",
+      "byte_identical": true
+    },
+    {
+      "file": "etellis-u-cdc",
+      "sha256": "2b785f0dc81628bf682234baab76a7cddf94ddbe16ccdafc9a5b425289e72c54",
+      "byte_identical": true
+    }
+  ],
+  "scope": "reproducible native build and tool bytes; not a compiler correctness or compromised-toolchain proof"
+}

@@ -1,9 +1,11 @@
-# U 0.1.0 reference release
+# U 0.2 native implementation
 
-This initial implementation integrates the preserved design and final Codex/Grok review into an executable reference substrate. It includes the shared surface, deterministic six-tag graph and reconstruction, explicit domain operators, conservative type/resource checking, independent proof kernel, evidence and local persistence, CLI/LSP/package tooling, bounded native/WASM compilation, and an independently verified CDC primitive bridge.
+The compiler, six-constructor graph, standard libraries, proof kernel, CDC algorithms and developer tools now execute as U-written native programs. A checked generated-C seed starts a fresh build, and the compiler reproduces its own C output through three matching stages.
 
-The release includes the substantial README, responsive local research landing page, 18-page arXiv-intended manuscript and LaTeX source bundle. BiDi is cross-referenced and its original source remains unchanged. The five supplied design files and all 22 examples retain their original hashes.
+The native target supports lexical closures, lazy values, arbitrary-precision integers and the supported scientific libraries. The U-written WASM emitter supplies a smaller interval-certified integer and Boolean target, including the U site's interactive contract model. Host integrations validate exact integer bounds before WebAssembly ABI conversion.
 
-Fresh local results: 121/121 tests, zero skipped; 96/96 randomized CDC comparisons with exact binary64/latch agreement under the recorded host profile; 23 Lean theorems with no axiom dependencies. Native/WASM/reference integer parity, installed-wheel execution, LSP framing, source reconstruction, package tampering and browser interactions were exercised.
+Formatting, source lift/export, stdio language-server behavior, local package snapshots and artifact auditing are native tools. The formatter preserves comment and literal lexemes and is idempotent on its verified corpus. Package schema 2 adds explicit migration backups, verified staging and content-addressed installation without hooks. The public U and BiDi websites remain separately deployable from the private implementation repositories.
 
-This is a prerelease reference implementation. It does not complete the full original directive: full U1/U2 parity, complete theory/proof/type contracts, general source frontends/compiler, production hardening, physical backends and self-hosting remain material work in the full-completion backlog. The paper has not been submitted to arXiv; the landing page is served locally and stored in the private repository.
+The historical Python runtime has been retired from the ordinary build and execution path. Its source remains in Git history for independent comparison; the independent source parser and seed are explicitly scoped bootstrap tools.
+
+This release does not imply completion of the full dependent/resource calculus, every CDC U1/U2 contract, foreign-language ingestion, general WASM compilation, long-running garbage collection or physical realization. See [support and evidence](../CLAIMS.md) and [remaining gates](FULL_COMPLETION_BACKLOG.md).

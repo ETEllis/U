@@ -1,0 +1,29 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Identity verification does not grant proof, signer or execution authority.
+def au_file(path: Text, expected: Text) -> Unit =
+  u_require(native.text_eq(native.crypto_sha256_file(path), expected),
+    native.text_concat("artifact bytes changed: ", path));
+def au_main() -> Value = {
+  let args = native.sys_args();
+  u_require(native.int_eq(native.list_length(args), 2), "audit requires one artifact JSON file");
+  let item = native.json_parse(native.sys_read(native.list_get(args, 1)));
+  let schema = u_get(item, "schema", "");
+  u_choose(native.text_eq(schema, "etellis.u.native-build/2"), fn() => {
+    au_file(item.output, item.executable_identity); au_file(item.c_source, item.c_source_identity);
+    au_file(item.source, item.source_identity);
+    let root = native.sys_getenv("U_ROOT");
+    au_file(native.text_concat(root, "/native/runtime.c"), item.runtime_identity);
+    au_file(native.text_concat(root, "/native/runtime.h"), item.runtime_header_identity);
+    au_file(native.text_concat(root, "/build/native/etellis-u-driver"), item.compiler_identity);
+    u_map(item.libraries, fn(lib: Value) => au_file(native.text_concat(native.text_concat(root, "/"), lib.path), lib.sha256));
+    yield ();
+  }, fn() => u_choose(native.text_eq(schema, "etellis.u.receipt/2"), fn() =>
+    u_require(evidence.verify(item, item.subject), "receipt identity mismatch"), fn() =>
+    u_choose(native.text_eq(schema, "etellis.u.artifact/2"), fn() =>
+      u_require(evidence.verify_artifact(item), "artifact identity mismatch"),
+      fn() => u_fail("unsupported artifact schema; historical v1 receipts require the historical verifier"))));
+  yield #{verdict: "Done", scope: "current byte identities and declared dependencies only",
+    authenticity: "not established", proof_authority: false};
+};

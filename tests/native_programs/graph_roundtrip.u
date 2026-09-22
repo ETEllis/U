@@ -1,0 +1,82 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def gt_walk(node: Value, visit: Value) -> Unit = {
+  visit(node); cc_each(node.regions, fn(child: Value) => gt_walk(child, visit)); yield ();
+};
+def gt_summary(graph: Value) -> Value = {
+  let counts = table.new(); let operators = buffer.new();
+  cc_each(graph.kernel, fn(tag: Text) => table.set(counts, tag, 0));
+  gt_walk(graph.root, fn(node: Value) => {
+    table.set(counts, node.tag, int.add(table.get(counts, node.tag, 0), 1));
+    cc_choose(bool.and(text.eq(node.tag, "seq"), text.eq(node.role, "apply")), fn() => {
+      let name = node.attributes.qualified_name;
+      cc_choose(cc_has(buffer.freeze(operators), name), fn() => (), fn() => buffer.push(operators, name)); yield ();
+    }, fn() => ()); yield ();
+  });
+  yield #{identity: graph.structural_identity,
+    counts: native.record_make(graph.kernel, list.map(graph.kernel, fn(tag: Text) => table.get(counts, tag, 0))),
+    operators: buffer.freeze(operators), definitions: list.length(graph.root.attributes.bindings),
+    profiles: graph.profiles, usage: graph.usage};
+};
+def gt_mutate_node(node: Value, mutation: Text, changed: Value) -> Value = {
+  let updated = cell.new(node);
+  cc_choose(bool.not(cell.get(changed)), fn() => {
+    let tag = node.tag; let role = node.role;
+    cc_choose(bool.and(text.eq(mutation, "tag"), text.eq(role, "literal")), fn() => {
+      cell.set(updated, native.record_put(node, "tag", "hidden-eval")); cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "arity"), text.eq(role, "apply")), fn() => {
+      cell.set(updated, native.record_put(node, "attributes", native.record_put(node.attributes, "arity", int.add(node.attributes.arity, 1))));
+      cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "wire"), text.eq(tag, "wire")), fn() => {
+      cell.set(updated, native.record_put(node, "attributes", native.record_put(node.attributes, "binder", "b999999")));
+      cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "stage"), text.eq(tag, "wire")), fn() => {
+      cell.set(updated, native.record_put(node, "stage", int.add(node.stage, 1))); cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "operator"), text.eq(role, "apply")), fn() => {
+      cell.set(updated, native.record_put(node, "attributes", native.record_put(node.attributes, "qualified_name", "forged.operator")));
+      cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "par"), text.eq(tag, "par")), fn() => {
+      cell.set(updated, native.record_put(node, "attributes", native.record_put(node.attributes, "independence", "caller-says-yes")));
+      cell.set(changed, true); yield ();
+    }, fn() => cc_choose(bool.and(text.eq(mutation, "literal"), text.eq(role, "literal")), fn() => {
+      cell.set(updated, native.record_put(node, "attributes", native.record_put(node.attributes, "raw", "999")));
+      cell.set(changed, true); yield ();
+    }, fn() => ()))))))); yield ();
+  }, fn() => ());
+  yield native.record_put(cell.get(updated), "regions", list.map(cell.get(updated).regions,
+    fn(child: Value) => gt_mutate_node(child, mutation, changed)));
+};
+def graph_main() -> Unit = {
+  let args = sys.args();
+  gg_assert(int.ge(list.length(args), 3), "graph test requires mode and source path");
+  let mode = list.get(args, 1); let source = sys.read(list.get(args, 2));
+  let original = cc_parse(source); let graph = gg_lower(original);
+  cc_choose(text.eq(mode, "mutate"), fn() => {
+    let mutation = list.get(args, 3); let changed = cell.new(false);
+    let mutated = native.record_put(graph, "root", gt_mutate_node(graph.root, mutation, changed));
+    gg_assert(cell.get(changed), "mutation target absent");
+    let signed = native.record_put(mutated, "structural_identity", gg_identity(mutated));
+    gg_reconstruct(signed); value.fail("GRAPH_TEST_MUTANT_SURVIVED"); yield ();
+  }, fn() => {
+    let reconstructed = gg_reconstruct(graph);
+    gg_assert(value.equal(original, reconstructed), "graph must reconstruct the independently parsed source AST");
+    let again = gg_lower(reconstructed);
+    gg_assert(value.equal(graph, again), "lower/reconstruct/lower must be deterministic");
+    let shifted = gg_lower(cc_parse(cc_cat("\n\n", source)));
+    gg_assert(text.eq(graph.structural_identity, shifted.structural_identity), "source offsets must not change structural identity");
+    let poisoned = native.record_put(graph, "origin", native.record_put(graph.origin, "source", "THIS IS NOT U SOURCE"));
+    let recovered = gg_reconstruct(poisoned);
+    gg_assert(value.equal(original.definitions, recovered.definitions), "reconstruction must use graph regions, not retained source");
+    gg_assert(text.eq(recovered.source, ""), "changed provenance must invalidate exact source recovery");
+    cc_choose(text.eq(mode, "ast"), fn() => sys.print(json.encode(reconstructed)), fn() =>
+      cc_choose(text.eq(mode, "emit"), fn() => {
+        let target = list.get(args, 3); let entry = list.get(args, 4);
+        let direct = cc_emit(original, entry); let through_graph = cc_emit(reconstructed, entry);
+        gg_assert(text.eq(direct, through_graph), "graph roundtrip changed native C generation");
+        sys.write(target, through_graph); sys.print(json.encode(#{status: "emitted", entry: entry, graph: gt_summary(graph)})); yield ();
+      }, fn() => sys.print(json.encode(#{status: "passed", graph: gt_summary(graph)}))));
+    yield ();
+  });
+  yield ();
+};

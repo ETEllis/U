@@ -1,0 +1,31 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def main() -> Value = {
+  let dead = native.process_spawn(fn() => { native.sys_exit(3); yield (); });
+  let dead_result = native.process_share(dead);
+  let waiter = native.process_spawn(fn() => native.process_result(dead_result, -1).state);
+  let dead_observation = native.process_wait(waiter, 1000);
+  u_require(native.bool_and(native.text_eq(dead_observation.state, "completed"),
+    native.text_eq(dead_observation.value, "failed")), "dead worker did not wake result subscribers");
+  let slow = native.process_spawn(fn() => { native.process_sleep(5000); yield 7; });
+  let reading = native.process_share(slow);
+  let subscriber = native.process_spawn(fn() => native.process_result(reading, -1).state);
+  native.process_cancel(slow);
+  let cancelled = native.process_wait(subscriber, 1000);
+  u_require(native.bool_and(native.text_eq(cancelled.state, "completed"), native.text_eq(cancelled.value, "cancelled")), "cancellation did not wake readers");
+  let owner = native.process_spawn(fn() => { native.process_sleep(5000); yield 1; });
+  let wrong = native.process_spawn(fn() => native.process_cancel(owner));
+  let refused = native.process_wait(wrong, 1000);
+  native.process_cancel(owner);
+  u_require(native.text_eq(refused.state, "failed"), "shared child copied cancellation authority");
+  let fail_task = async.task(fn() => u_fail("task_failure_fixture"));
+  let downstream = async.then(fail_task, fn(n: Int) => native.int_add(n, 1));
+  async.start(downstream); native.process_sleep(200);
+  u_require(native.text_eq(async.outcome(downstream).state, "failed"), "dependent failure required parent observation");
+  let pending = async.task(fn() => 4); async.cancel(pending);
+  let cancelled_dependent = async.then(pending, fn(n: Int) => native.int_add(n, 1));
+  async.start(cancelled_dependent); native.process_sleep(100);
+  u_require(native.text_eq(async.outcome(cancelled_dependent).state, "failed"), "cancelled prerequisite did not terminate dependent task");
+  yield #{status: "passed", dead_worker: dead_observation.value, cancelled_worker: cancelled.value,
+    cancellation_authority: refused.state, dependent_failure: async.outcome(downstream).state};
+};

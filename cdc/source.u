@@ -1,0 +1,244 @@
+u "etellis.u/0.1";
+use "etellis.cdc/native-0.3.0-1307f2a7";
+
+// The finite CDC source adapter is implemented in U. Unknown directives remain
+// visible and prevent execution; the adapter never invokes a foreign runtime.
+def u_cdc_source_profile: Text = "etellis.cdc/native-0.3.0@1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157";
+def u_cdcsrc_byte(text: Text, index: Int) -> Int = u_choose(
+  native.bool_and(native.int_ge(index, 0), native.int_lt(index, native.bytes_length(text))),
+  fn() => native.bytes_at(text, index), fn() => -1);
+def u_cdcsrc_digit(text: Text, index: Int) -> Bool = {
+  let c = u_cdcsrc_byte(text, index);
+  yield native.bool_and(native.int_ge(c, 48), native.int_le(c, 57));
+};
+def u_cdcsrc_error(line: Int, message: Text) -> Value = u_fail(native.text_concat(
+  native.text_concat("CDC line ", native.text_from_int(line)), native.text_concat(": ", message)));
+def u_cdcsrc_space(code: Int) -> Bool = native.bool_or(native.int_eq(code, 32), native.bool_and(native.int_ge(code, 9), native.int_le(code, 13)));
+def u_cdcsrc_number(raw: Text) -> Real = {
+  let begin = u_loop(0, fn(i: Int) => u_cdcsrc_space(u_cdcsrc_byte(raw, i)), fn(i: Int) => native.int_add(i, 1));
+  let end = u_loop(native.bytes_length(raw), fn(i: Int) => native.bool_and(native.int_gt(i, begin),
+    u_cdcsrc_space(u_cdcsrc_byte(raw, native.int_sub(i, 1)))), fn(i: Int) => native.int_sub(i, 1));
+  let text = native.bytes_slice(raw, begin, end); let normalized = native.buffer_new();
+  u_for(native.bytes_length(text), fn(i: Int) => {
+    let c = native.bytes_at(text, i);
+    yield u_choose(native.int_eq(c, 95), fn() => {
+      u_require(native.bool_and(u_cdcsrc_digit(text, native.int_sub(i, 1)), u_cdcsrc_digit(text, native.int_add(i, 1))), "CDC invalid numeric separator");
+      yield ();
+    }, fn() => {
+      u_require(native.bool_or(u_cdcsrc_digit(text, i), u_contains([43, 45, 46, 69, 101], c)), "CDC requires a finite decimal number");
+      yield native.buffer_push(normalized, native.text_from_code(c));
+    });
+  });
+  let value = native.text_join(native.buffer_freeze(normalized), ""); let position = native.cell_new(0);
+  u_choose(u_contains([43, 45], u_cdcsrc_byte(value, 0)), fn() => native.cell_set(position, 1), fn() => ());
+  let first = native.cell_get(position);
+  native.cell_set(position, u_loop(first, fn(i: Int) => u_cdcsrc_digit(value, i), fn(i: Int) => native.int_add(i, 1)));
+  let digits = native.cell_new(native.int_sub(native.cell_get(position), first));
+  u_choose(native.int_eq(u_cdcsrc_byte(value, native.cell_get(position)), 46), fn() => {
+    native.cell_set(position, native.int_add(native.cell_get(position), 1)); let fraction = native.cell_get(position);
+    native.cell_set(position, u_loop(fraction, fn(i: Int) => u_cdcsrc_digit(value, i), fn(i: Int) => native.int_add(i, 1)));
+    native.cell_set(digits, native.int_add(native.cell_get(digits), native.int_sub(native.cell_get(position), fraction))); yield ();
+  }, fn() => ());
+  u_require(native.int_gt(native.cell_get(digits), 0), "CDC number requires decimal digits");
+  u_choose(u_contains([69, 101], u_cdcsrc_byte(value, native.cell_get(position))), fn() => {
+    native.cell_set(position, native.int_add(native.cell_get(position), 1));
+    u_choose(u_contains([43, 45], u_cdcsrc_byte(value, native.cell_get(position))),
+      fn() => native.cell_set(position, native.int_add(native.cell_get(position), 1)), fn() => ());
+    let exponent = native.cell_get(position);
+    native.cell_set(position, u_loop(exponent, fn(i: Int) => u_cdcsrc_digit(value, i), fn(i: Int) => native.int_add(i, 1)));
+    u_require(native.int_gt(native.cell_get(position), exponent), "CDC exponent requires digits"); yield ();
+  }, fn() => ());
+  u_require(native.int_eq(native.cell_get(position), native.bytes_length(value)), "CDC malformed decimal number");
+  yield native.text_parse_real(value);
+};
+def u_cdcsrc_line_break(source: Text, start: Int) -> Value = {
+  let cursor = native.cell_new(start); let found = native.cell_new(false); let stop = native.cell_new(native.bytes_length(source)); let width = native.cell_new(0);
+  native.control_while(fn() => native.bool_and(native.bool_not(native.cell_get(found)), native.int_lt(native.cell_get(cursor), native.bytes_length(source))), fn() => {
+    let at = native.bytes_find_any(source, [10, 13, 11, 12, 28, 29, 30, 194, 226], native.cell_get(cursor));
+    u_choose(native.int_lt(at, 0), fn() => native.cell_set(cursor, native.bytes_length(source)), fn() => {
+      let c = native.bytes_at(source, at);
+      let size = u_choose(native.int_eq(c, 194), fn() => u_choose(native.int_eq(u_cdcsrc_byte(source, native.int_add(at, 1)), 133), fn() => 2, fn() => 0), fn() =>
+        u_choose(native.int_eq(c, 226), fn() => u_choose(native.bool_and(native.int_eq(u_cdcsrc_byte(source, native.int_add(at, 1)), 128),
+          u_contains([168, 169], u_cdcsrc_byte(source, native.int_add(at, 2)))), fn() => 3, fn() => 0),
+          fn() => u_choose(native.bool_and(native.int_eq(c, 13), native.int_eq(u_cdcsrc_byte(source, native.int_add(at, 1)), 10)), fn() => 2, fn() => 1)));
+      u_choose(native.int_gt(size, 0), fn() => { native.cell_set(found, true); native.cell_set(stop, at); native.cell_set(width, size); yield (); },
+        fn() => native.cell_set(cursor, native.int_add(at, 1))); yield ();
+    }); yield ();
+  });
+  yield #{end: native.cell_get(stop), next: native.int_add(native.cell_get(stop), native.cell_get(width))};
+};
+def u_cdcsrc_lines(source: Text) -> Value = {
+  let output = native.buffer_new(); let start = native.cell_new(0); let line = native.cell_new(1);
+  native.control_while(fn() => native.int_lt(native.cell_get(start), native.bytes_length(source)), fn() => {
+    let ending = u_cdcsrc_line_break(source, native.cell_get(start));
+    native.buffer_push(output, #{number: native.cell_get(line), text: native.bytes_slice(source, native.cell_get(start), ending.end)});
+    native.cell_set(start, ending.next); native.cell_set(line, native.int_add(native.cell_get(line), 1)); yield ();
+  });
+  yield native.buffer_freeze(output);
+};
+def u_cdcsrc_quoted(line: Text, start: Int, number: Int) -> Value = {
+  let quote = native.bytes_at(line, start);
+  yield u_choose(native.int_eq(quote, 39), fn() => {
+    let end = native.bytes_find(line, "'", native.int_add(start, 1));
+    u_choose(native.int_ge(end, 0), fn() => (), fn() => u_cdcsrc_error(number, "unclosed single quote"));
+    yield #{text: native.bytes_slice(line, native.int_add(start, 1), end), next: native.int_add(end, 1)};
+  }, fn() => {
+    let output = native.buffer_new(); let cursor = native.cell_new(native.int_add(start, 1)); let closed = native.cell_new(false);
+    native.control_while(fn() => native.bool_not(native.cell_get(closed)), fn() => {
+      let at = native.bytes_find_any(line, [34, 92], native.cell_get(cursor));
+      u_choose(native.int_ge(at, 0), fn() => (), fn() => u_cdcsrc_error(number, "unclosed double quote"));
+      native.buffer_push(output, native.bytes_slice(line, native.cell_get(cursor), at));
+      u_choose(native.int_eq(native.bytes_at(line, at), 34), fn() => {
+        native.cell_set(closed, true); native.cell_set(cursor, native.int_add(at, 1)); yield ();
+      }, fn() => {
+        let following = u_cdcsrc_byte(line, native.int_add(at, 1));
+        u_choose(native.int_ge(following, 0), fn() => (), fn() => u_cdcsrc_error(number, "missing escaped character"));
+        u_choose(u_contains([34, 92], following), fn() => {
+          native.buffer_push(output, native.text_from_code(following)); native.cell_set(cursor, native.int_add(at, 2)); yield ();
+        }, fn() => { native.buffer_push(output, "\\"); native.cell_set(cursor, native.int_add(at, 1)); yield (); }); yield ();
+      }); yield ();
+    });
+    yield #{text: native.text_join(native.buffer_freeze(output), ""), next: native.cell_get(cursor)};
+  });
+};
+def u_cdcsrc_word_finish(state: Value) -> Unit = {
+  u_choose(native.cell_get(state.active), fn() => {
+    native.buffer_push(state.words, native.text_join(native.buffer_freeze(native.cell_get(state.parts)), ""));
+    native.cell_set(state.parts, native.buffer_new()); native.cell_set(state.active, false); yield ();
+  }, fn() => ()); yield ();
+};
+def u_cdcsrc_words(line: Text, number: Int) -> Value = {
+  let state = #{words: native.buffer_new(), parts: native.cell_new(native.buffer_new()), active: native.cell_new(false)};
+  let cursor = native.cell_new(0);
+  native.control_while(fn() => native.int_lt(native.cell_get(cursor), native.bytes_length(line)), fn() => {
+    let at = native.cell_get(cursor); let c = native.bytes_at(line, at);
+    u_choose(u_contains([32, 9, 13, 10], c), fn() => { u_cdcsrc_word_finish(state); native.cell_set(cursor, native.int_add(at, 1)); yield (); }, fn() =>
+    u_choose(native.int_eq(c, 35), fn() => { u_cdcsrc_word_finish(state); native.cell_set(cursor, native.bytes_length(line)); yield (); }, fn() =>
+    u_choose(u_contains([34, 39], c), fn() => {
+      let quoted = u_cdcsrc_quoted(line, at, number); native.buffer_push(native.cell_get(state.parts), quoted.text);
+      native.cell_set(state.active, true); native.cell_set(cursor, quoted.next); yield ();
+    }, fn() => u_choose(native.int_eq(c, 92), fn() => {
+      let next = native.int_add(at, 1); let code = u_cdcsrc_byte(line, next);
+      u_choose(native.int_ge(code, 0), fn() => (), fn() => u_cdcsrc_error(number, "missing escaped character"));
+      let width = u_choose(native.int_lt(code, 128), fn() => 1, fn() => u_choose(native.int_lt(code, 224), fn() => 2, fn() => u_choose(native.int_lt(code, 240), fn() => 3, fn() => 4)));
+      native.buffer_push(native.cell_get(state.parts), native.bytes_slice(line, next, native.int_add(next, width)));
+      native.cell_set(state.active, true); native.cell_set(cursor, native.int_add(next, width)); yield ();
+    }, fn() => {
+      let stop = native.bytes_find_any(line, [32, 9, 13, 10, 35, 34, 39, 92], at);
+      let end = native.value_select(native.int_lt(stop, 0), native.bytes_length(line), stop);
+      native.buffer_push(native.cell_get(state.parts), native.bytes_slice(line, at, end));
+      native.cell_set(state.active, true); native.cell_set(cursor, end); yield ();
+    })))); yield ();
+  });
+  u_cdcsrc_word_finish(state); yield native.buffer_freeze(state.words);
+};
+def u_cdcsrc_attributes(words: Value) -> Value = {
+  let first = native.cell_new(#{}); let last = native.cell_new(#{}); let ordered = native.buffer_new();
+  u_for(native.int_sub(native.list_length(words), 2), fn(i: Int) => {
+    let word = native.list_get(words, native.int_add(i, 2)); let separator = native.bytes_find(word, "=", 0);
+    yield u_choose(native.int_ge(separator, 0), fn() => {
+      let key = native.bytes_slice(word, 0, separator); let value = native.bytes_slice(word, native.int_add(separator, 1), native.bytes_length(word));
+      native.buffer_push(ordered, [key, value]);
+      u_choose(native.record_has(native.cell_get(first), key), fn() => (), fn() => native.cell_set(first, native.record_put(native.cell_get(first), key, value)));
+      native.cell_set(last, native.record_put(native.cell_get(last), key, value)); yield ();
+    }, fn() => ());
+  });
+  yield #{first: native.cell_get(first), last: native.cell_get(last), ordered: native.buffer_freeze(ordered)};
+};
+def u_cdcsrc_numeric: Value = ["dt", "gain", "deadband", "belief", "prior", "theta", "omega", "amplitude", "precision", "weight", "angle", "delay"];
+def u_cdcsrc_typed(attributes: Value) -> Value = {
+  let keys = native.record_keys(attributes);
+  yield native.record_make(keys, u_map(keys, fn(key: Text) =>
+    u_choose(u_contains(u_cdcsrc_numeric, key), fn() => u_cdcsrc_number(native.record_get(attributes, key)), fn() => native.record_get(attributes, key))));
+};
+def u_cdc_parse(source: Text) -> Value = {
+  u_require(native.int_le(native.bytes_length(source), 2000000), "CDC source exceeds the two-million-byte profile limit");
+  let fields = native.buffer_new(); let modules = native.buffer_new(); let cells = native.buffer_new(); let channels = native.buffer_new();
+  let statements = native.buffer_new(); let steps = native.buffer_new(); let unsupported = native.buffer_new();
+  let groups = #{field: fields, module: modules, cell: cells};
+  u_map(u_cdcsrc_lines(source), fn(line: Value) => {
+    let words = u_cdcsrc_words(line.text, line.number);
+    yield u_choose(native.int_eq(native.list_length(words), 0), fn() => (), fn() => {
+      u_choose(native.int_ge(native.list_length(words), 2), fn() => (), fn() => u_cdcsrc_error(line.number, "missing identifier"));
+      let kind = native.list_get(words, 0); let name = native.list_get(words, 1); let attributes = u_cdcsrc_attributes(words);
+      native.buffer_push(statements, #{line: line.number, kind: kind, name: name,
+        ordered_attributes: attributes.ordered, native_first: attributes.first, registry_last: attributes.last});
+      let typed = u_cdcsrc_typed(attributes.first);
+      yield u_choose(native.record_has(groups, kind), fn() => native.buffer_push(native.record_get(groups, kind), native.record_put(typed, "name", name)), fn() =>
+      u_choose(native.text_eq(kind, "channel"), fn() => {
+        u_choose(native.int_ge(native.list_length(words), 4), fn() => (), fn() => u_cdcsrc_error(line.number, "channel requires source -> target"));
+        u_choose(native.text_eq(native.list_get(words, 2), "->"), fn() => (), fn() => u_cdcsrc_error(line.number, "channel requires source -> target"));
+        yield native.buffer_push(channels, native.record_put(native.record_put(typed, "source", name), "target", native.list_get(words, 3)));
+      }, fn() => u_choose(u_contains(["flow", "commit", "nest"], kind),
+        fn() => native.buffer_push(steps, #{kind: kind, name: name, attrs: attributes.first}),
+        fn() => native.buffer_push(unsupported, #{line: line.number, directive: kind, status: "residual-preserved, unsupported native import"}))));
+    });
+  });
+  let state = u_cdc_make_state(#{fields: native.buffer_freeze(fields), modules: native.buffer_freeze(modules),
+    cells: native.buffer_freeze(cells), channels: native.buffer_freeze(channels)});
+  yield #{state: state, steps: native.buffer_freeze(steps), statements: native.buffer_freeze(statements), residual: source,
+    source_identity: native.text_concat("sha256:", native.crypto_sha256(source)), profile: u_cdc_source_profile,
+    unsupported: native.buffer_freeze(unsupported)};
+};
+def u_cdcsrc_close(actual: Real, expected: Text, tolerance: Real) -> Unit = {
+  let value = u_cdcsrc_number(expected);
+  u_require(native.f64_le(native.math_abs(u_real_sub(actual, value)), tolerance), "CDC post-step expectation mismatch"); yield ();
+};
+def u_cdcsrc_expect(result: Value, attributes: Value) -> Unit = {
+  let tolerance = u_cdcsrc_number(u_get(attributes, "tolerance", "0.000001"));
+  u_require(native.f64_ge(tolerance, 0.0), "invalid expectation tolerance");
+  u_choose(native.record_has(attributes, "expect-theta"), fn() => {
+    let expectation = native.record_get(attributes, "expect-theta");
+    let last = native.cell_new(-1); let cursor = native.cell_new(0);
+    native.control_while(fn() => native.int_lt(native.cell_get(cursor), native.bytes_length(expectation)), fn() => {
+      let next = native.bytes_find(expectation, ":", native.cell_get(cursor));
+      u_choose(native.int_ge(next, 0), fn() => { native.cell_set(last, next); native.cell_set(cursor, native.int_add(next, 1)); yield (); },
+        fn() => native.cell_set(cursor, native.bytes_length(expectation))); yield ();
+    });
+    u_require(native.int_ge(native.cell_get(last), 0), "CDC expect-theta requires cell:value");
+    let name = native.bytes_slice(expectation, 0, native.cell_get(last));
+    let value = native.bytes_slice(expectation, native.int_add(native.cell_get(last), 1), native.bytes_length(expectation));
+    u_cdcsrc_close(u_cdc_named(result.state.cells, name).theta, value, tolerance); yield ();
+  }, fn() => ());
+  u_map([#{key: "expect-parent-belief", field: "parent_belief"}, #{key: "expect-child-prior", field: "child_prior"}], fn(pair: Value) =>
+    u_choose(native.record_has(attributes, pair.key), fn() => u_cdcsrc_close(native.record_get(result, pair.field), native.record_get(attributes, pair.key), tolerance), fn() => ()));
+  u_map([#{key: "expect-status", field: "status"}, #{key: "expect-reason", field: "reason"}, #{key: "expect-balance", field: "balance"}], fn(pair: Value) =>
+    u_choose(native.record_has(attributes, pair.key), fn() => u_require(native.text_eq(native.record_get(attributes, pair.key), native.record_get(result, pair.field)),
+      native.text_concat("CDC post-step mismatch: ", pair.key)), fn() => ()));
+  u_choose(native.record_has(attributes, "expect-trits"), fn() => {
+    let trits = native.text_join(u_map(result.trits, fn(value: Int) =>
+      u_choose(native.int_eq(value, 1), fn() => "+", fn() => u_choose(native.int_eq(value, -1), fn() => "-", fn() => "0"))), "");
+    u_require(native.text_eq(trits, native.record_get(attributes, "expect-trits")), "CDC post-step trit mismatch"); yield ();
+  }, fn() => ()); yield ();
+};
+def u_cdc_execute_source_budget(source: Text, budget: Nat) -> Value = {
+  let program = u_cdc_parse(source);
+  yield u_choose(native.int_gt(native.list_length(program.unsupported), 0), fn() =>
+    #{verdict: "Unsupported", obligations: program.unsupported, source_identity: program.source_identity, state: program.state, profile: program.profile}, fn() => {
+    let state = native.cell_new(program.state); let trace = native.buffer_new(); let index = native.cell_new(0); let failure = native.cell_new(());
+    native.control_while(fn() => native.bool_and(native.text_eq(native.value_kind(native.cell_get(failure)), "unit"),
+      native.bool_and(native.int_lt(native.cell_get(index), native.list_length(program.steps)), native.int_lt(native.cell_get(index), budget))), fn() => {
+      let step = native.list_get(program.steps, native.cell_get(index)); let attrs = step.attrs;
+      let attempted = native.value_try_call(fn() =>
+        u_choose(native.text_eq(step.kind, "flow"), fn() => u_cdc_flow(native.cell_get(state), native.record_get(attrs, "field"), u_cdcsrc_number(native.record_get(attrs, "duration"))),
+          fn() => u_choose(native.text_eq(step.kind, "commit"), fn() => u_cdc_commit(native.cell_get(state), native.record_get(attrs, "module")),
+            fn() => u_cdc_nest(native.cell_get(state), native.record_get(attrs, "parent"), native.record_get(attrs, "child")))), []);
+      u_choose(attempted.ok, fn() => {
+        let result = attempted.value; native.cell_set(state, result.state);
+        native.buffer_push(trace, native.record_put(result, "step", step.name));
+        native.cell_set(index, native.int_add(native.cell_get(index), 1));
+        let expected = native.value_try_call(fn() => u_cdcsrc_expect(result, attrs), []);
+        u_choose(expected.ok, fn() => (), fn() => native.cell_set(failure, #{reason: expected.message, code: expected.code})); yield ();
+      }, fn() => native.cell_set(failure, #{reason: attempted.message, code: attempted.code})); yield ();
+    });
+    let result = #{state: native.cell_get(state), trace: native.buffer_freeze(trace), profile: program.profile,
+      source_identity: program.source_identity, known_progress: native.cell_get(index)};
+    yield u_choose(native.text_eq(native.value_kind(native.cell_get(failure)), "record"), fn() =>
+      native.record_put(native.record_put(native.record_put(result, "verdict", "Fault"), "reason", native.cell_get(failure).reason), "code", native.cell_get(failure).code), fn() =>
+      u_choose(native.int_lt(native.cell_get(index), native.list_length(program.steps)),
+        fn() => native.record_put(native.record_put(result, "verdict", "Held"), "reason", "execution-budget"),
+        fn() => native.record_put(result, "verdict", "Done")));
+  });
+};
+def u_cdc_execute_source(source: Text) -> Value = u_cdc_execute_source_budget(source, 100000);
+def cdc_source: Value = #{parse: u_cdc_parse, execute: u_cdc_execute_source, execute_budget: u_cdc_execute_source_budget};

@@ -1,0 +1,152 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def u_real(value: Value) -> Real =
+  u_choose(native.text_eq(native.value_kind(value), "int"),
+    fn() => native.int_to_real(value), fn() => value);
+def u_real_add(a: Value, b: Value) -> Real = native.f64_add(u_real(a), u_real(b));
+def u_real_sub(a: Value, b: Value) -> Real = native.f64_sub(u_real(a), u_real(b));
+def u_real_mul(a: Value, b: Value) -> Real = native.f64_mul(u_real(a), u_real(b));
+def u_real_div(a: Value, b: Value) -> Real = native.f64_div(u_real(a), u_real(b));
+def u_abs(x: Value) -> Real = native.math_abs(u_real(x));
+def u_real_lt(a: Value, b: Value) -> Bool = native.f64_lt(u_real(a), u_real(b));
+def u_real_le(a: Value, b: Value) -> Bool = native.f64_le(u_real(a), u_real(b));
+def u_max(a: Value, b: Value) -> Value = u_choose(u_real_lt(a, b), fn() => b, fn() => a);
+def u_min(a: Value, b: Value) -> Value = u_choose(u_real_lt(a, b), fn() => a, fn() => b);
+def u_sum_real(xs: Value) -> Real = u_fold(xs, 0.0, u_real_add);
+def u_dot(a: Value, b: Value) -> Real = {
+  u_require(native.int_eq(native.list_length(a), native.list_length(b)), "dot product dimensions differ");
+  yield u_fold(u_range(native.list_length(a)), 0.0, fn(total: Real, i: Int) =>
+    u_real_add(total, u_real_mul(native.list_get(a, i), native.list_get(b, i))));
+};
+def u_shape(array: Value) -> Value =
+  u_choose(native.text_eq(native.value_kind(array), "list"), fn() =>
+    u_choose(native.int_eq(native.list_length(array), 0), fn() => [0], fn() => {
+      let shape = u_shape(native.list_get(array, 0));
+      u_require(u_all(array, fn(row: Value) => native.value_equal(u_shape(row), shape)), "ragged array");
+      yield native.list_cons(native.list_length(array), shape);
+    }), fn() => {
+      u_require(u_contains(["int", "real"], native.value_kind(array)), "array element must be numeric");
+      yield [];
+    });
+def u_at(array: Value, coordinates: Value) -> Value =
+  u_fold(coordinates, array, fn(value: Value, index: Int) => native.list_get(value, index));
+def u_product(shape: Value) -> Int = u_fold(shape, 1, native.int_mul);
+def u_coordinates(index: Int, shape: Value) -> Value = {
+  let result = u_loop(#{i: native.list_length(shape), remainder: index, coordinates: []},
+    fn(s: Value) => native.int_gt(s.i, 0), fn(s: Value) => {
+      let i = native.int_sub(s.i, 1);
+      let extent = native.list_get(shape, i);
+      yield #{i: i, remainder: native.int_div(s.remainder, extent),
+        coordinates: native.list_cons(native.int_mod(s.remainder, extent), s.coordinates)};
+    });
+  yield result.coordinates;
+};
+def u_build_array(shape: Value, prefix: Value, element: Value) -> Value =
+  u_choose(native.int_eq(native.list_length(shape), 0), fn() => element(prefix),
+    fn() => u_map(u_range(native.list_get(shape, 0)), fn(i: Int) =>
+      u_build_array(native.list_tail_or_empty(shape), native.list_append(prefix, [i]), element)));
+def u_array_contract(a: Value, b: Value, axes_a: Value, axes_b: Value, profile: Text) -> Value = {
+  u_require(native.text_eq(profile, "f64.strict_left_fold"), "unsupported array reduction profile");
+  let sa = u_shape(a);
+  let sb = u_shape(b);
+  u_require(native.int_eq(native.list_length(axes_a), native.list_length(axes_b)), "contraction axes differ");
+  u_for(native.list_length(axes_a), fn(i: Int) => {
+    let aa = native.list_get(axes_a, i);
+    let bb = native.list_get(axes_b, i);
+    u_require(native.int_eq(native.list_get(sa, aa), native.list_get(sb, bb)), "contraction dimensions differ");
+    yield u_for(i, fn(j: Int) => u_require(native.bool_and(
+      native.int_ne(aa, native.list_get(axes_a, j)), native.int_ne(bb, native.list_get(axes_b, j))), "duplicate contraction axis"));
+  });
+  let fa = u_filter(u_range(native.list_length(sa)), fn(i: Int) => native.bool_not(u_contains(axes_a, i)));
+  let fb = u_filter(u_range(native.list_length(sb)), fn(i: Int) => native.bool_not(u_contains(axes_b, i)));
+  let shape = native.list_append(u_map(fa, fn(i: Int) => native.list_get(sa, i)),
+    u_map(fb, fn(i: Int) => native.list_get(sb, i)));
+  let reduced_shape = u_map(axes_a, fn(i: Int) => native.list_get(sa, i));
+  yield u_build_array(shape, [], fn(coordinates: Value) => {
+    let ca = native.cell_new(u_map(sa, fn(n: Int) => 0));
+    let cb = native.cell_new(u_map(sb, fn(n: Int) => 0));
+    u_for(native.list_length(fa), fn(i: Int) => native.cell_set(ca,
+      u_list_set(native.cell_get(ca), native.list_get(fa, i), native.list_get(coordinates, i))));
+    u_for(native.list_length(fb), fn(i: Int) => native.cell_set(cb,
+      u_list_set(native.cell_get(cb), native.list_get(fb, i), native.list_get(coordinates, native.int_add(native.list_length(fa), i)))));
+    yield u_fold(u_range(u_product(reduced_shape)), 0.0, fn(total: Real, index: Int) => {
+      let reduced = u_coordinates(index, reduced_shape);
+      u_for(native.list_length(axes_a), fn(i: Int) => {
+        native.cell_set(ca, u_list_set(native.cell_get(ca), native.list_get(axes_a, i), native.list_get(reduced, i)));
+        yield native.cell_set(cb, u_list_set(native.cell_get(cb), native.list_get(axes_b, i), native.list_get(reduced, i)));
+      });
+      yield u_real_add(total, u_real_mul(u_at(a, native.cell_get(ca)), u_at(b, native.cell_get(cb))));
+    });
+  });
+};
+def array: Value = #{contract: u_array_contract, shape: u_shape};
+
+// Complex arithmetic and joint coherent-state channels. These are classical
+// descriptions in a declared simulator, never physical-state observations.
+def u_complex(a: Value) -> Value =
+  u_choose(native.text_eq(native.value_kind(a), "record"), fn() => a,
+    fn() => #{re: u_real(a), im: 0.0});
+def u_cadd(x: Value, y: Value) -> Value = {
+  let a = u_complex(x); let b = u_complex(y);
+  yield #{re: u_real_add(a.re, b.re), im: u_real_add(a.im, b.im)};
+};
+def u_cmul(x: Value, y: Value) -> Value = {
+  let a = u_complex(x); let b = u_complex(y);
+  yield #{re: u_real_sub(u_real_mul(a.re, b.re), u_real_mul(a.im, b.im)),
+    im: u_real_add(u_real_mul(a.re, b.im), u_real_mul(a.im, b.re))};
+};
+def u_conj(x: Value) -> Value = {
+  let a = u_complex(x); yield #{re: a.re, im: u_real_sub(0.0, a.im)};
+};
+def u_cabs2(a: Value) -> Real = u_real_add(u_real_mul(a.re, a.re), u_real_mul(a.im, a.im));
+def u_power2(n: Int) -> Int = u_fold(u_range(n), 1, fn(acc: Int, i: Int) => native.int_mul(acc, 2));
+def u_qzero(n: Int) -> Value = {
+  u_require(native.bool_and(native.int_ge(n, 0), native.int_le(n, 16)), "statevector realization supports 0..16 indices");
+  yield native.resource_new("QReg.simulator", #{n: n, amplitudes:
+    u_map(u_range(u_power2(n)), fn(i: Int) => u_complex(u_choose(native.int_eq(i, 0), fn() => 1.0, fn() => 0.0)))});
+};
+def u_qbit(index: Int, position: Int) -> Int = native.int_mod(native.int_div(index, u_power2(position)), 2);
+def u_qh(q: Value, position: Int) -> Value = {
+  let old = native.resource_peek(q, "QReg.simulator");
+  u_require(native.bool_and(native.int_ge(position, 0), native.int_lt(position, old.n)), "invalid state index");
+  let stride = u_power2(position);
+  let factor = u_real_div(1.0, native.math_sqrt(2.0));
+  let amplitudes = u_map(u_range(native.list_length(old.amplitudes)), fn(i: Int) => {
+    let other = u_choose(native.int_eq(u_qbit(i, position), 0), fn() => native.int_add(i, stride), fn() => native.int_sub(i, stride));
+    let self = native.list_get(old.amplitudes, i);
+    let partner = native.list_get(old.amplitudes, other);
+    yield u_cmul(factor, u_choose(native.int_eq(u_qbit(i, position), 0),
+      fn() => u_cadd(self, partner), fn() => u_cadd(partner, u_cmul(-1.0, self))));
+  });
+  native.resource_take(q, "QReg.simulator");
+  yield native.resource_new("QReg.simulator", #{n: old.n, amplitudes: amplitudes});
+};
+def u_qcx(q: Value, control: Int, target: Int) -> Value = {
+  let old = native.resource_peek(q, "QReg.simulator");
+  u_require(native.bool_and(native.int_ne(control, target), native.bool_and(
+    native.bool_and(native.int_ge(control, 0), native.int_lt(control, old.n)),
+    native.bool_and(native.int_ge(target, 0), native.int_lt(target, old.n)))), "invalid controlled channel indices");
+  let stride = u_power2(target);
+  let amplitudes = u_map(u_range(native.list_length(old.amplitudes)), fn(i: Int) =>
+    native.list_get(old.amplitudes, u_choose(native.int_eq(u_qbit(i, control), 1),
+      fn() => u_choose(native.int_eq(u_qbit(i, target), 0), fn() => native.int_add(i, stride), fn() => native.int_sub(i, stride)), fn() => i)));
+  native.resource_take(q, "QReg.simulator");
+  yield native.resource_new("QReg.simulator", #{n: old.n, amplitudes: amplitudes});
+};
+def u_qbits(index: Int, n: Int) -> Text =
+  native.text_join(u_map(native.list_reverse(u_range(n)), fn(i: Int) => native.text_from_int(u_qbit(index, i))), "");
+def u_qmeasure(q: Value) -> Value = {
+  let old = native.resource_take(q, "QReg.simulator");
+  let branches = u_filter(u_map(u_range(native.list_length(old.amplitudes)), fn(i: Int) =>
+    #{bits: u_qbits(i, old.n), probability: u_cabs2(native.list_get(old.amplitudes, i))}),
+    fn(b: Value) => native.f64_gt(b.probability, 0.0));
+  yield #{kind: "Instrument", branches: branches, realization: "u.native.statevector/0.2", physical_device: false};
+};
+def u_qprogram(region: Value) -> Value = #{kind: "QuantumProgram", region: region};
+def u_qsimulate(program: Value) -> Value = {
+  u_require(native.text_eq(program.kind, "QuantumProgram"), "simulation requires a declared program");
+  yield program.region();
+};
+def quantum: Value = #{zero: u_qzero, h: u_qh, cx: u_qcx,
+  measure_all: u_qmeasure, program: u_qprogram, simulate: u_qsimulate};

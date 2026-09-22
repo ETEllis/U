@@ -1,16 +1,28 @@
-# Complete target: remaining gates
+# Completion record and remaining work
 
-This is retained implementation work from the original directive, not a redefinition of completion. The initial repository release does not close the entire target.
+The transition to native U ownership is complete for the supported 0.2 compiler, libraries and tools. The broader language program continues through the separate gates below. Reproducible self-compilation, domain conformance and formal correctness answer different questions.
 
-| Gate | Current delivered path | Work required for full gate |
+## Completed native foundation
+
+| Area | Established result | Scope |
 |---|---|---|
-| Specification/identity | Shared new grammar, graph contracts, identity encoding, source preservation | Full machine schemas for all theory/operator/adapter contracts; checked reusable expansions rather than descriptions |
-| Values/resources/proofs | Direct reference evaluator; scoped static checker; Nat/Pi/Eq kernel; byte-memory and runtime borrowing | Full stratified dependent inductives/Sigma/stages, mechanized preservation/normalization, unified efficient resource analysis and extension admission |
-| CDC compatibility | Independently executed finite primitive import; 96 randomized bit-level oracle cases; actual local Jacobians and numerical absolute recurrence | Full .cdc parser/source profiles and residual consumers; U1 source-bound closure; U2 exact state closure, relative symmetries, validated Schur, all eight original mutant families; store/authority/scheduler parity |
-| Theory conformance | Representative value/resource/relation/probability/process/clock/DAE/quantum operations | Complete per-generator contracts, native checked expansions, additional Datalog/handler/source-intensional cases; richer domain models and proof obligations |
-| Ingestion/analysis | U source lossless roundtrip; finite CDC import; six-tag executable graph | Source frontends for the eighteen comparison languages, explicit fragment theorems, checked residual lenses, law-aware optimization and translation validation |
-| Production runtime | Local journal, package snapshots, scoped capabilities, bounded compiled integer path, LSP | Robust crash/multiprocess/distributed protocols; full source-driven compiler/bytecode; hostile-package process isolation; cross-platform resource contracts, performance and operational hardening |
-| Specialized realizations | Affine DAE numeric solver; two-state HDL/GPU/quantum simulators | Validated solver error guarantees; GPU device access and race/barrier gates; HDL synthesis/equivalence; authenticated QPU jobs/calibration/result provenance |
-| Formal correspondence/self-hosting | Scoped manuscript and abstract/finite Lean theorems; independent object-language Nat proof checker | Source/type/resource/backend correspondence theorems, U-written compiler stage1, reproducible stage2, independent oracle agreement and bootstrap removal gates |
+| Native implementation | U owns the compiler, executable graph, domain libraries, proof kernel, CDC analysis and production tools | The supported source and domain fragments listed in [CLAIMS.md](../CLAIMS.md) |
+| Self-hosting | A checked generated-C seed starts U; three self-generated compiler stages agree, with native binary reproduction under the recorded toolchain | Independent comparison remains part of verification; the platform bridge and C toolchain remain disclosed dependencies |
+| Source and developer tools | Native parsing, formatting, graph reconstruction/export, CLI, language server, package snapshots and artifact auditing | Formatting and graph checks cover the preserved corpus; package installation is local and executes no hooks |
+| Browser compilation | U performs interval analysis and direct WASM emission for integer expressions and Boolean predicates | Guarded signed-i64 ranges, with exact host input checks before ABI conversion |
 
-Prioritize complete native CDC U1/U2 paths and expanded static/descriptor contracts next, then broader compiled and ingestion paths. Physical device gates require actual device/provider access and cannot be earned by simulation. Self-hosting requires actual U compiler source and stage comparisons; documentation or a self-describing grammar is insufficient.
+## Remaining research and production gates
+
+| Gate | Existing foundation | Work required |
+|---|---|---|
+| Theory and adapter contracts | Explicit graph, profile, identity and finite composition checks | Complete per-operator schemas, checked reusable expansions, broader adapters and their preservation arguments |
+| Values, resources and proofs | Native values, consuming handles, runtime borrowing and the U Nat/Pi/Eq kernel | Full stratified dependent forms, stronger static ownership/effect analysis, extension admission and metatheoretic correspondence |
+| CDC compatibility | Native finite source import, primitive comparisons, ordered Jacobians, numerical recurrence, uniform phase restoration and triangular spectra | Complete U1 source/cover/decision/effect binding; general return symmetries and validated dense Schur; remaining source, store, scheduler and authority parity |
+| Theory conformance | Native relation, probability, process, clock, DAE and coherent-state operations | Richer models and per-generator conformance beyond the supported fragments; statistical and numerical guarantees where required |
+| Foreign-language ingestion | Reconstructible U graph and finite CDC import | Frontends for the eighteen comparison languages, explicit fragment contracts, checked residual updates and translation validation |
+| General backends and optimization | General supported native target and a bounded WASM target | Broader WASM lowering, law-aware optimization and preservation checks across expanded targets |
+| Production runtime | Native local processes, capabilities, packages, editor tools and bounded execution | Long-running garbage collection, robust persistence and crash recovery, distributed protocols, stronger isolation, cross-platform resource contracts and performance work |
+| Physical realizations | Classical clock, launch and coherent-state simulators; numerical DAE realization | Actual device/provider access, calibration and provenance, race/barrier or synthesis checks, error guarantees and discriminating physical tests |
+| Formal correspondence | Scoped mathematical results, finite formal mirrors and executable proof checking | Proofs connecting source, types, resources, graph, native backend and runtime to their mathematical models |
+
+The next major integration work is complete native CDC U1/U2 compatibility and stronger descriptor/resource contracts, followed by broader source ingestion and realization support. Physical evidence requires physical execution and measurement. The native and self-hosting milestones above remain completed foundations rather than recurring open items.

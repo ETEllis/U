@@ -1,0 +1,32 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// A live finite-map example. The completed analytic chain is separate from
+// BiDi's full U1 closure protocol; no U1 certificate is asserted by this input.
+def main() -> Value = {
+  let initial = u_cdc_make_state(#{fields: [#{name: "phase", gain: 0.0, deadband: 0.5}],
+    modules: [#{name: "loop", field: "phase"}],
+    cells: [#{name: "angle", module: "loop", theta: 0.0, omega: 6.283185307179586,
+      has_latch: true, latch: 1}]});
+  let run = u_cdc_analysis.execute(initial, [#{op: "flow", field: "phase", duration: 2.0}], "two-turn-native-example");
+  u_require(native.text_eq(run.verdict, "Done"), "finite path did not execute");
+  let path = u_cdc_analysis.inspect(run.value);
+  let derivative = ad.executed_path(run.value);
+  u_require(native.text_eq(derivative.verdict, "Done"), "path tangent was held");
+  let absolute = recurrence.check(derivative.value, #{kind: "absolute", tolerance: 0.000000001});
+  let relative = recurrence.check(derivative.value, #{kind: "relative", tolerance: 0.000000001,
+    restoration: #{kind: "phase-translation", turns: #{angle: 2}}});
+  u_require(native.text_eq(relative.verdict, "Done"), "relative return was held");
+  let operator = linear.return_map(derivative.value, relative.value);
+  let result = spectral.real_schur(operator, #{residual_tolerance: 0.0000000001});
+  u_require(native.text_eq(result.verdict, "Done"), "triangular spectrum was held");
+  let spectrum = u_cdc_analysis.inspect(result.value);
+  yield #{execution: "native-U", path_identity: path.binding,
+    initial_phase: native.list_get(path.initial.cells, 0).theta,
+    final_phase: native.list_get(path.final.cells, 0).theta,
+    absolute_return: #{verdict: absolute.verdict, reason: absolute.reason, residual: absolute.details.max_residual},
+    relative_return: u_cdc_analysis.inspect(relative.value).details,
+    return_matrix: u_cdc_analysis.inspect(operator).matrix,
+    spectrum: spectrum.eigenvalues, classification: spectrum.classification,
+    schur_residual: spectrum.residual, u1_closure: "not asserted"};
+};

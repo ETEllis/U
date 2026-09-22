@@ -1,0 +1,86 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def pt_expect(value: Bool, message: Text) -> Unit = pk_require(value, native.text_concat("test: ", message));
+def pt_manifest: Text = "[package]\nname = \"fixture.pkg\" # identity\nversion = '1.2.3'\nlanguage = \"etellis.u/0.1\"\n\n[permissions]\nsubprocess = true\n[scripts]\npostinstall = \"touch HOOK_RAN\"\n";
+def pt_source: Text = "u \"etellis.u/0.1\";\ndef value() -> Int = 7;\n";
+def package_prepare(root: Text) -> Value = {
+  let source = pk_directory(pk_join(pk_directory(root, true), "source"), true);
+  native.sys_write_new(pk_join(source, "U.toml"), pt_manifest);
+  native.sys_write_new(pk_join(source, "main.u"), pt_source);
+  let lib = pk_directory(pk_join(source, "lib"), true);
+  native.sys_write_new(pk_join(lib, "helper.u"), "u \"etellis.u/0.1\";\ndef help() -> Text = \"λ\\u0000U\";\n");
+  native.sys_write_new(pk_join(lib, "U.toml"), "[package]\nname=\"nested\"\nversion=\"0.1\"\n");
+  native.sys_write_new(pk_join(source, "README.md"), "Not a source member.\n");
+  native.sys_write_new(pk_join(source, ".ignored.u"), "not a member");
+  u_for(4, fn(i: Int) => {
+    let directory = pk_directory(pk_join(source, native.list_get(["build", "dist", "work", "provenance"], i)), true);
+    native.sys_write_new(pk_join(directory, "excluded.u"), "not a member"); yield ();
+  });
+  let receipt = pk_lock(source);
+  yield #{source: source, store: pk_join(root, "store"), receipt: receipt};
+};
+def package_tests(root: Text) -> Value = {
+  let prepared = package_prepare(root); let source = prepared.source;
+  let first = pk_inventory(source); let second = pk_inventory(source);
+  pt_expect(native.value_equal(first, second), "deterministic sorted inventory");
+  pt_expect(native.value_equal(u_ev_keys(first.members), ["U.toml", "lib/U.toml", "lib/helper.u", "main.u"]), "exact selected members");
+  pt_expect(u_ev_id(first.identity), "typed package identity");
+  pt_expect(native.int_eq(pk_verify(source).members, 4), "verification member count");
+  native.sys_write(pk_join(source, "build/excluded.u"), "changed excluded bytes");
+  native.sys_write(pk_join(source, "README.md"), "changed ignored documentation");
+  pt_expect(native.text_eq(first.identity, pk_verify(source).identity), "excluded content does not change source identity");
+  let installed = pk_install(source, prepared.store);
+  pt_expect(native.bool_not(installed.reused), "initial install must publish a new directory");
+  pt_expect(native.text_eq(installed.identity, first.identity), "installed snapshot identity");
+  pt_expect(native.text_eq(pk_verify(installed.path).identity, first.identity), "installed bytes reverify");
+  pt_expect(native.text_eq(native.sys_read(pk_join(installed.path, "lib/helper.u")), native.sys_read(pk_join(source, "lib/helper.u"))), "exact UTF-8 source bytes");
+  pt_expect(native.text_eq(native.sys_file_kind(pk_join(installed.path, "README.md")), "missing"), "unselected file not installed");
+  pt_expect(native.text_eq(native.sys_file_kind(pk_join(installed.path, "build")), "missing"), "excluded directory not installed");
+  pt_expect(native.text_eq(native.sys_file_kind(pk_join(root, "HOOK_RAN")), "missing"), "no hook execution");
+  pt_expect(native.text_eq(native.sys_file_kind(pk_join(source, "HOOK_RAN")), "missing"), "source hooks are inert");
+  let reused = pk_install(source, prepared.store);
+  pt_expect(native.bool_and(reused.reused, native.text_eq(reused.path, installed.path)), "idempotent verified reuse");
+  let old = "{\"schema\":\"etellis.u.lock/1\",\"packages\":[]}\n";
+  native.sys_write(pk_join(source, "U.lock"), old);
+  let migrated = pk_lock(source);
+  pt_expect(native.text_eq(migrated.schema, "etellis.u.lock/2"), "explicit schema migration");
+  pt_expect(native.text_eq(native.sys_read(migrated.previous_lock_backup), old), "old lock preserved byte for byte");
+  pt_expect(native.text_eq(pk_verify(source).identity, first.identity), "relock preserves unchanged content identity");
+  let changed = native.text_concat(pt_source, "// versioned source change\n");
+  native.sys_write(pk_join(source, "main.u"), changed);
+  let refreshed = pk_lock(source);
+  pt_expect(native.bool_not(native.text_eq(refreshed.identity, first.identity)), "source change creates a new identity");
+  let next = pk_install(source, prepared.store);
+  pt_expect(native.bool_not(native.text_eq(next.path, installed.path)), "immutable versions coexist");
+  pt_expect(native.text_eq(native.sys_read(pk_join(installed.path, "main.u")), pt_source), "old installation remains unchanged");
+  pt_expect(native.text_eq(native.sys_read(pk_join(next.path, "main.u")), changed), "new installation contains new bytes");
+  yield #{status: "passed", schema: "etellis.u.lock/2", members: 4, first_identity: first.identity,
+    next_identity: refreshed.identity, old_install: installed.path, new_install: next.path,
+    checks: ["deterministic inventory", "typed lock identity", "exact source selection", "excluded directories",
+      "UTF-8 byte preservation", "verified atomic install", "idempotent reuse", "inert scripts and permissions",
+      "explicit legacy migration", "byte-preserved previous lock", "changed-source identity", "immutable version coexistence"]};
+};
+def package_negative(mode: Text, root: Text) -> Value = {
+  let prepared = package_prepare(root); let source = prepared.source;
+  u_choose(native.text_eq(mode, "changed"), fn() => native.sys_write(pk_join(source, "main.u"), "changed"), fn() => ());
+  u_choose(native.text_eq(mode, "added"), fn() => native.sys_write_new(pk_join(source, "extra.u"), "extra"), fn() => ());
+  u_choose(native.text_eq(mode, "missing"), fn() => native.sys_rename(pk_join(source, "main.u"), pk_join(source, "main.txt")), fn() => ());
+  u_choose(native.text_eq(mode, "legacy"), fn() => native.sys_write(pk_join(source, "U.lock"), "{\"schema\":\"etellis.u.lock/1\",\"packages\":[]}"), fn() => ());
+  u_choose(native.text_eq(mode, "name"), fn() => native.sys_write(pk_join(source, "U.toml"), "[package]\nname=\"../../escape\"\nversion=\"1\"\n"), fn() => ());
+  u_choose(native.text_eq(mode, "duplicate"), fn() => native.sys_write(pk_join(source, "U.toml"), "[package]\nname=\"safe\"\nname=\"unsafe\"\nversion=\"1\"\n"), fn() => ());
+  u_choose(u_contains(["hash", "traversal", "policy"], mode), fn() => {
+    let locked = pk_read_lock(source); let package = native.list_get(locked.packages, 0);
+    let changed = u_choose(native.text_eq(mode, "policy"), fn() => native.record_put(package, "policy", #{scripts: "run-everything"}),
+      fn() => native.record_put(package, "members", native.record_put(package.members,
+        u_choose(native.text_eq(mode, "traversal"), fn() => "../escape.u", fn() => "main.u"),
+        "0000000000000000000000000000000000000000000000000000000000000000")));
+    let resigned = native.record_put(changed, "identity", u_ev_digest("package-snapshot/2", u_ev_without(changed, "identity")));
+    native.sys_write(pk_join(source, "U.lock"), native.json_encode(pk_lock_value(resigned))); yield ();
+  }, fn() => ());
+  yield u_choose(native.text_eq(mode, "nested-store"), fn() => pk_install(source, pk_join(source, "store")), fn() =>
+    u_choose(native.text_eq(mode, "source-store"), fn() => pk_install(source, source), fn() => pk_install(source, prepared.store)));
+};
+def package_dispatch(mode: Text, root: Text) -> Value =
+  u_choose(native.text_eq(mode, "positive"), fn() => package_tests(root), fn() =>
+    u_choose(native.text_eq(mode, "prepare"), fn() => package_prepare(root), fn() => package_negative(mode, root)));

@@ -1,0 +1,39 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def dc_option(args: Value, key: Text, fallback: Text) -> Text = {
+  let value = native.cell_new(fallback);
+  u_for(native.list_length(args), fn(i: Int) => u_choose(native.text_eq(native.list_get(args, i), key), fn() => {
+    u_require(native.int_lt(native.int_add(i, 1), native.list_length(args)), "CDC option requires a value");
+    yield native.cell_set(value, native.list_get(args, native.int_add(i, 1)));
+  }, fn() => ()));
+  yield native.cell_get(value);
+};
+def dc_steps(program: Value) -> Value = u_map(program.steps, fn(step: Value) => {
+  let a = step.attrs;
+  yield u_choose(native.text_eq(step.kind, "flow"), fn() =>
+    #{op: "flow", field: native.record_get(a, "field"), duration: u_cdcsrc_number(native.record_get(a, "duration"))},
+    fn() => u_choose(native.text_eq(step.kind, "commit"), fn() =>
+      #{op: "commit", module: native.record_get(a, "module")}, fn() =>
+      #{op: "nest", parent: native.record_get(a, "parent"), child: native.record_get(a, "child")}));
+});
+def dc_main() -> Unit = {
+  let args = native.sys_args();
+  u_require(native.int_ge(native.list_length(args), 3), "CDC requires a command and source path");
+  let command = native.list_get(args, 1); let source = native.sys_read(native.list_get(args, 2));
+  let parsed = u_cdc_parse(source);
+  let result = u_choose(u_contains(["check", "parse", "lift", "explain"], command), fn() =>
+    native.record_put(parsed, "verdict", u_choose(native.int_eq(native.list_length(parsed.unsupported), 0), fn() => "Done", fn() => "Unsupported")), fn() => {
+    u_require(u_contains(["run", "eval", "prove"], command), "unsupported CDC command; source formatting and graph export are U-surface commands");
+    let executed = u_cdc_execute_source_budget(source, native.text_parse_int(dc_option(args, "--budget", "100000")));
+    yield u_choose(native.bool_and(native.text_eq(command, "prove"), native.text_eq(executed.verdict, "Done")), fn() => {
+      let path = u_cdc_analysis.execute(parsed.state, dc_steps(parsed), parsed.source_identity);
+      yield u_choose(native.text_eq(path.verdict, "Done"), fn() =>
+        native.record_put(ad.executed_path(path.value), "scope", "numerical tangent of the declared CDC finite map, not a general theorem"), fn() => path);
+    }, fn() => executed);
+  });
+  native.sys_print(native.json_encode(u_public_view(result)));
+  native.sys_exit(u_choose(native.text_eq(result.verdict, "Done"), fn() => 0,
+    fn() => u_choose(native.text_eq(result.verdict, "Held"), fn() => 3, fn() => 4)));
+  yield ();
+};

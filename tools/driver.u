@@ -1,0 +1,284 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+// The production command line is a U program linked with the U compiler.
+// Host privileges belong to this compiler process and are attenuated before
+// any generated user executable starts.
+def du_root() -> Text = {
+  let root = sys.getenv("U_ROOT");
+  cc_require(bool.not(text.eq(root, "")), #{start: 0}, "root_missing", "U_ROOT must name the installed U source tree");
+  yield root;
+};
+def du_path(root: Text, path: Text) -> Text = cc_cat(cc_cat(root, "/"), path);
+def du_validate_args(args: Value, command: Text) -> Unit = {
+  cc_require(cc_has(["--version", "lsp", "parse", "lift", "explain", "export", "fmt", "check", "emit", "run", "eval", "prove", "build"], command),
+    #{start: 0}, "unknown_command", command);
+  cc_choose(cc_has(["--version", "lsp"], command), fn() =>
+    cc_require(int.eq(list.length(args), 2), #{start: 0}, "unexpected_argument", command), fn() => {
+    cc_require(int.ge(list.length(args), 3), #{start: 0}, "usage", "source file required");
+    let allowed = cc_choose(cc_has(["run", "eval", "prove"], command),
+      fn() => ["--entry", "--args", "--cap", "--budget", "--output"], fn() =>
+      cc_choose(text.eq(command, "build"), fn() => ["--entry", "--cap", "--output", "--target", "--bounds"], fn() =>
+      cc_choose(text.eq(command, "emit"), fn() => ["--entry", "--cap", "--output"], fn() =>
+      cc_choose(text.eq(command, "export"), fn() => ["--output"], fn() =>
+      cc_choose(text.eq(command, "fmt"), fn() => ["--write"], fn() =>
+      cc_choose(cc_has(["check", "lift", "explain"], command), fn() => ["--cap"], fn() => []))))));
+    let i = cell.new(3);
+    control.while(fn() => int.lt(cell.get(i), list.length(args)), fn() => {
+      let option = list.get(args, cell.get(i));
+      cc_require(cc_has(allowed, option), #{start: 0}, "unknown_option", option);
+      let count = cc_choose(text.eq(option, "--write"), fn() => 1, fn() => 2);
+      cc_require(int.le(int.add(cell.get(i), count), list.length(args)), #{start: 0}, "option_value", option);
+      cell.set(i, int.add(cell.get(i), count)); yield ();
+    }); yield ();
+  }); yield ();
+};
+def du_option(args: Value, name: Text, fallback: Text) -> Text = {
+  let result = cell.new(fallback);
+  let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), list.length(args)), fn() => {
+    cc_choose(text.eq(list.get(args, cell.get(i)), name), fn() => {
+      cc_require(int.lt(int.add(cell.get(i), 1), list.length(args)), #{start: 0}, "option_value", name);
+      cell.set(result, list.get(args, int.add(cell.get(i), 1))); yield ();
+    }, fn() => ());
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield cell.get(result);
+};
+def du_capabilities(args: Value) -> Value = {
+  let caps = buffer.new(); let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), list.length(args)), fn() => {
+    cc_choose(text.eq(list.get(args, cell.get(i)), "--cap"), fn() => {
+      cc_require(int.lt(int.add(cell.get(i), 1), list.length(args)), #{start: 0}, "option_value", "--cap");
+      let cap = list.get(args, int.add(cell.get(i), 1));
+      cc_require(cc_has(["console", "read", "write", "exec", "actors", "network", "env"], cap), #{start: 0}, "unknown_capability", cap);
+      buffer.push(caps, cap); yield ();
+    }, fn() => ());
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield buffer.freeze(caps);
+};
+def du_visit(e: Value, visitor: Value) -> Unit = {
+  visitor(e);
+  cc_choose(text.eq(e.kind, "call"), fn() => {du_visit(e.callee, visitor); cc_each(e.args, fn(a: Value) => du_visit(a, visitor)); yield ();}, fn() =>
+  cc_choose(text.eq(e.kind, "member"), fn() => du_visit(e.object, visitor), fn() =>
+  cc_choose(text.eq(e.kind, "lambda"), fn() => du_visit(e.body, visitor), fn() =>
+  cc_choose(cc_has(["list", "tuple"], e.kind), fn() => cc_each(e.items, fn(a: Value) => du_visit(a, visitor)), fn() =>
+  cc_choose(text.eq(e.kind, "record"), fn() => cc_each(e.fields, fn(f: Value) => du_visit(f.value, visitor)), fn() =>
+  cc_choose(text.eq(e.kind, "block"), fn() => {
+    cc_each(e.statements, fn(s: Value) => du_visit(s.value, visitor)); du_visit(e.result, visitor); yield ();
+  }, fn() => ()))))));
+  yield ();
+};
+def du_admit(module: Value, caps: Value) -> Unit = {
+  cc_each(module.imports, fn(profile: Text) => cc_require(cc_has([
+    "u.standard/0.1", "etellis.cdc/native-0.3.0-1307f2a7"], profile), #{start: 0}, "profile_unavailable", profile));
+  let own = list.map(module.definitions, fn(d: Value) => d.name);
+  cc_each(module.definitions, fn(d: Value) => {
+    cc_require(bool.not(cc_has(["native", "resource", "cell", "buffer", "table", "sys", "__u_entry",
+      "Nat", "Type", "Eq", "Pi", "nat", "eq", "proof"], d.name)), d, "reserved_binding", d.name);
+    cc_require(bool.not(cc_choose(int.ge(text.length(d.name), 2), fn() => text.eq(text.slice(d.name, 0, 2), "u_"), fn() => false)),
+      d, "reserved_library_binding", d.name);
+    du_visit(d.body, fn(e: Value) => {
+      cc_choose(text.eq(e.kind, "name"), fn() => {
+        cc_require(bool.not(cc_has(["native", "resource", "cell", "buffer", "table"], e.name)), e,
+          "unsafe_bridge", "raw bridge access is reserved for the checked standard library");
+        cc_choose(cc_choose(int.ge(text.length(e.name), 2), fn() => text.eq(text.slice(e.name, 0, 2), "u_"), fn() => false), fn() =>
+          cc_require(cc_has(own, e.name), e, "private_library_name", e.name), fn() => ());
+        yield ();
+      }, fn() => ());
+      cc_choose(text.eq(e.kind, "member"), fn() => {
+        let q = cc_qname(e);
+        cc_choose(text.eq(cc_root_name(e), "sys"), fn() => {
+          let permission = cc_choose(text.eq(q, "sys.print"), fn() => "console", fn() =>
+            cc_choose(text.eq(q, "sys.read"), fn() => "read", fn() =>
+            cc_choose(text.eq(q, "sys.write"), fn() => "write", fn() =>
+            cc_choose(text.eq(q, "sys.exec"), fn() => "exec", fn() =>
+            cc_choose(text.eq(q, "sys.getenv"), fn() => "env", fn() => "unavailable")))));
+          cc_require(cc_has(caps, permission), e, "capability_required", permission); yield ();
+        }, fn() => ());
+        yield ();
+      }, fn() => ());
+      yield ();
+    });
+    yield ();
+  });
+  yield ();
+};
+def du_uses(names: Value, choices: Value) -> Bool = {
+  let found = cell.new(false);
+  cc_each(choices, fn(name: Text) => cc_choose(table.has(names, name), fn() => cell.set(found, true), fn() => ()));
+  yield cell.get(found);
+};
+def du_libraries(module: Value) -> Value = {
+  let names = table.new(); let out = buffer.new(); let own = table.new();
+  cc_each(module.definitions, fn(d: Value) => table.set(own, d.name, true));
+  cc_each(module.definitions, fn(d: Value) => du_visit(d.body, fn(e: Value) =>
+    cc_choose(text.eq(e.kind, "name"), fn() => cc_choose(table.has(own, e.name), fn() => (),
+      fn() => table.set(names, e.name, true)), fn() => ())));
+  buffer.push(out, "stdlib/core.u");
+  cc_choose(du_uses(names, ["array", "quantum", "prob", "dist", "http", "async", "actor", "temporal",
+    "hw", "gpu", "mem", "duration", "model", "dynamics", "cdc", "cdc_source", "ad", "recurrence", "linear", "spectral", "analysis"]),
+    fn() => buffer.push(out, "stdlib/numeric.u"), fn() => ());
+  cc_choose(du_uses(names, ["logic", "rel", "sql"]), fn() => buffer.push(out, "stdlib/relational.u"), fn() => ());
+  cc_choose(du_uses(names, ["syntax"]), fn() => buffer.push(out, "stdlib/syntax.u"), fn() => ());
+  cc_choose(du_uses(names, ["prob", "dist"]), fn() => buffer.push(out, "stdlib/probability.u"), fn() => ());
+  cc_choose(du_uses(names, ["proof", "eq", "Eq", "Pi", "u_proof_require"]), fn() => buffer.push(out, "stdlib/proof.u"), fn() => ());
+  cc_choose(du_uses(names, ["http", "async", "actor", "temporal", "hw", "gpu", "mem", "duration", "model"]),
+    fn() => buffer.push(out, "stdlib/processes.u"), fn() => ());
+  cc_choose(du_uses(names, ["dynamics"]), fn() => buffer.push(out, "stdlib/dynamics.u"), fn() => ());
+  cc_choose(du_uses(names, ["evidence", "admission"]), fn() => buffer.push(out, "stdlib/evidence.u"), fn() => ());
+  buffer.push(out, "stdlib/inspection.u");
+  cc_choose(du_uses(names, ["cdc", "cdc_source", "ad", "recurrence", "linear", "spectral", "analysis"]), fn() => {
+    buffer.push(out, "cdc/primitives.u"); buffer.push(out, "cdc/analysis.u"); yield ();
+  }, fn() => ());
+  cc_choose(du_uses(names, ["cdc_source"]), fn() => buffer.push(out, "cdc/source.u"), fn() => ());
+  yield buffer.freeze(out);
+};
+def du_bundle_snapshot(root: Text, source: Text) -> Value = {
+  let user = cc_parse(source);
+  let sources = list.map(du_libraries(user), fn(path: Text) =>
+    #{path: path, source: sys.read(du_path(root, path))});
+  let library_source = text.join(list.map(sources, fn(item: Value) => item.source), "\n");
+  let libraries = cc_parse(library_source);
+  let user_names = table.new();
+  cc_each(user.definitions, fn(d: Value) => table.set(user_names, d.name, true));
+  let merged = #{definitions: list.append(list.filter(libraries.definitions, fn(d: Value) =>
+      bool.not(table.has(user_names, d.name))), user.definitions),
+    imports: list.append(libraries.imports, user.imports), source: source};
+  yield #{module: merged, source: cc_cat(library_source, cc_cat("\n", source)),
+    dependencies: list.map(sources, fn(item: Value) => #{path: item.path, sha256: crypto.sha256(item.source)})};
+};
+def du_bundle(root: Text, source: Text) -> Value = du_bundle_snapshot(root, source).module;
+def du_reachable(module: Value, entry: Text) -> Value = {
+  let names = table.new(); let keep = table.new(); let changed = cell.new(true);
+  cc_each(module.definitions, fn(d: Value) => table.set(names, d.name, true));
+  table.set(keep, entry, true);
+  control.while(fn() => cell.get(changed), fn() => {
+    cell.set(changed, false);
+    cc_each(module.definitions, fn(d: Value) => cc_choose(table.has(keep, d.name), fn() => {
+      let visit = fn(e: Value) => cc_choose(text.eq(e.kind, "name"), fn() =>
+        cc_choose(bool.and(table.has(names, e.name), bool.not(table.has(keep, e.name))), fn() => {
+          table.set(keep, e.name, true); cell.set(changed, true); yield ();
+        }, fn() => ()), fn() => ());
+      du_visit(d.body, visit); du_visit(d.type, visit);
+      cc_each(d.params, fn(p: Value) => du_visit(p.type, visit)); yield ();
+    }, fn() => ()));
+    yield ();
+  });
+  yield record.put(module, "definitions", list.filter(module.definitions, fn(d: Value) => table.has(keep, d.name)));
+};
+def du_entry_source(module: Value, entry: Text, caps: Value, proving: Bool) -> Text = {
+  let matches = list.filter(module.definitions, fn(d: Value) => text.eq(d.name, entry));
+  cc_require(int.eq(list.length(matches), 1), #{start: 0}, "entry_missing", entry);
+  let d = list.get(matches, 0);
+  let expression = cc_choose(bool.and(d.is_function, int.eq(list.length(d.params), 1)), fn() => {
+    let type = cc_tname(list.get(d.params, 0).type);
+    yield cc_choose(bool.and(text.eq(type, "ConsoleCap"), cc_has(caps, "console")),
+      fn() => cc_cat(entry, "(io.console_cap())"),
+      fn() => cc_cat(cc_cat("native.value_call(", entry), ", u_program_args())"));
+  }, fn() => cc_choose(d.is_function, fn() =>
+    cc_cat(cc_cat("native.value_call(", entry), ", u_program_args())"), fn() => entry));
+  let checked = cc_choose(proving, fn() => cc_cat(cc_cat("u_proof_require(", expression), ")"), fn() => expression);
+  yield cc_cat(cc_cat("\ndef __u_entry() -> Value = u_public_view(", checked), ");\n");
+};
+def du_compile(root: Text, input: Text, entry: Text, output: Text, caps: Value, proving: Bool) -> Value = {
+  let raw = sys.read(input); let user = cc_parse(raw);
+  du_admit(user, caps);
+  let graph = gg_lower(user);
+  let restored = gg_reconstruct(graph);
+  let wrapper = du_entry_source(restored, entry, caps, proving);
+  let bundled = du_bundle_snapshot(root, cc_cat(raw, wrapper));
+  let source = bundled.source;
+  let parsed = bundled.module;
+  let reconstructed = table.new();
+  cc_each(restored.definitions, fn(d: Value) => table.set(reconstructed, d.name, d));
+  let module = record.put(parsed, "definitions", list.map(parsed.definitions, fn(d: Value) =>
+    cc_choose(table.has(reconstructed, d.name), fn() => table.get(reconstructed, d.name, ()), fn() => d)));
+  let selected = cc_choose(text.eq(wrapper, ""), fn() => entry, fn() => "__u_entry");
+  let cpath = cc_cat(output, ".c");
+  let checking = cc_validate(module);
+  sys.write(cpath, cc_emit(du_reachable(module, selected), selected));
+  let scratch_value = sys.getenv("U_NATIVE_WORK");
+  let scratch = cc_choose(text.eq(scratch_value, ""), fn() => du_path(root, "build/native"), fn() => scratch_value);
+  let runtime = sys.read(du_path(root, "native/runtime.c"));
+  let header = sys.read(du_path(root, "native/runtime.h"));
+  sys.write(du_path(scratch, "runtime.c"), runtime);
+  sys.write(du_path(scratch, "runtime.h"), header);
+  let args = ["cc", "-std=c11", "-O1", "-ffp-contract=off", "-I", scratch, cpath,
+    du_path(scratch, "runtime.c"), "-lm", "-o", output];
+  let flags = sys.getenv("U_NATIVE_LINK_CRYPTO");
+  let code = sys.exec(cc_choose(text.eq(flags, "1"), fn() => list.append(args, ["-lcrypto"]), fn() => args));
+  cc_require(int.eq(code, 0), #{start: 0}, "native_link_failed", output);
+  let receipt = #{schema: "etellis.u.native-build/2", output: output, c_source: cpath,
+    source: input, source_identity: crypto.sha256(raw), graph_identity: graph.structural_identity,
+    compiler_identity: crypto.sha256_file(list.get(sys.args(), 0)),
+    executable_identity: crypto.sha256_file(output), c_source_identity: crypto.sha256(sys.read(cpath)),
+    runtime_identity: crypto.sha256(runtime), runtime_header_identity: crypto.sha256(header),
+    libraries: bundled.dependencies,
+    checking: checking, entry: entry, runtime: "U native", python_required: false};
+  sys.write(cc_cat(output, ".json"), json.encode(receipt));
+  yield receipt;
+};
+def du_main() -> Unit = {
+  let args = sys.args(); let root = du_root();
+  cc_require(int.ge(list.length(args), 2), #{start: 0}, "usage", "etellis-u check/run/build/emit/fmt/parse FILE [--entry NAME] [--args JSON] [--cap NAME]");
+  let command = list.get(args, 1);
+  du_validate_args(args, command);
+  cc_choose(text.eq(command, "--version"), fn() => sys.print("etellis-u 0.2.0; compiler and standard library in U"), fn() =>
+  cc_choose(text.eq(command, "lsp"), fn() => ls_main(), fn() => {
+    cc_require(int.ge(list.length(args), 3), #{start: 0}, "usage", "source file required");
+    let input = list.get(args, 2); let caps = du_capabilities(args);
+    let entry = du_option(args, "--entry", "main");
+    let work = sys.getenv("U_NATIVE_WORK");
+    let fallback = cc_choose(text.eq(command, "build"), fn() => cc_cat(input, ".native"), fn() =>
+      cc_choose(text.eq(command, "emit"), fn() => cc_cat(input, ".c"), fn() =>
+      cc_choose(text.eq(command, "export"), fn() => cc_cat(input, ".u"), fn() =>
+      du_path(cc_choose(text.eq(work, ""), fn() => du_path(root, "build/native"), fn() => work), "program"))));
+    let output = du_option(args, "--output", fallback);
+    cc_choose(text.eq(command, "parse"), fn() => sys.print(json.encode(cc_parse(sys.read(input)))), fn() =>
+    cc_choose(cc_has(["lift", "explain"], command), fn() => {
+      let module = cc_parse(sys.read(input)); du_admit(module, caps);
+      sys.print(json.encode(gg_lower(module))); yield ();
+    }, fn() =>
+    cc_choose(text.eq(command, "export"), fn() => {
+      let graph = json.parse(sys.read(input)); let module = gg_reconstruct(graph);
+      cc_require(bool.not(text.eq(module.source, "")), #{start: 0}, "source_unavailable", "graph has no retained source");
+      cc_require(text.eq(gg_lower(cc_parse(module.source)).structural_identity, graph.structural_identity),
+        #{start: 0}, "source_graph_mismatch", "retained source does not describe this graph");
+      sys.write_new(output, module.source); yield ();
+    }, fn() =>
+    cc_choose(text.eq(command, "fmt"), fn() => {
+      let formatted = ff_format(sys.read(input));
+      cc_choose(cc_has(args, "--write"), fn() => sys.write(input, formatted), fn() => sys.stdout_write(formatted)); yield ();
+    }, fn() =>
+    cc_choose(text.eq(command, "check"), fn() => {
+      let raw = sys.read(input); du_admit(cc_parse(raw), caps);
+      sys.print(json.encode(cc_validate(du_bundle(root, raw)))); yield ();
+    }, fn() =>
+    cc_choose(text.eq(command, "emit"), fn() => {
+      let raw = sys.read(input); du_admit(cc_parse(raw), caps);
+      sys.write(output, cc_emit(du_bundle(root, raw), entry)); yield ();
+    }, fn() => {
+      cc_require(cc_has(["run", "eval", "prove", "build"], command), #{start: 0}, "unknown_command", command);
+      let target = du_option(args, "--target", "native");
+      cc_require(cc_has(["native", "wasm"], target), #{start: 0}, "unknown_target", target);
+      let result = cc_choose(text.eq(target, "wasm"), fn() => {
+        cc_require(text.eq(command, "build"), #{start: 0}, "wasm_build_only", "use build --target wasm");
+        let module = cc_parse(sys.read(input)); du_admit(module, caps);
+        yield ww_build(module, entry, json.parse(du_option(args, "--bounds", "[]")),
+          du_option(args, "--output", cc_cat(input, ".wasm")));
+      }, fn() => du_compile(root, input, entry, output, caps, text.eq(command, "prove")));
+      cc_choose(text.eq(command, "build"), fn() => sys.print(json.encode(result)), fn() => {
+        let permitted = cc_cat("U_NATIVE_ALLOW=", text.join(caps, ","));
+        let arguments = cc_cat("U_USER_ARGS_JSON=", du_option(args, "--args", "[]"));
+        let budget = cc_cat("U_NATIVE_STEPS=", du_option(args, "--budget", "10000000"));
+        let status = sys.exec(["/usr/bin/env", permitted, arguments, "U_ARGS_JSON=[]", budget, output]);
+        sys.exit(status); yield ();
+      });
+      yield ();
+    }))))));
+    yield ();
+  }));
+  yield ();
+};

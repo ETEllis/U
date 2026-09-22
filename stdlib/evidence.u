@@ -1,0 +1,240 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Typed identity profile 2. U owns framing, key order, dependencies and scope.
+// Hashes identify data. They never turn a JSON assertion into proof authority.
+// Real values carry their exact finite IEEE binary64 bits, including signed zero.
+def u_ev_join(parts: Value) -> Text = native.text_join(parts, "");
+def u_ev_less(a: Text, b: Text) -> Bool = {
+  let limit = u_choose(native.int_lt(native.bytes_length(a), native.bytes_length(b)),
+    fn() => native.bytes_length(a), fn() => native.bytes_length(b));
+  let state = u_loop(#{i: 0, order: 0},
+    fn(s: Value) => native.bool_and(native.int_lt(s.i, limit), native.int_eq(s.order, 0)),
+    fn(s: Value) => #{i: native.int_add(s.i, 1),
+      order: native.int_sub(native.bytes_at(a, s.i), native.bytes_at(b, s.i))});
+  yield u_choose(native.int_eq(state.order, 0),
+    fn() => native.int_lt(native.bytes_length(a), native.bytes_length(b)),
+    fn() => native.int_lt(state.order, 0));
+};
+def u_ev_sort(values: Value) -> Value = u_fold(values, [], fn(sorted: Value, value: Text) => {
+  let output = native.buffer_new(); let placed = native.cell_new(false);
+  u_for(native.list_length(sorted), fn(i: Int) => {
+    let item = native.list_get(sorted, i);
+    u_choose(native.bool_and(native.bool_not(native.cell_get(placed)), u_ev_less(value, item)), fn() => {
+      native.buffer_push(output, value); native.cell_set(placed, true); yield ();
+    }, fn() => ());
+    yield native.buffer_push(output, item);
+  });
+  u_choose(native.cell_get(placed), fn() => (), fn() => native.buffer_push(output, value));
+  yield native.buffer_freeze(output);
+});
+def u_ev_strings(values: Value) -> Bool = native.bool_and(native.text_eq(native.value_kind(values), "list"),
+  u_choose(native.text_eq(native.value_kind(values), "list"),
+    fn() => u_all(values, fn(value: Value) => native.text_eq(native.value_kind(value), "text")), fn() => false));
+def u_ev_set(values: Value) -> Value = {
+  u_require(u_ev_strings(values), "identity set requires Text values");
+  yield u_ev_sort(u_fold(values, [], fn(result: Value, value: Text) =>
+    u_choose(u_contains(result, value), fn() => result, fn() => native.list_append(result, [value]))));
+};
+def u_ev_keys(value: Value) -> Value = u_ev_sort(native.record_keys(value));
+def u_ev_record(value: Value) -> Value = u_choose(native.text_eq(native.value_kind(value), "record"), fn() => value, fn() => #{});
+def u_ev_without(value: Value, omitted: Text) -> Value = {
+  let keys = u_filter(native.record_keys(value), fn(key: Text) => native.bool_not(native.text_eq(key, omitted)));
+  yield native.record_make(keys, u_map(keys, fn(key: Text) => native.record_get(value, key)));
+};
+def u_ev_encode(value: Value, depth: Int, budget: Value) -> Text = {
+  native.cell_set(budget, native.int_sub(native.cell_get(budget), 1));
+  u_require(native.bool_and(native.int_ge(native.cell_get(budget), 0), native.int_le(depth, 128)), "canonical value exceeds depth or node budget");
+  let kind = native.value_kind(value);
+  yield u_choose(native.text_eq(kind, "unit"), fn() => "u;",
+    fn() => u_choose(native.text_eq(kind, "bool"), fn() => u_choose(value, fn() => "b1;", fn() => "b0;"),
+    fn() => u_choose(native.text_eq(kind, "int"), fn() => u_ev_join(["i", native.text_from_int(value), ";"]),
+    fn() => u_choose(native.text_eq(kind, "real"), fn() => u_ev_join(["f", native.f64_bits(value), ";"]),
+    fn() => u_choose(native.text_eq(kind, "text"), fn() => u_ev_join(["t", native.text_from_int(native.bytes_length(value)), ":", value]),
+    fn() => u_choose(u_contains(["list", "tuple"], kind), fn() => {
+      let length = u_choose(native.text_eq(kind, "list"), fn() => native.list_length(value), fn() => native.tuple_length(value));
+      let items = u_map(u_range(length), fn(i: Int) => u_ev_encode(
+        u_choose(native.text_eq(kind, "list"), fn() => native.list_get(value, i), fn() => native.tuple_get(value, i)),
+        native.int_add(depth, 1), budget));
+      yield u_ev_join([u_choose(native.text_eq(kind, "list"), fn() => "l", fn() => "p"),
+        native.text_from_int(length), ":[", u_ev_join(items), "]"]);
+    }, fn() => u_choose(native.text_eq(kind, "record"), fn() => {
+      let keys = u_ev_keys(value);
+      let fields = u_map(keys, fn(key: Text) => u_ev_join([
+        u_ev_encode(key, native.int_add(depth, 1), budget),
+        u_ev_encode(native.record_get(value, key), native.int_add(depth, 1), budget)]));
+      yield u_ev_join(["m", native.text_from_int(native.list_length(keys)), ":{", u_ev_join(fields), "}"]);
+    }, fn() => u_fail(native.text_concat("canonical profile rejects mutable, executable or authority-bearing value: ", kind)))))))));
+};
+def u_ev_canonical(value: Value) -> Text = u_ev_encode(value, 0, native.cell_new(100000));
+def u_ev_digest(domain: Text, value: Value) -> Text = native.text_concat("sha256:", native.crypto_sha256(
+  u_ev_join(["etellis.u/typed-identity/2\u0000", u_ev_canonical(domain), u_ev_canonical(value)])));
+def u_ev_id(value: Value) -> Bool = u_choose(native.text_eq(native.value_kind(value), "text"), fn() =>
+  u_choose(native.int_eq(native.bytes_length(value), 71), fn() => native.bool_and(
+    native.text_eq(native.bytes_slice(value, 0, 7), "sha256:"),
+    u_all(u_range(64), fn(i: Int) => {
+      let c = native.bytes_at(value, native.int_add(i, 7));
+      yield native.bool_or(native.bool_and(native.int_ge(c, 48), native.int_le(c, 57)), native.bool_and(native.int_ge(c, 97), native.int_le(c, 102)));
+    })),
+    fn() => false), fn() => false);
+def u_ev_dependencies(dependencies: Value) -> Value = {
+  let result = u_ev_set(dependencies);
+  u_require(u_all(result, u_ev_id), "dependency must be a typed identity digest"); yield result;
+};
+def u_ev_kinds: Value = ["source", "meaning", "realization", "evidence", "operator", "profile", "transform"];
+def u_ev_artifact(kind: Text, payload: Value, dependencies: Value) -> Value = {
+  u_require(u_contains(u_ev_kinds, kind), "unknown artifact kind");
+  let body = #{schema: "etellis.u.artifact/2", kind: kind, payload: payload, dependencies: u_ev_dependencies(dependencies)};
+  yield native.record_put(body, "identity", u_ev_digest("artifact", body));
+};
+def u_ev_artifact_valid(artifact: Value) -> Bool = u_choose(native.text_eq(native.value_kind(artifact), "record"), fn() => {
+  let required = ["dependencies", "identity", "kind", "payload", "schema"];
+  yield u_choose(native.value_equal(u_ev_keys(artifact), required), fn() =>
+    u_choose(native.bool_and(native.value_equal(artifact.schema, "etellis.u.artifact/2"), u_contains(u_ev_kinds, artifact.kind)), fn() =>
+      u_choose(u_ev_strings(artifact.dependencies), fn() => native.bool_and(
+        native.bool_and(u_all(artifact.dependencies, u_ev_id), native.value_equal(artifact.dependencies, u_ev_set(artifact.dependencies))),
+        native.value_equal(artifact.identity, u_ev_digest("artifact", u_ev_without(artifact, "identity")))), fn() => false), fn() => false), fn() => false);
+}, fn() => false);
+def u_ev_receipt(scope: Text, subject: Text, dependencies: Value, assumptions: Value, verdict: Text, payload: Value) -> Value = {
+  u_require(u_ev_id(subject), "receipt subject must be an identity digest");
+  u_require(u_contains(["Done", "Held", "Rejected", "Fault", "Indeterminate", "Unsupported"], verdict), "unknown receipt verdict");
+  let body = #{schema: "etellis.u.receipt/2", scope: scope, subject: subject,
+    dependencies: u_ev_dependencies(native.list_append(dependencies, [subject])),
+    assumptions: u_ev_set(assumptions), verdict: verdict, payload: payload, authority: "identity-only"};
+  yield native.record_put(body, "identity", u_ev_digest("receipt", body));
+};
+def u_ev_verify(receipt: Value, subject: Text) -> Bool = u_choose(native.text_eq(native.value_kind(receipt), "record"), fn() => {
+  let required = ["assumptions", "authority", "dependencies", "identity", "payload", "schema", "scope", "subject", "verdict"];
+  yield u_choose(native.value_equal(u_ev_keys(receipt), required), fn() =>
+    u_choose(native.bool_and(native.value_equal(receipt.schema, "etellis.u.receipt/2"), native.value_equal(receipt.authority, "identity-only")), fn() =>
+    u_choose(native.bool_and(native.text_eq(native.value_kind(receipt.scope), "text"), native.bool_and(u_ev_id(subject), native.value_equal(receipt.subject, subject))), fn() =>
+    u_choose(native.bool_and(u_ev_strings(receipt.dependencies), u_ev_strings(receipt.assumptions)), fn() => native.bool_and(
+      native.bool_and(u_contains(receipt.dependencies, subject),
+        native.bool_and(u_all(receipt.dependencies, u_ev_id), native.value_equal(receipt.dependencies, u_ev_set(receipt.dependencies)))),
+      native.bool_and(native.value_equal(receipt.assumptions, u_ev_set(receipt.assumptions)),
+        native.bool_and(u_contains(["Done", "Held", "Rejected", "Fault", "Indeterminate", "Unsupported"], receipt.verdict),
+          native.value_equal(receipt.identity, u_ev_digest("receipt", u_ev_without(receipt, "identity")))))),
+      fn() => false), fn() => false), fn() => false), fn() => false);
+}, fn() => false);
+
+def u_ev_note(state: Value, text: Text) -> Unit = u_choose(native.table_has(state.noted, text), fn() => (), fn() => {
+  native.table_set(state.noted, text, true); native.buffer_push(state.errors, text); yield ();
+});
+def u_ev_visit(objects: Value, key: Text, state: Value, depth: Int) -> Bool = {
+  yield u_choose(native.int_gt(depth, 128), fn() => { u_ev_note(state, native.text_concat("dependency-depth-limit:", key)); yield true; }, fn() =>
+  u_choose(native.bool_not(native.record_has(objects, key)), fn() => { u_ev_note(state, native.text_concat("missing-dependency:", key)); yield true; }, fn() => {
+    let color = native.table_get(state.colors, key, 0);
+    yield u_choose(native.int_eq(color, 1), fn() => { u_ev_note(state, native.text_concat("dependency-cycle:", key)); yield true; }, fn() =>
+    u_choose(native.int_eq(color, 2), fn() => native.table_get(state.evidence, key, true), fn() => {
+      native.table_set(state.colors, key, 1);
+      let artifact = u_ev_record(native.record_get(objects, key));
+      let kind = u_get(artifact, "kind", "unknown");
+      let dependencies = u_get(artifact, "dependencies", []);
+      let valid_dependencies = u_ev_strings(dependencies);
+      u_choose(valid_dependencies, fn() => (), fn() => u_ev_note(state, native.text_concat("invalid-dependencies:", key)));
+      let reaches = u_fold(u_choose(valid_dependencies, fn() => dependencies, fn() => []), native.value_equal(kind, "evidence"), fn(found: Bool, dependency: Text) => {
+        let child = u_ev_visit(objects, dependency, state, native.int_add(depth, 1));
+        yield native.bool_or(found, child);
+      });
+      u_choose(native.bool_and(native.value_equal(kind, "meaning"), reaches),
+        fn() => u_ev_note(state, native.text_concat("meaning-evidence-dependency:", key)), fn() => ());
+      native.table_set(state.evidence, key, reaches); native.table_set(state.colors, key, 2); yield reaches;
+    }));
+  }));
+};
+def u_ev_validate_dag(objects: Value) -> Value = {
+  u_require(native.text_eq(native.value_kind(objects), "record"), "artifact store must be a record indexed by identity");
+  let state = #{colors: native.table_new(), evidence: native.table_new(), errors: native.buffer_new(), noted: native.table_new()};
+  let keys = u_ev_keys(objects);
+  u_for(native.list_length(keys), fn(i: Int) => {
+    let key = native.list_get(keys, i); let artifact = native.record_get(objects, key);
+    u_choose(native.bool_and(u_ev_artifact_valid(artifact), native.value_equal(u_get(u_ev_record(artifact), "identity", ""), key)),
+      fn() => (), fn() => u_ev_note(state, native.text_concat("artifact-identity:", key)));
+    u_ev_visit(objects, key, state, 0); yield ();
+  });
+  let obligations = native.buffer_freeze(state.errors);
+  yield #{admitted: native.int_eq(native.list_length(obligations), 0), obligations: obligations,
+    checked: native.list_length(keys), scope: "identity, acyclicity and transitive meaning/evidence separation", authority: "identity-only"};
+};
+
+// Transform rules are rechecked here. A caller's `checked: true` field confers nothing.
+def u_ev_transform(old: Value, payload: Value, dependencies: Value, contract: Value) -> Value = {
+  u_require(u_ev_artifact_valid(old), "transform source identity is invalid");
+  let target = u_ev_artifact(old.kind, payload, dependencies);
+  let specification = u_ev_record(contract);
+  let rule = u_get(specification, "rule", ""); let scope = u_get(specification, "scope", "");
+  let source_matches = native.value_equal(u_get(specification, "source", ""), old.identity);
+  let dependencies_match = native.value_equal(old.dependencies, target.dependencies);
+  let unchanged = native.text_eq(old.identity, target.identity);
+  let realization = native.bool_and(native.text_eq(old.kind, "realization"), native.bool_and(native.text_eq(native.value_kind(old.payload), "record"), native.text_eq(native.value_kind(payload), "record")));
+  let same_meaning = u_choose(realization, fn() => native.bool_and(
+    native.record_has(old.payload, "meaning"), native.bool_and(native.record_has(old.payload, "semantic_contract"),
+      native.bool_and(native.value_equal(u_get(payload, "meaning", ()), u_get(old.payload, "meaning", ())),
+        native.value_equal(u_get(payload, "semantic_contract", ()), u_get(old.payload, "semantic_contract", ()))))), fn() => false);
+  let rule_valid = u_choose(native.value_equal(rule, "identity"), fn() => native.bool_and(native.value_equal(scope, "all"), unchanged), fn() =>
+    u_choose(native.value_equal(rule, "replace-payload"), fn() => native.bool_and(native.value_equal(scope, "payload"), dependencies_match), fn() =>
+    u_choose(native.value_equal(rule, "replace-realization"), fn() => native.bool_and(native.value_equal(scope, "realization"), native.bool_and(dependencies_match, same_meaning)), fn() => false)));
+  let prior = u_get(specification, "evidence", []);
+  let receipts_valid = u_choose(native.text_eq(native.value_kind(prior), "list"), fn() => u_all(prior, fn(receipt: Value) => u_ev_verify(receipt, old.identity)), fn() => false);
+  let admitted = native.bool_and(source_matches, native.bool_and(rule_valid, receipts_valid));
+  yield #{admitted: admitted, artifact: u_choose(admitted, fn() => target, fn() => old),
+    changed: native.bool_and(admitted, native.bool_not(unchanged)),
+    retained_evidence: u_choose(native.bool_and(admitted, unchanged), fn() => prior, fn() => []),
+    invalidated_evidence: u_choose(native.bool_and(admitted, native.bool_not(unchanged)), fn() => prior, fn() => []),
+    declared_meaning_unchanged: native.bool_and(admitted, native.bool_or(unchanged, native.bool_and(native.value_equal(rule, "replace-realization"), same_meaning))),
+    relation: u_choose(unchanged, fn() => "identical subject", fn() => "new subject; realization validation required"),
+    obligations: u_choose(admitted, fn() => [], fn() => ["transform rule, exact source, scope or attached evidence did not validate"]),
+    authority: "identity-only"};
+};
+
+def u_ad_descriptor(origin: Text, support: Text, laws: Value, assumptions: Value, trust: Value, realizations: Value) -> Value = {
+  u_require(u_contains(["specified-generator", "specified-derived", "native-definition", "imported", "assumed"], origin), "unknown operator origin");
+  u_require(u_contains(["native-u", "native-primitive", "external", "unavailable"], support), "unknown native support status");
+  let body = #{schema: "etellis.u.admission/2", origin: origin, native_support: support,
+    law_references: u_ev_set(laws), assumptions: u_ev_set(assumptions), trust_dependencies: u_ev_set(trust),
+    realizations: u_ev_set(realizations), law_verification: "requires separate checked certificates", authority: "identity-only"};
+  yield native.record_put(body, "identity", u_ev_digest("admission-descriptor", body));
+};
+def u_ad_compose(families: Value, imports: Value, ordering: Value) -> Value = {
+  let fs = u_ev_set(families); let profiles = u_ev_set(imports); let errors = native.buffer_new(); let witnesses = native.buffer_new();
+  let order = u_choose(native.text_eq(native.value_kind(ordering), "unit"), fn() => "", fn() =>
+    u_choose(native.text_eq(native.value_kind(ordering), "text"), fn() => ordering, fn() => "invalid-order-value"));
+  let before = u_contains(profiles, "u.prob-choice/before/0.1"); let after = u_contains(profiles, "u.prob-choice/after/0.1");
+  u_choose(u_contains(["", "before", "after"], order), fn() => (), fn() => native.buffer_push(errors, "unknown probability/choice observation order"));
+  u_choose(native.bool_and(before, after), fn() => native.buffer_push(errors, "conflicting probability/choice order contracts"), fn() => ());
+  u_choose(native.bool_or(native.bool_and(before, native.text_eq(order, "after")), native.bool_and(after, native.text_eq(order, "before"))),
+    fn() => native.buffer_push(errors, "explicit order conflicts with imported profile"), fn() => ());
+  u_for(native.list_length(fs), fn(i: Int) => {
+    let family = native.list_get(fs, i);
+    yield u_choose(u_contains(["V", "M", "R", "P", "C", "D", "Q"], family), fn() => (), fn() => native.buffer_push(errors, native.text_concat("unknown theory family: ", family)));
+  });
+  u_for(native.list_length(profiles), fn(i: Int) => {
+    let profile = native.list_get(profiles, i);
+    yield u_choose(u_contains(["u.standard/0.1", "etellis.cdc/native-0.3.0-1307f2a7", "u.prob-choice/before/0.1", "u.prob-choice/after/0.1"], profile), fn() => (),
+      fn() => native.buffer_push(errors, native.text_concat("profile-unavailable: ", profile)));
+  });
+  let chosen = u_choose(native.text_eq(order, ""), fn() => u_choose(before, fn() => "before", fn() => u_choose(after, fn() => "after", fn() => "")), fn() => order);
+  u_choose(native.bool_and(u_contains(fs, "P"), u_contains(fs, "R")), fn() => {
+    u_choose(u_contains(["before", "after"], chosen), fn() => native.buffer_push(witnesses,
+      #{adapter: "finite-probability-choice/1", order: chosen, domain: "finite carriers", relation: "ordered behavior contract"}),
+      fn() => native.buffer_push(errors, "probability/search requires an explicit admitted observation-order profile"));
+    yield ();
+  }, fn() => ());
+  let nonvalues = u_filter(fs, fn(f: Text) => native.bool_not(u_contains(["V", "M"], f)));
+  let ordinary = u_all(fs, fn(f: Text) => u_contains(["V", "M", "R", "P"], f));
+  let cdc = native.bool_and(u_contains(profiles, "etellis.cdc/native-0.3.0-1307f2a7"), u_all(fs, fn(f: Text) => u_contains(["V", "M", "D", "C"], f)));
+  u_choose(native.bool_and(native.int_gt(native.list_length(nonvalues), 1), native.bool_not(native.bool_or(ordinary, cdc))),
+    fn() => native.buffer_push(errors, "composite-model-unavailable for declared families"), fn() => ());
+  let body = #{families: fs, imports: profiles, ordering: chosen, adapter_witnesses: native.buffer_freeze(witnesses),
+    scope: "declared finite profile compatibility", numeric_contract: "explicit backend contract required", authority: "identity-only"};
+  let obligations = native.buffer_freeze(errors);
+  yield #{admitted: native.int_eq(native.list_length(obligations), 0), profile: u_ev_digest("composite-profile", body),
+    contract: body, dependencies: profiles, obligations: obligations,
+    assumptions: ["declared finite profiles are implemented by their selected U libraries"],
+    proof_authority: false, physical_execution: false};
+};
+
+def evidence: Value = #{canonical: u_ev_canonical, digest: u_ev_digest, artifact: u_ev_artifact,
+  verify_artifact: u_ev_artifact_valid, receipt: u_ev_receipt, verify: u_ev_verify,
+  validate_dag: u_ev_validate_dag, transform: u_ev_transform};
+def admission: Value = #{descriptor: u_ad_descriptor, compose: u_ad_compose};

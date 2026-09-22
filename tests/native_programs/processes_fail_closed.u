@@ -1,0 +1,25 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def main(mode: Int) -> Value =
+  u_choose(native.int_eq(mode, 0), fn() => temporal.check(
+    temporal.spec(0, fn(n: Int) => option.some(native.int_add(n, 1)), temporal.stutter(), []),
+    temporal.always(fn(n: Int) => true), [0, 1]), fn() =>
+  u_choose(native.int_eq(mode, 1), fn() => {
+    let a = hw.clock("a"); let b = hw.clock("b"); let input = hw.input(b, [false]);
+    let reg = hw.reg(a, 0, fn(old: Int) => value.select(hw.at_tick(input), 0, 1));
+    yield hw.simulate(a, [reg], 1);
+  }, fn() => u_choose(native.int_eq(mode, 2), fn() => {
+    let owner = mem.owned([1]); let task = async.task(fn() => 2);
+    yield mem.with_mut(owner, fn(view: Value) => { async.await(task); yield view; });
+  }, fn() => u_choose(native.int_eq(mode, 3), fn() => async.await(gpu.partition_launch(
+    #{grid: [1], block: [1]}, gpu.own([1.0]), fn(thread: Value, element: Value) => element)), fn() =>
+  u_choose(native.int_eq(mode, 4), fn() => {
+    let owner = gpu.own([1.0]); async.await(gpu.partition_launch(#{grid: [1], block: [1]}, owner,
+      fn(thread: Value, element: Value) => gpu.write(element, 2.0))); yield gpu.values(owner);
+  }, fn() => u_choose(native.int_eq(mode, 5), fn() => {
+    let owner = mem.owned([1]); yield async.await(async.task(fn() => mem.values(owner)));
+  }, fn() => u_choose(native.int_eq(mode, 6), fn() => actor.supervise(#{kind: "Capability.Actors"},
+    "one_for_one", [actor.child("x", 0, fn(n: Int, m: Value) => actor.continue(n))], #{max_restarts: 1, window: 1.0}), fn() => {
+      let owner = gpu.own([1.0]); gpu.partition_launch(#{grid: [1], block: [1]}, owner,
+        fn(thread: Value, element: Value) => gpu.write(element, 2.0)); yield gpu.values(owner);
+  })))))));

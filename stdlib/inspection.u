@@ -1,0 +1,39 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Presentation is deliberately separate from serialization or authority.
+// Opaque values are described, never converted into importable capabilities.
+def u_public_view(value: Value) -> Value = {
+  let kind = native.value_kind(value);
+  yield u_choose(native.text_eq(kind, "resource"), fn() =>
+    #{kind: native.resource_kind(value), representation: "opaque"},
+    fn() => u_choose(native.text_eq(kind, "record"), fn() => {
+      let keys = native.record_keys(value);
+      yield native.record_make(keys, u_map(keys, fn(key: Text) => u_public_view(native.record_get(value, key))));
+    }, fn() => u_choose(native.text_eq(kind, "list"), fn() => u_map(value, u_public_view),
+      fn() => u_choose(native.text_eq(kind, "tuple"), fn() =>
+        u_map(u_range(native.tuple_length(value)), fn(i: Int) => u_public_view(native.tuple_get(value, i))),
+        fn() => u_choose(u_contains(["closure", "cell", "buffer", "table", "namespace", "process"], kind),
+          fn() => #{kind: kind, representation: "opaque"},
+          fn() => u_choose(native.text_eq(kind, "partial"), fn() =>
+            #{kind: "Partial", status: "done", value: u_public_view(native.partial_value(value))}, fn() => value))))));
+};
+def inspect: Value = #{value: u_public_view};
+def u_program_args() -> Value = {
+  let configured = native.sys_getenv("U_USER_ARGS_JSON");
+  yield u_choose(native.bool_not(native.text_eq(configured, "")), fn() => native.json_parse(configured), fn() => {
+    let args = native.sys_args();
+    yield u_choose(native.int_gt(native.list_length(args), 1),
+      fn() => native.json_parse(native.list_get(args, 1)), fn() => []);
+  });
+};
+def u_console_cap() -> Value = {
+  native.capability_require("console");
+  yield native.resource_new("ConsoleCap", ());
+};
+def u_console_print(capability: Value, text: Text) -> Unit = {
+  native.capability_require("console");
+  native.resource_peek(capability, "ConsoleCap");
+  yield native.sys_print(text);
+};
+def io: Value = #{console_cap: u_console_cap, println: u_console_print};

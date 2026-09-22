@@ -1,0 +1,114 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+// Formatting uses the original token lexemes and the comment spans between
+// them. Literal spelling and comment contents are never reconstructed from ASTs.
+def ff_indents: Value = table.new();
+def ff_indent(depth: Nat) -> Text = {
+  let key = text.from_int(depth);
+  cc_choose(table.has(ff_indents, key), fn() => (), fn() => table.set(ff_indents, key,
+    nat.rec(depth, "", fn(i: Nat, prefix: Text) => text.concat(prefix, "  "))));
+  yield table.get(ff_indents, key, "");
+};
+def ff_state() -> Value = #{output: buffer.new(), line: cell.new(buffer.new()),
+  indent: cell.new(0), pending: cell.new(false), previous: cell.new(""), stack: cell.new([])};
+def ff_write(state: Value, value: Text, separated: Bool) -> Unit = {
+  let line = cell.get(state.line);
+  cc_choose(bool.and(int.gt(buffer.length(line), 0), bool.or(separated, cell.get(state.pending))),
+    fn() => buffer.push(line, " "), fn() => ());
+  buffer.push(line, value); cell.set(state.pending, false); yield ();
+};
+def ff_flush(state: Value) -> Unit = {
+  let line = cell.get(state.line);
+  cc_choose(int.gt(buffer.length(line), 0), fn() => {
+    buffer.push(state.output, text.concat(ff_indent(cell.get(state.indent)),
+      text.concat(text.join(buffer.freeze(line), ""), "\n")));
+    cell.set(state.line, buffer.new()); yield ();
+  }, fn() => ());
+  cell.set(state.pending, false); yield ();
+};
+def ff_push(state: Value, kind: Text) -> Unit = cell.set(state.stack, list.cons(kind, cell.get(state.stack)));
+def ff_pop(state: Value) -> Unit = cell.set(state.stack, list.tail_or_empty(cell.get(state.stack)));
+def ff_top(state: Value) -> Text = list.head_or(cell.get(state.stack), "root");
+def ff_comment(state: Value, raw: Text) -> Unit = {
+  ff_flush(state);
+  buffer.push(state.output, text.concat(ff_indent(cell.get(state.indent)), text.concat(raw, "\n")));
+  yield ();
+};
+def ff_gap(source: Text, start: Int, ending: Int, state: Value) -> Unit = {
+  let i = cell.new(start);
+  control.while(fn() => int.lt(cell.get(i), ending), fn() => {
+    let at = bytes.find_any(source, cc_lexical_tables.space_stops, cell.get(i));
+    cc_choose(bool.and(int.ge(at, 0), int.lt(at, ending)), fn() => {
+      let following = bytes.at(source, int.add(at, 1));
+      cc_choose(int.eq(following, 47), fn() => {
+        let newline = bytes.find(source, "\n", at);
+        let stop = value.select(int.lt(newline, 0), ending, newline);
+        ff_comment(state, bytes.slice(source, at, stop));
+        cell.set(i, stop); yield ();
+      }, fn() => {
+        let close = bytes.find(source, "*/", int.add(at, 2));
+        let stop = int.add(close, 2);
+        ff_comment(state, bytes.slice(source, at, stop));
+        cell.set(i, stop); yield ();
+      }); yield ();
+    }, fn() => cell.set(i, ending));
+    yield ();
+  });
+  yield ();
+};
+def ff_token(state: Value, token: Value) -> Unit = {
+  let kind = token.kind; let previous = cell.get(state.previous);
+  cc_choose(cc_has(["{", "#{"], kind), fn() => {
+    ff_write(state, token.text, bool.not(cc_has(["(", "[", "."], previous)));
+    ff_flush(state); ff_push(state, value.select(text.eq(kind, "#{"), "record", "block"));
+    cell.set(state.indent, int.add(cell.get(state.indent), 1)); yield ();
+  }, fn() => cc_choose(text.eq(kind, "}"), fn() => {
+    ff_flush(state); cell.set(state.indent, int.sub(cell.get(state.indent), 1)); ff_pop(state);
+    ff_write(state, token.text, false); yield ();
+  }, fn() => cc_choose(text.eq(kind, ";"), fn() => {
+    cell.set(state.pending, false); ff_write(state, token.text, false); ff_flush(state); yield ();
+  }, fn() => cc_choose(text.eq(kind, ","), fn() => {
+    cell.set(state.pending, false); ff_write(state, token.text, false);
+    cc_choose(text.eq(ff_top(state), "record"), fn() => ff_flush(state), fn() => cell.set(state.pending, true)); yield ();
+  }, fn() => cc_choose(cc_has(["=", "->", "=>"], kind), fn() => {
+    ff_write(state, token.text, true); cell.set(state.pending, true); yield ();
+  }, fn() => cc_choose(text.eq(kind, ":"), fn() => {
+    cell.set(state.pending, false); ff_write(state, token.text, false); cell.set(state.pending, true); yield ();
+  }, fn() => cc_choose(text.eq(kind, "."), fn() => {
+    cell.set(state.pending, false); ff_write(state, token.text, false); yield ();
+  }, fn() => cc_choose(cc_has(["(", "["], kind), fn() => {
+    let separated = cc_choose(text.eq(kind, "("), fn() => text.eq(previous, "yield"),
+      fn() => bool.not(cc_has(["(", "[", "."], previous)));
+    ff_write(state, token.text, separated); ff_push(state, kind); yield ();
+  }, fn() => cc_choose(cc_has([")", "]"], kind), fn() => {
+    cell.set(state.pending, false); ff_write(state, token.text, false); ff_pop(state); yield ();
+  }, fn() => {
+    ff_write(state, token.text, bool.not(cc_has(["(", "[", ".", "-"], previous))); yield ();
+  })))))))));
+  cell.set(state.previous, cc_choose(text.eq(kind, "identifier"), fn() => token.text, fn() => kind));
+  yield ();
+};
+def ff_same_tokens(a: Value, b: Value) -> Bool = cc_choose(int.eq(list.length(a), list.length(b)), fn() => {
+  let identical = cell.new(true); let i = cell.new(0);
+  control.while(fn() => bool.and(cell.get(identical), int.lt(cell.get(i), list.length(a))), fn() => {
+    let left = list.get(a, cell.get(i)); let right = list.get(b, cell.get(i));
+    cell.set(identical, bool.and(text.eq(left.kind, right.kind), text.eq(left.text, right.text)));
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield cell.get(identical);
+}, fn() => false);
+def ff_format(source: Text) -> Text = {
+  // Parse before producing output, so invalid input retains its original spans.
+  cc_parse(source);
+  let tokens = cc_scan(source); let state = ff_state(); let previous_end = cell.new(0);
+  cc_each(tokens, fn(token: Value) => {
+    ff_gap(source, cell.get(previous_end), token.start, state);
+    cc_choose(text.eq(token.kind, "eof"), fn() => (), fn() => ff_token(state, token));
+    cell.set(previous_end, token.end); yield ();
+  });
+  ff_flush(state);
+  let formatted = text.join(buffer.freeze(state.output), "");
+  cc_require(ff_same_tokens(tokens, cc_scan(formatted)), #{start: 0}, "formatter_invariant", "formatting changed a source token");
+  yield formatted;
+};

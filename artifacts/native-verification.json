@@ -1,0 +1,407 @@
+{
+  "schema": "etellis.u.native-verification/2",
+  "started": "2026-09-22T21:05:57.309589+00:00",
+  "finished": "2026-09-22T21:08:09.443599+00:00",
+  "passed": true,
+  "host": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "verification_driver": "independent development harness",
+  "production_python_required": false,
+  "historical_reference_commit": "5dce6e72e93a165913f38713626b8c3e5c8a8f1b",
+  "checks": [
+    {
+      "name": "native conformance",
+      "command": [
+        "sh",
+        "scripts/verify-native.sh"
+      ],
+      "exit_code": 0,
+      "seconds": 16.951,
+      "passed": true
+    },
+    {
+      "name": "platform bridge",
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.15/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/native_bootstrap",
+        "-v"
+      ],
+      "exit_code": 0,
+      "seconds": 20.633,
+      "passed": true,
+      "test_groups": 61
+    },
+    {
+      "name": "self compiler",
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.15/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/selfhost",
+        "-v"
+      ],
+      "exit_code": 0,
+      "seconds": 21.889,
+      "passed": true,
+      "test_groups": 34
+    },
+    {
+      "name": "public native commands",
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.15/bin/python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_native_cli.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "seconds": 33.554,
+      "passed": true,
+      "test_groups": 17
+    },
+    {
+      "name": "WASM actual execution and refusals",
+      "command": [
+        "node",
+        "tests/native_programs/wasm_verify.mjs",
+        "--compiler",
+        "/Users/edwardellis/Developer/U/build/native/uc"
+      ],
+      "exit_code": 0,
+      "seconds": 7.193,
+      "passed": true
+    },
+    {
+      "name": "independent CDC C oracle",
+      "command": [
+        "/Library/Frameworks/Python.framework/Versions/3.15/bin/python3",
+        "scripts/verify_cdc.py",
+        "--cases",
+        "96"
+      ],
+      "exit_code": 0,
+      "seconds": 8.469,
+      "passed": true
+    },
+    {
+      "name": "cdc-source source linkage",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/u-link",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source.u",
+        "/Users/edwardellis/Developer/U/stdlib/core.u",
+        "/Users/edwardellis/Developer/U/stdlib/numeric.u",
+        "/Users/edwardellis/Developer/U/cdc/primitives.u",
+        "/Users/edwardellis/Developer/U/cdc/analysis.u",
+        "/Users/edwardellis/Developer/U/cdc/source.u",
+        "/Users/edwardellis/Developer/U/tests/native_programs/cdc_source.u"
+      ],
+      "exit_code": 0,
+      "seconds": 0.006,
+      "passed": true
+    },
+    {
+      "name": "cdc-source U compilation",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/uc",
+        "emit",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source.u",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source.c",
+        "cdc_source_test_main"
+      ],
+      "exit_code": 0,
+      "seconds": 2.619,
+      "passed": true
+    },
+    {
+      "name": "cdc-source machine linkage",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O1",
+        "-ffp-contract=off",
+        "-I",
+        "/Users/edwardellis/Developer/U/native",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source.c",
+        "/Users/edwardellis/Developer/U/native/runtime.c",
+        "-lm",
+        "-o",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source"
+      ],
+      "exit_code": 0,
+      "seconds": 0.798,
+      "passed": true
+    },
+    {
+      "name": "CDC source conformance",
+      "command": [
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/cdc-source"
+      ],
+      "exit_code": 0,
+      "seconds": 0.14,
+      "passed": true
+    },
+    {
+      "name": "package source linkage",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/u-link",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package.u",
+        "/Users/edwardellis/Developer/U/stdlib/core.u",
+        "/Users/edwardellis/Developer/U/stdlib/evidence.u",
+        "/Users/edwardellis/Developer/U/tools/package.u",
+        "/Users/edwardellis/Developer/U/tests/native_programs/package_tests.u"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01,
+      "passed": true
+    },
+    {
+      "name": "package U compilation",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/uc",
+        "emit",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package.u",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package.c",
+        "package_tests"
+      ],
+      "exit_code": 0,
+      "seconds": 1.684,
+      "passed": true
+    },
+    {
+      "name": "package machine linkage",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O1",
+        "-ffp-contract=off",
+        "-I",
+        "/Users/edwardellis/Developer/U/native",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package.c",
+        "/Users/edwardellis/Developer/U/native/runtime.c",
+        "-lm",
+        "-o",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package"
+      ],
+      "exit_code": 0,
+      "seconds": 0.551,
+      "passed": true
+    },
+    {
+      "name": "native package lifecycle",
+      "command": [
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package",
+        "[\"/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-fixture\"]"
+      ],
+      "exit_code": 0,
+      "seconds": 0.229,
+      "passed": true
+    },
+    {
+      "name": "package-negative source linkage",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/u-link",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-negative.u",
+        "/Users/edwardellis/Developer/U/stdlib/core.u",
+        "/Users/edwardellis/Developer/U/stdlib/evidence.u",
+        "/Users/edwardellis/Developer/U/tools/package.u",
+        "/Users/edwardellis/Developer/U/tests/native_programs/package_tests.u"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004,
+      "passed": true
+    },
+    {
+      "name": "package-negative U compilation",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/uc",
+        "emit",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-negative.u",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-negative.c",
+        "package_negative"
+      ],
+      "exit_code": 0,
+      "seconds": 1.705,
+      "passed": true
+    },
+    {
+      "name": "package-negative machine linkage",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O1",
+        "-ffp-contract=off",
+        "-I",
+        "/Users/edwardellis/Developer/U/native",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-negative.c",
+        "/Users/edwardellis/Developer/U/native/runtime.c",
+        "-lm",
+        "-o",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/package-negative"
+      ],
+      "exit_code": 0,
+      "seconds": 0.56,
+      "passed": true
+    },
+    {
+      "name": "native package adversarial cases",
+      "passed": true,
+      "cases": [
+        "changed",
+        "added",
+        "missing",
+        "legacy",
+        "name",
+        "duplicate",
+        "hash",
+        "traversal",
+        "policy",
+        "nested-store",
+        "source-store"
+      ]
+    },
+    {
+      "name": "hmc source linkage",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/u-link",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc.u",
+        "/Users/edwardellis/Developer/U/stdlib/core.u",
+        "/Users/edwardellis/Developer/U/stdlib/numeric.u",
+        "/Users/edwardellis/Developer/U/stdlib/probability.u",
+        "/Users/edwardellis/Developer/U/examples/original/11_bayes.u",
+        "/Users/edwardellis/Developer/U/tests/native_programs/probability_full.u"
+      ],
+      "exit_code": 0,
+      "seconds": 0.004,
+      "passed": true
+    },
+    {
+      "name": "hmc U compilation",
+      "command": [
+        "/Users/edwardellis/Developer/U/build/native/uc",
+        "emit",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc.u",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc.c",
+        "main"
+      ],
+      "exit_code": 0,
+      "seconds": 0.789,
+      "passed": true
+    },
+    {
+      "name": "hmc machine linkage",
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O1",
+        "-ffp-contract=off",
+        "-I",
+        "/Users/edwardellis/Developer/U/native",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc.c",
+        "/Users/edwardellis/Developer/U/native/runtime.c",
+        "-lm",
+        "-o",
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc"
+      ],
+      "exit_code": 0,
+      "seconds": 0.446,
+      "passed": true
+    },
+    {
+      "name": "original four-chain HMC workload",
+      "command": [
+        "/private/var/folders/td/4cv5yzhs6894_xs927w_zymc0000gn/T/u-release-fixtures-xwix980h/hmc",
+        "[81]"
+      ],
+      "exit_code": 0,
+      "seconds": 13.462,
+      "passed": true,
+      "chains": 4,
+      "retained_draws_each": 1000,
+      "warmup_each": 500,
+      "convergence_claim": false
+    }
+  ],
+  "preserved_bytes": {
+    "provenance/source/DOSSIER.md": "7c55f4624c0a1de9b813556de5666313da495c222c7adcb542e44d943b8e454d",
+    "provenance/source/CODEX_EXECUTION_DIRECTIVE.md": "69d037f12753e67586d2e2395153eb3cb4689d259249a5a49f73b84ff7f80c4d",
+    "provenance/source/OPERATOR_CONTRACTS.md": "a5bcf6031f873ca49e2280d1dc6d665acc66bf3b601a9424f9bcbf340d15e73b",
+    "provenance/source/design-audit.json": "6505f8e06baa607128b0ebd2f3e3a8de90466e91389c599c00034d38e05c14e1",
+    "provenance/source/GPT6_PRO_RESPONSE.txt": "7b31e9951b8ac1330938bb01e9dff32d7ebd9c074894f89c1f72684f63c47d10",
+    "examples/original/01_hello.u": "c169cabc760146f1c8e3940f0ef25c81c5de233dd890d38f2c905436e3435726",
+    "examples/original/02_arithmetic.u": "bf91808acf888b28772fc06db11b6bd2558b6a44b7b3737cb054e9ea02bf59a4",
+    "examples/original/03_fibonacci.u": "8de1ee792ad635ef5a8b05af5e84245e0a237e043e4191110d1d2ab5f456e193",
+    "examples/original/04_map_filter_reduce.u": "9c91bc098e1e36671eb7acd6e3d00dded8a29548917292dac2f936355cc408b9",
+    "examples/original/05_ownership.u": "b7ef338533d60d30d707fa8699b848b081d46b2be8cc267d97f2c358bd686118",
+    "examples/original/06_async.u": "becde078d4f23a953270d9bc19a7ba1cdb978266f7b38978d271b4774211e7b0",
+    "examples/original/07_macro.u": "073a6a9e5b2c567f7e4e6bb6a648e4670efbe53eaf003a3aaa50de9e26f21dcb",
+    "examples/original/08_logic.u": "c341bc431bc5a76a45e7182470f7ba9bf8c03c9c206975cb0c68ae1d5d08e833",
+    "examples/original/09_sql_join.u": "63458a5cf192b09f700d38bd73bf23fb7a7db5bd1499005963058c78665bc0b5",
+    "examples/original/10_arrays.u": "8464a8cf0b94b2672f4d02d1c3eb2b74aeaeeb6883a32cdc561e22495d5e293b",
+    "examples/original/11_bayes.u": "72fbd9102c01a3d52eab6870aa3e582b1e76c38c476ab5530b40954f22e91be6",
+    "examples/original/12_actors.u": "7578fe592f5f31dd5995f65634c9f894f75912797b3268b0f60141390d592851",
+    "examples/original/13_temporal.u": "a1c53b1e0ff6badfb4ac7fc95ef6113a34174d5f4491b432a3e085a7cd4b8c20",
+    "examples/original/14_proof.u": "9118052229bd720404a374346c74bdb1f351927c67a90e4ba92d1d16007d1caa",
+    "examples/original/15_hardware.u": "da9421c0ef6493cefab75e2a1f70762ad5220eced7a8ac8e3fc0cf60d5b979d7",
+    "examples/original/16_gpu.u": "1e769daf2565d3f6c38286859651121f057423b62996b96f2bd538ce86a47810",
+    "examples/original/17_quantum.u": "e040f98c4fdaedc898f5dc0f5b422b1bbc07271068d27e3027f2b92eb552eb1d",
+    "examples/original/18_cdc.u": "867ffef731ca5a5987b1be8c0b03c07cf3a968bc6ba96a602ab3a7a1b8c40ecf",
+    "examples/original/19_u1.u": "7457ba97680ccceba74d021d7f92895e62cdac8b93699d4da11e0fa7038fd413",
+    "examples/original/20_u2.u": "17ae1c13aa8c084ee81358db36fe86cfef3eb0ab19e3e88b961ca3a177162384",
+    "examples/original/21_acausal_dae.u": "113c7d6f74c7533529b0a14e4aaf9677b4b0cac88acd3eb376d491e35375c035",
+    "examples/original/22_native_universal_construction.u": "a9722a85eaf03c99e9fba845e5eade27357b5e5a696801b2183cc512682d9041"
+  },
+  "implementation_sources": {
+    "compiler/compiler.u": "3231dccc3c2c597c3205edca7000890c9d5ccf94424dbcba84c0faa996c516b8",
+    "compiler/format.u": "fb7dfda17e8561410eb5ceeb45ed757a5dcd241e8b4bd8e57b0dadac8efff884",
+    "compiler/graph.u": "8c6732051be28dce9dc010c7a67d89150584db1526b9a6ea17657c36baa8aec9",
+    "compiler/wasm.u": "b7683acf46cd36f9906b7049c865396f69089f7991abbcb890e8be22c76378e7",
+    "stdlib/core.u": "8d40d0ba2835aa18da0cb80c8ce0e4d6c8a316442bbb0048737aca0418076076",
+    "stdlib/dynamics.u": "faa353adfd5921ff204bc52dfe79603f19334087aa49c677ea115d2673dc71c5",
+    "stdlib/evidence.u": "7de434cd9b018c76f890a07f7e38aec391302bd834380692c26758fc9e60d7c7",
+    "stdlib/inspection.u": "7a544409366619f6f7590c075593ceb0935e9bbc9265e7ea94671fcd8d36afbc",
+    "stdlib/numeric.u": "16dfca4b25e3781697345a7bea8ae26ecf54977640b3bc7e51e9a630a2b9ea00",
+    "stdlib/probability.u": "257725efa9977d31e305e29132a5cc9ebca90f711dd9876bd00e53d061da2d1b",
+    "stdlib/processes.u": "fc7601d000e081952a664a2a6118d947cc713409d775d7b3983200ff0eeb5f0b",
+    "stdlib/proof.u": "4faa947dda073af45f2c74f8c8488d4042807cf45117920e5a758c941a0a4de2",
+    "stdlib/relational.u": "4a188c12ee89e4f7f2cf21498ee188267555b1587c5862d6eb81cef683ea2ed1",
+    "stdlib/syntax.u": "4c9bf02d72aefbcd3b67fd482c0fe3211d5e3ad95a228ccd66dfcd8cd062e690",
+    "cdc/analysis.u": "0e8ee0d4922a9cfef713709bc35dfa5e1c4db2c7adb18c62128bcce84f4a0b1a",
+    "cdc/primitives.u": "305ea6929eb5ede9d7a4ca40e83556b6220c08a92ee3b418f374b0d44020a86d",
+    "cdc/source.u": "e1552880bab43509228d1446b2b85ee2f93f40fe84ad7a5ad7034fc6982d86c4",
+    "tools/audit.u": "3ffc9b254a101697da860575d15a185ba86274fc68cce7a32b09556ca3e41954",
+    "tools/cdc.u": "adcd2e30b6b543fb5386792abc17ce0b66d3a3df8d63229d7b7be8b87c990365",
+    "tools/driver.u": "dc3a754c66fac230e66da9e863c6576c05bbce7fcec6d2b9a4c775f979ff38e3",
+    "tools/link.u": "4b395b6a6b56c67e68531eb27357bf35c90fd0a6f27e71a00d0fbbcc4cb734a3",
+    "tools/lsp.u": "0ed031713e817c5a827b8b978dddb1a7783c534b75968ed5ae646462f6dfbde5",
+    "tools/package.u": "a509af794d98227f80a48ff6252a291d454d7af28554f91ff53418b91372f596",
+    "native/runtime.c": "12399f27c1515d41f113760a0fdc8c200f9880bf91754ac47e5278b6a025d96c",
+    "native/runtime.h": "a84523b8420bcbd17fe52244b16d37c43e8d4eee5dea89f427707daf3671d54f",
+    "bootstrap/build.sh": "d07b0afd194465b54c405735648bb735941540172c605209921233539daec017",
+    "bootstrap/compiler.generated.c": "82e72bc3a5c392b454b464a0bac20fe628d3a1834ef3ee922d49793df96e439f",
+    "bootstrap/native-build.sh": "5ce1d32904a8e92cd200aa45aa1dcd05c410113fe5bceb943842ce02fb27eba0",
+    "bootstrap/reference_source.py": "e4c0321c6e38032e3753a43dcb7f105b984cb7090e299b388872f1b4d7e8aaa3",
+    "bootstrap/seed.py": "b6168a0f40404e63bbfbd10278c60480eb0f29f87d97e9a0cce6092a577095d5"
+  },
+  "native_tools": {
+    "etellis-u-cdc": "2b785f0dc81628bf682234baab76a7cddf94ddbe16ccdafc9a5b425289e72c54",
+    "etellis-u-driver": "9987874492f9b56342b238ceb67cdc850ef5bcb2f9b5ca04671ea41ee875439f",
+    "etellis-u-package": "a3d3af13cf11dbc50776485750d1ba38aef13b010fd82595708d6259c84b34ba",
+    "etellis-u-audit": "8a578f8767af679478fc0fb99c79f736b65145e2e73791cea2b615af1f520689"
+  },
+  "limits": [
+    "scoped core and runtime contracts, not full dependent/resource theory",
+    "finite CDC reductions, not full U1/U2 compatibility",
+    "simulation is not physical execution",
+    "identity is not authenticity",
+    "no general tracing garbage collector or foreign-language frontends"
+  ]
+}

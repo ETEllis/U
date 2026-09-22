@@ -1,0 +1,10 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def main(url: Text) -> Value = {
+  let fetch = http.get(http.capability(), url);
+  u_require(native.text_eq(async.outcome(fetch).state, "pending"), "HTTP construction performed network access");
+  let text = async.then(fetch, http.body_text);
+  async.start(text);
+  let result = async.await(text);
+  yield #{status: "passed", body: result, http_status: async.await(fetch).status};
+};

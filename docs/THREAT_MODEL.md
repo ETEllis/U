@@ -1,13 +1,24 @@
-# Reference release trust boundary
+# Native trust boundary
 
-U source is untrusted input to bounded parsing and explicit interpretation. Host Python modules, the standard library, native compiler/libm, Lean kernel and operating system remain trusted dependencies. The parser, formatter and static checker do not run source effects or package scripts.
+U source is untrusted input to a bounded U-written compiler. The checked C seed, handwritten native bridge, C toolchain, system libraries and operating system are trusted. The optional Python seed and independent test harnesses are development tools, not production runtime dependencies.
 
-Runtime console, network and actor capabilities are minted by the evaluator from explicit caller grants. The reference lower memory/authority models use process-local identity checks and consuming rights. They are tested against fabricated records, stale handles, lifetime escape, wrong frames, repeated nonces, nonfinite times and overlapping footprints. A user able to execute arbitrary host Python can inspect or modify this implementation and is outside its hostile-source boundary.
+Parsing, checking, formatting and graph reconstruction do not execute source effects or package hooks. User code cannot directly access reserved raw resource issuers, internal library names or the private proof constructors through the public compiler path. Closed platform namespaces reject unknown operations.
 
-Checked proof and recurrence values have checked constructors or private issuance registries. Ordinary U records cannot mint them. Mathematical proof syntax is processed by a distinct total checker with a closed rule set. Canonical marker-shaped maps are encoded unambiguously; neither hashes nor signed-looking JSON are treated as truth or external authentication.
+## Capabilities and processes
 
-Package installation only copies the locally locked `.u` and manifest snapshot. Symlinks, source changes during installation and digest changes are refused. There is no arbitrary installation-script hook. Network package resolution and process sandboxing of third-party host extensions remain unsupported. External HTTP requests require a caller-granted network capability; finer origin policies are an open production requirement.
+The compiler's read/write/exec grants are distinct from the generated program's grants. The launcher and U driver explicitly attenuate the latter. OS workers have private mutable memory, explicit grants and a shared call budget. Transport rejects closures, mutable storage and resource authority where transfer has no supported rule.
 
-The local journal distinguishes a torn final record from hash-chain corruption. It uses advisory locking and fsync on one host. It is not a consensus log, authenticated multihost history, or an exactly-once external-effects protocol. Crashes during external operations may require an Indeterminate outcome and reconciliation; no global rollback is promised.
+Read, write and subprocess capabilities permit real host actions. They are broad trusted-local grants, not a filesystem jail, syscall sandbox or protection against a compromised OS. Arbitrary subprocess permission can run arbitrary installed programs. A person modifying trusted U libraries or C code can alter the implementation and lies outside the hostile-source contract.
 
-Production deployment requires stronger isolation, stress/fuzz/security coverage, resource budgeting across all host algorithms, untrusted artifact schema validation, code signing, credential lifecycle and device/provider policies. The current reference release is suitable for controlled development and research, with those boundaries visible.
+A checked certificate cannot be reconstructed from JSON. CDC handles require a private issuer registry as well as correct subject binding. Hashes identify artifacts; they do not authenticate people, authorize effects or establish mathematical truth.
+
+## Operational limits
+
+- Retaining arenas are bounded and reclaimed at process exit; general long-running garbage collection is not implemented.
+- User calls share a finite budget, including isolated workers.
+- Catching a fault does not roll back prior effects.
+- Local package snapshots reject symlinks and unsafe member paths, verify exact bytes, and never execute installation scripts or grant manifest permissions. Exclusive staging writes and one publication rename protect the ordinary local workflow. They do not constitute a hostile concurrent-filesystem sandbox or a crash-fsync guarantee.
+- HTTP uses a bounded, fixed-argument platform transport with explicit network permission; it is not a proof of remote content safety.
+- Native and browser simulators do not issue physical-device evidence.
+
+Independent seeds, negative tests, sanitizer checks and reproducible compilation reduce specific risks. They do not establish complete compiler correctness or supply-chain immunity.

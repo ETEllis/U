@@ -5,6 +5,7 @@ __pycache__/
 build/
 dist/
 .u-packages/
+.u-lock.previous-*
 output/
 .DS_Store
 paper/arxiv/*.aux
@@ -19,3 +20,4 @@ paper/*.blg
 .playwright-mcp/
 paper/tmp/
 formal/.lake/
+work/

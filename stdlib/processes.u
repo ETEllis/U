@@ -1,0 +1,440 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Tasks use isolated OS workers. Mutable cells are private to each process;
+// immutable ordinary results cross a tagged transport, never resource authority.
+def u_task_new(action: Value, before: Value, finish: Value, cancelled: Value) -> Value =
+  native.resource_new("Process.Task", #{action: action, before: before, finish: finish, cancelled: cancelled,
+    state: native.cell_new("pending"), worker: native.cell_new(native.value_unit()),
+    result: native.cell_new(native.value_unit()), error: native.cell_new(native.value_unit()),
+    cancellation: native.cell_new(false), shareable: native.cell_new(false), grants: native.cell_new([])});
+def u_task_make(action: Value) -> Value = {
+  let task = u_task_new(action, fn() => (), fn(value: Value) => value, fn() => ());
+  native.cell_set(native.resource_peek(task, "Process.Task").shareable, true); yield task;
+};
+def u_task_start(task: Value) -> Value = {
+  let t = native.resource_peek(task, "Process.Task");
+  u_choose(native.text_eq(native.cell_get(t.state), "pending"), fn() => {
+    t.before(); native.cell_set(t.worker, native.process_spawn_with_caps(t.action, native.cell_get(t.grants)));
+    yield native.cell_set(t.state, "running");
+  }, fn() => ());
+  yield task;
+};
+def u_task_update(task: Value, wait: Bool) -> Value = {
+  let t = native.resource_peek(task, "Process.Task");
+  u_choose(native.text_eq(native.cell_get(t.state), "running"), fn() => {
+    let result = u_choose(wait, fn() => native.process_wait(native.cell_get(t.worker), -1),
+      fn() => native.process_poll(native.cell_get(t.worker)));
+    yield u_choose(native.text_eq(result.state, "completed"), fn() => {
+      native.cell_set(t.result, t.finish(result.value));
+      yield native.cell_set(t.state, "completed");
+    }, fn() => u_choose(u_contains(["failed", "cancelled"], result.state), fn() => {
+      native.cell_set(t.error, result.error);
+      yield native.cell_set(t.state, result.state);
+    }, fn() => ()));
+  }, fn() => ());
+  yield t;
+};
+def u_task_await(task: Value) -> Value = {
+  u_require(native.int_eq(native.cell_get(u_memory_borrows), 0), "BORROW_ACROSS_AWAIT: mutable lease cannot cross task suspension");
+  u_task_start(task);
+  let t = u_task_update(task, true);
+  u_require(native.text_eq(native.cell_get(t.state), "completed"),
+    native.text_concat("TASK_NOT_COMPLETED: ", native.cell_get(t.state)));
+  yield native.cell_get(t.result);
+};
+def u_task_cancel(task: Value) -> Bool = {
+  let t = u_task_update(task, false);
+  native.cell_set(t.cancellation, true);
+  yield u_choose(native.text_eq(native.cell_get(t.state), "pending"), fn() => {
+    t.cancelled(); native.cell_set(t.state, "cancelled"); yield true;
+  }, fn() => false);
+};
+def u_task_outcome(task: Value) -> Value = {
+  let t = u_task_update(task, false);
+  yield #{state: native.cell_get(t.state), value: native.cell_get(t.result),
+    error: native.cell_get(t.error), cancellation_requested: native.cell_get(t.cancellation),
+    realization: "isolated_os_process", shared_mutable_memory: false};
+};
+// Each continuation runs in its own worker and reads a shared immutable result.
+// Completion, failure and cancellation wake all readers without parent polling.
+// Affine resource outputs require explicit parent transfer rather than fan-out.
+def u_task_then(task: Value, continuation: Value) -> Value = {
+  let previous = native.resource_peek(task, "Process.Task");
+  u_require(native.cell_get(previous.shareable), "TASK_AFFINE_CHAIN: resource results require explicit parent ownership transfer");
+  let reading = native.cell_new(());
+  let next = u_task_new(fn() => {
+    let result = u_choose(native.text_eq(native.value_kind(native.cell_get(reading)), "future"),
+      fn() => native.process_result(native.cell_get(reading), -1), fn() => native.cell_get(reading));
+    u_require(native.text_eq(result.state, "completed"), native.text_concat("TASK_DEPENDENCY: ", result.state));
+    yield continuation(result.value);
+  }, fn() => {
+    u_task_start(task);
+    native.cell_set(reading, u_choose(native.text_eq(native.value_kind(native.cell_get(previous.worker)), "process"),
+      fn() => native.process_share(native.cell_get(previous.worker)), fn() => #{state: "cancelled"})); yield ();
+  }, fn(value: Value) => value, fn() => ());
+  native.cell_set(native.resource_peek(next, "Process.Task").shareable, true);
+  yield next;
+};
+def async: Value = #{task: u_task_make, start: u_task_start, await: u_task_await,
+  cancel: u_task_cancel, outcome: u_task_outcome, then: u_task_then};
+
+// HTTP policy, lazy construction, capability use and response decoding are U.
+// The native transport invokes the fixed system curl TLS/HTTP implementation.
+def u_http_capability() -> Value = {
+  native.capability_require("network"); yield native.resource_new("Capability.Network", ());
+};
+def u_http_get(capability: Value, url: Text) -> Value = {
+  native.resource_peek(capability, "Capability.Network");
+  u_require(native.bool_or(native.int_eq(native.bytes_find(url, "http://", 0), 0),
+    native.int_eq(native.bytes_find(url, "https://", 0), 0)), "HTTP_URL: explicit http or https URL required");
+  let task = u_task_make(fn() => {
+    let response = native.http_transport(url);
+    u_require(native.bool_and(native.int_ge(response.status, 200), native.int_lt(response.status, 300)),
+      native.text_concat("HTTP_STATUS: unsuccessful response ", native.text_from_int(response.status)));
+    yield response;
+  });
+  native.cell_set(native.resource_peek(task, "Process.Task").grants, ["network"]); yield task;
+};
+def u_http_lower(text: Text) -> Text = native.text_join(u_map(u_range(native.text_length(text)), fn(i: Int) => {
+  let char = native.text_at(text, i); let code = native.text_code(char);
+  yield u_choose(native.bool_and(native.int_ge(code, 65), native.int_le(code, 90)),
+    fn() => native.text_from_code(native.int_add(code, 32)), fn() => char);
+}), "");
+def u_http_charset(content_type: Text) -> Text = {
+  let raw = u_http_lower(content_type);
+  let lower = native.text_join(u_filter(u_map(u_range(native.text_length(raw)), fn(i: Int) => native.text_at(raw, i)),
+    fn(char: Text) => native.bool_not(u_contains([" ", "\t"], char))), "");
+  let at = native.bytes_find(lower, "charset=", 0);
+  yield u_choose(native.int_lt(at, 0), fn() => "utf-8", fn() => {
+    let begin = native.int_add(at, 8);
+    let quoted = u_choose(native.int_lt(begin, native.bytes_length(lower)), fn() =>
+      u_contains([34, 39], native.bytes_at(lower, begin)), fn() => false);
+    let start = native.int_add(begin, u_choose(quoted, fn() => 1, fn() => 0));
+    let end = native.bytes_find_any(lower, [9, 32, 34, 39, 59], start);
+    yield native.bytes_slice(lower, start, u_choose(native.int_lt(end, 0), fn() => native.bytes_length(lower), fn() => end));
+  });
+};
+def u_http_unhex(hex: Text) -> Value = {
+  u_require(native.int_eq(native.int_mod(native.bytes_length(hex), 2), 0), "HTTP_ENCODING: malformed body bytes");
+  yield u_map(u_range(native.int_div(native.bytes_length(hex), 2)), fn(i: Int) => {
+    let first = native.bytes_find("0123456789abcdef", native.text_at(hex, native.int_mul(i, 2)), 0);
+    let second = native.bytes_find("0123456789abcdef", native.text_at(hex, native.int_add(native.int_mul(i, 2), 1)), 0);
+    u_require(native.bool_and(native.int_ge(first, 0), native.int_ge(second, 0)), "HTTP_ENCODING: malformed hexadecimal byte");
+    yield native.int_add(native.int_mul(first, 16), second);
+  });
+};
+def u_http_body_text(reply: Value) -> Text = {
+  let charset = u_http_charset(reply.content_type);
+  yield u_choose(u_contains(["utf-8", "utf8"], charset), fn() => native.bytes_from_hex(reply.body_hex), fn() => {
+    u_require(u_contains(["ascii", "us-ascii", "latin1", "latin-1", "iso-8859-1"], charset), "HTTP_ENCODING: supported charsets are UTF-8, ASCII and ISO-8859-1");
+    let bytes = u_http_unhex(reply.body_hex);
+    u_require(u_choose(u_contains(["ascii", "us-ascii"], charset), fn() =>
+      u_all(bytes, fn(byte: Int) => native.int_lt(byte, 128)), fn() => true), "HTTP_ENCODING: non-ASCII response byte");
+    yield native.text_join(u_map(bytes, native.text_from_code), "");
+  });
+};
+def http: Value = #{capability: u_http_capability, get: u_http_get, body_text: u_http_body_text};
+
+// Ownership and borrow lifetimes are U protocol state above opaque identity.
+def u_memory_borrows: Value = native.cell_new(0);
+def u_mem_owned(values: Value) -> Value = {
+  native.list_length(values);
+  yield native.resource_new("Memory.Owner", #{data: native.cell_new(values), borrowed: native.cell_new(false)});
+};
+def u_mem_owner(owner: Value) -> Value = {
+  let state = native.resource_peek(owner, "Memory.Owner");
+  u_require(native.bool_not(native.cell_get(state.borrowed)), "BORROW_ACTIVE: owner is reserved by a lease");
+  yield state;
+};
+def u_mem_access(access: Value) -> Value =
+  u_choose(native.text_eq(native.resource_kind(access), "Memory.View"), fn() => {
+    let view = native.resource_peek(access, "Memory.View");
+    yield native.resource_peek(view.owner, "Memory.Owner");
+  }, fn() => u_mem_owner(access));
+def u_mem_read(access: Value, offset: Int) -> Value = native.list_get(native.cell_get(u_mem_access(access).data), offset);
+def u_mem_write(view: Value, offset: Int, value: Value) -> Value = {
+  let state = native.resource_peek(native.resource_peek(view, "Memory.View").owner, "Memory.Owner");
+  native.cell_set(state.data, u_list_set(native.cell_get(state.data), offset, value));
+  yield view;
+};
+def u_mem_with_mut(owner: Value, body: Value) -> Value = {
+  let state = u_mem_owner(owner);
+  native.cell_set(state.borrowed, true);
+  native.cell_set(u_memory_borrows, native.int_add(native.cell_get(u_memory_borrows), 1));
+  let view = native.resource_new("Memory.View", #{owner: owner});
+  let outcome = native.value_try_call(body, [view]);
+  native.resource_take(view, "Memory.View");
+  native.cell_set(u_memory_borrows, native.int_sub(native.cell_get(u_memory_borrows), 1));
+  native.cell_set(state.borrowed, false);
+  u_require(outcome.ok, u_choose(outcome.ok, fn() => "", fn() => native.text_concat("BORROW_REGION: ", outcome.message)));
+  u_require(native.value_equal(outcome.value, view), "BORROW_RETURN: region must return its original lease");
+  yield owner;
+};
+def u_mem_free(owner: Value) -> Unit = { u_mem_owner(owner); native.resource_take(owner, "Memory.Owner"); yield (); };
+def u_mem_values(owner: Value) -> Value = native.cell_get(u_mem_owner(owner).data);
+def mem: Value = #{owned: u_mem_owned, read: u_mem_read, write: u_mem_write,
+  with_mut: u_mem_with_mut, free: u_mem_free, values: u_mem_values};
+
+// Actor supervision retains the deterministic FIFO simulator contract.
+def u_actor_capability() -> Value = {
+  native.capability_require("actors");
+  yield native.resource_new("Capability.Actors", ());
+};
+def u_actor_child(name: Text, initial: Value, worker: Value) -> Value = #{name: name, initial: initial, worker: worker};
+def u_actor_continue(state: Value) -> Value = #{status: "continue", value: state};
+def u_actor_fail(reason: Value) -> Value = #{status: "failed", value: reason};
+def u_actor_supervise(cap: Value, strategy: Text, children: Value, options: Value) -> Value = {
+  native.resource_peek(cap, "Capability.Actors");
+  u_require(native.text_eq(strategy, "one_for_one"), "ACTOR_STRATEGY: one_for_one required");
+  let names = u_map(children, fn(child: Value) => child.name);
+  let named = native.record_make(names, children);
+  let window = u_real(options.window);
+  u_require(native.bool_and(native.math_is_finite(window), native.f64_gt(window, 0.0)), "ACTOR_WINDOW: positive finite window required");
+  u_require(native.int_ge(options.max_restarts, 0), "ACTOR_RESTARTS: nonnegative restart limit required");
+  yield native.resource_new("Actor.Supervisor", #{children: named, max_restarts: options.max_restarts,
+    window: window, states: native.cell_new(native.record_make(names, u_map(children, fn(c: Value) => c.initial))),
+    restarts: native.cell_new([]), mailbox: native.buffer_new(), cursor: native.cell_new(0), events: native.buffer_new(),
+    status: native.cell_new("running"), time: native.cell_new(0.0)});
+};
+def u_actor_send(handle: Value, name: Text, message: Value) -> Unit = {
+  let s = native.resource_peek(handle, "Actor.Supervisor");
+  u_require(native.bool_and(native.text_eq(native.cell_get(s.status), "running"), native.record_has(s.children, name)), "ACTOR_TARGET: target must be a running supervised child");
+  native.buffer_push(s.mailbox, #{name: name, message: message}); yield ();
+};
+def u_actor_run_steps(handle: Value, limit: Int) -> Value = {
+  let s = native.resource_peek(handle, "Actor.Supervisor");
+  u_for(limit, fn(i: Int) => u_choose(native.bool_and(native.text_eq(native.cell_get(s.status), "running"),
+    native.int_lt(native.cell_get(s.cursor), native.buffer_length(s.mailbox))), fn() => {
+      let message = native.buffer_get(s.mailbox, native.cell_get(s.cursor));
+      native.cell_set(s.cursor, native.int_add(native.cell_get(s.cursor), 1));
+      let child = native.record_get(s.children, message.name);
+      let step = child.worker(native.record_get(native.cell_get(s.states), message.name), message.message);
+      yield u_choose(native.text_eq(step.status, "continue"), fn() => {
+        native.cell_set(s.states, native.record_put(native.cell_get(s.states), message.name, step.value));
+        yield native.buffer_push(s.events, #{kind: "handled", child: message.name, state: step.value, time: native.cell_get(s.time)});
+      }, fn() => {
+        u_require(native.text_eq(step.status, "failed"), "ACTOR_STEP: worker must return continue or fail");
+        let restarts = native.list_append(u_filter(native.cell_get(s.restarts), fn(time: Real) =>
+          u_real_le(u_real_sub(native.cell_get(s.time), time), s.window)), [native.cell_get(s.time)]);
+        native.cell_set(s.restarts, restarts);
+        yield u_choose(native.int_gt(native.list_length(restarts), s.max_restarts), fn() => {
+          native.cell_set(s.status, "failed");
+          yield native.buffer_push(s.events, #{kind: "intensity_exceeded", child: message.name, time: native.cell_get(s.time)});
+        }, fn() => {
+          native.cell_set(s.states, native.record_put(native.cell_get(s.states), message.name, child.initial));
+          yield native.buffer_push(s.events, #{kind: "restarted", child: message.name, reason: step.value, time: native.cell_get(s.time)});
+        });
+      });
+    }, fn() => ()));
+  yield #{status: native.cell_get(s.status), states: native.cell_get(s.states),
+    pending: native.int_sub(native.buffer_length(s.mailbox), native.cell_get(s.cursor)),
+    events: native.buffer_freeze(s.events), realization: "deterministic_fifo_simulator"};
+};
+def u_actor_run(handle: Value) -> Value = u_actor_run_steps(handle, 1000);
+def u_actor_advance(handle: Value, amount: Value) -> Value = {
+  let s = native.resource_peek(handle, "Actor.Supervisor");
+  let delta = u_real(amount);
+  u_require(native.bool_and(native.math_is_finite(delta), native.f64_ge(delta, 0.0)), "ACTOR_TIME: finite forward time required");
+  let next = u_real_add(native.cell_get(s.time), delta);
+  u_require(native.math_is_finite(next), "ACTOR_TIME: simulated time overflow");
+  native.cell_set(s.time, next); yield handle;
+};
+def actor: Value = #{capability: u_actor_capability, child: u_actor_child, continue: u_actor_continue,
+  fail: u_actor_fail, supervise: u_actor_supervise, send: u_actor_send, run: u_actor_run,
+  run_steps: u_actor_run_steps, advance_time: u_actor_advance};
+def duration: Value = #{seconds: u_real};
+
+// Finite temporal verification includes stuttering and weak action fairness.
+def u_tem_index(states: Value, value: Value) -> Int = {
+  let index = u_loop(0, fn(i: Int) => u_choose(native.int_lt(i, native.list_length(states)),
+    fn() => native.bool_not(native.value_equal(native.list_get(states, i), value)), fn() => false), fn(i: Int) => native.int_add(i, 1));
+  u_require(native.int_lt(index, native.list_length(states)), "MODEL_NOT_CLOSED: transition leaves declared states"); yield index;
+};
+def u_tem_option(value: Value) -> Value = {
+  u_require(u_contains(["some", "none"], value.tag), "TEMPORAL_ACTION: action must return Option"); yield value;
+};
+def u_tem_reach(seed: Int, adjacency: Value, allowed: Value) -> Value = {
+  let seen = native.cell_new([seed]);
+  let queue = native.buffer_new(); native.buffer_push(queue, seed);
+  u_loop(0, fn(i: Int) => native.int_lt(i, native.buffer_length(queue)), fn(i: Int) => {
+    u_for(native.list_length(native.list_get(adjacency, native.buffer_get(queue, i))), fn(j: Int) => {
+      let target = native.list_get(native.list_get(adjacency, native.buffer_get(queue, i)), j);
+      yield u_choose(native.bool_and(u_contains(allowed, target), native.bool_not(u_contains(native.cell_get(seen), target))), fn() => {
+        native.cell_set(seen, native.list_append(native.cell_get(seen), [target]));
+        yield native.buffer_push(queue, target);
+      }, fn() => ());
+    }); yield native.int_add(i, 1);
+  }); yield native.cell_get(seen);
+};
+def u_tem_components(vertices: Value, adjacency: Value) -> Value = {
+  let reverse = u_map(u_range(native.list_length(adjacency)), fn(target: Int) =>
+    u_filter(vertices, fn(source: Int) => u_contains(native.list_get(adjacency, source), target)));
+  let components = native.buffer_new();
+  u_loop(vertices, fn(remaining: Value) => native.int_gt(native.list_length(remaining), 0), fn(remaining: Value) => {
+    let seed = native.list_get(remaining, 0);
+    let forwards = u_tem_reach(seed, adjacency, remaining);
+    let backwards = u_tem_reach(seed, reverse, remaining);
+    let component = u_filter(remaining, fn(state: Int) => native.bool_and(u_contains(forwards, state), u_contains(backwards, state)));
+    native.buffer_push(components, component);
+    yield u_filter(remaining, fn(state: Int) => native.bool_not(u_contains(component, state)));
+  }); yield native.buffer_freeze(components);
+};
+def u_tem_fair_cycle(component: Value, fair_edges: Value) -> Bool =
+  u_all(fair_edges, fn(edges: Value) => native.bool_or(
+    u_any(component, fn(state: Int) => native.int_eq(native.list_length(native.list_get(edges, state)), 0)),
+    u_any(component, fn(state: Int) => u_any(native.list_get(edges, state), fn(target: Int) => u_contains(component, target)))));
+def u_tem_verify(formula: Value, states: Value, initial: Int, adjacency: Value, fair_edges: Value) -> Value =
+  u_choose(native.text_eq(formula.kind, "and"), fn() => {
+    let parts = u_map(formula.args, fn(part: Value) => u_tem_verify(part, states, initial, adjacency, fair_edges));
+    yield #{holds: u_all(parts, fn(part: Value) => part.holds), conjuncts: parts};
+  }, fn() => {
+    let region = native.list_get(formula.args, 0);
+    let bad = u_filter(u_range(native.list_length(states)), fn(i: Int) => native.bool_not(region(native.list_get(states, i))));
+    yield u_choose(native.text_eq(formula.kind, "always"), fn() =>
+      #{holds: native.int_eq(native.list_length(bad), 0), operator: "always", counterexample_state:
+        u_choose(native.int_eq(native.list_length(bad), 0), fn() => (), fn() => native.list_get(states, native.list_get(bad, 0)))}, fn() => {
+      u_require(native.text_eq(formula.kind, "eventually"), "TEMPORAL_OPERATOR: unsupported formula");
+      yield u_choose(native.bool_not(u_contains(bad, initial)), fn() => #{holds: true, operator: "eventually"}, fn() => {
+        let reachable = u_tem_reach(initial, adjacency, bad);
+        let components = u_tem_components(reachable, adjacency);
+        let counter = u_filter(components, fn(component: Value) => native.bool_and(
+          native.bool_or(native.int_gt(native.list_length(component), 1),
+            u_any(component, fn(state: Int) => u_contains(native.list_get(adjacency, state), state))),
+          u_tem_fair_cycle(component, fair_edges)));
+        yield u_choose(native.int_eq(native.list_length(counter), 0), fn() => #{holds: true, operator: "eventually"}, fn() =>
+          #{holds: false, operator: "eventually", counterexample_recurrent_set:
+            u_map(native.list_get(counter, 0), fn(i: Int) => native.list_get(states, i))});
+      });
+    });
+  });
+def u_tem_spec(initial: Value, action: Value, stutter: Text, fairness: Value) -> Value = {
+  u_require(native.text_eq(stutter, "stutter"), "TEMPORAL_SPEC: explicit stuttering required");
+  let fairs = u_choose(native.text_eq(native.value_kind(fairness), "list"), fn() => fairness, fn() => [fairness]);
+  u_require(u_all(fairs, fn(fair: Value) => native.text_eq(fair.kind, "weak_fair")), "TEMPORAL_FAIRNESS: named weak fairness required");
+  yield #{initial: initial, action: action, fairness: fairs};
+};
+def u_tem_without_fairness(initial: Value, action: Value, stutter: Text) -> Value = u_tem_spec(initial, action, stutter, []);
+def u_tem_stutter() -> Text = "stutter";
+def u_tem_weak_fair(action: Value) -> Value = #{kind: "weak_fair", action: action};
+def u_tem_always(region: Value) -> Value = #{kind: "always", args: [region]};
+def u_tem_eventually(region: Value) -> Value = #{kind: "eventually", args: [region]};
+def u_tem_and(a: Value, b: Value) -> Value = #{kind: "and", args: [a, b]};
+def u_tem_all(formulas: Value) -> Value = #{kind: "and", args: formulas};
+def u_tem_check(system: Value, property: Value, states: Value) -> Value = {
+  u_require(u_all(states, fn(state: Value) => u_contains(["int", "text", "bool"], native.value_kind(state))), "MODEL_STATES: unique scalar states required");
+  u_for(native.list_length(states), fn(i: Int) => u_for(i, fn(j: Int) =>
+    u_require(native.bool_not(native.value_equal(native.list_get(states, i), native.list_get(states, j))), "MODEL_STATES: duplicate state")));
+  u_require(u_contains(states, system.initial), "MODEL_INITIAL: initial state is outside declared model");
+  let initial = u_tem_index(states, system.initial);
+  let adjacency = u_map(u_range(native.list_length(states)), fn(i: Int) => {
+    let next = u_tem_option(system.action(native.list_get(states, i)));
+    yield u_choose(native.text_eq(next.tag, "none"), fn() => [i], fn() => {
+      let target = u_tem_index(states, next.value);
+      yield u_choose(native.int_eq(i, target), fn() => [i], fn() => [i, target]);
+    });
+  });
+  let reachable = u_tem_reach(initial, adjacency, u_range(native.list_length(states)));
+  u_require(native.int_eq(native.list_length(reachable), native.list_length(states)), "MODEL_NOT_REACHABLE: declared states include unreachable members");
+  let fair_edges = u_map(system.fairness, fn(fair: Value) => u_map(u_range(native.list_length(states)), fn(i: Int) => {
+    let next = u_tem_option(fair.action(native.list_get(states, i)));
+    yield u_choose(native.text_eq(next.tag, "none"), fn() => [], fn() => {
+      let target = u_tem_index(states, next.value);
+      u_require(u_contains(native.list_get(adjacency, i), target), "FAIRNESS_NOT_SUBACTION: fairness action is outside system transitions");
+      yield [target];
+    });
+  }));
+  let result = u_tem_verify(property, states, initial, adjacency, fair_edges);
+  yield #{status: u_choose(result.holds, fn() => "verified", fn() => "refuted"), property: result,
+    states: native.list_length(states), transitions: u_fold(adjacency, 0, fn(n: Int, edges: Value) => native.int_add(n, native.list_length(edges))),
+    fairness: "weak_action_fairness", realization: "finite_explicit_graph", infinite_state_proof: false};
+};
+def u_tem_states(states: Value) -> Value = states;
+def temporal: Value = #{spec: u_tem_spec, without_fairness: u_tem_without_fairness, stutter: u_tem_stutter,
+  weak_fair: u_tem_weak_fair, always: u_tem_always, eventually: u_tem_eventually, and: u_tem_and,
+  all: u_tem_all, check: u_tem_check};
+def model: Value = #{closed_reachable_states: u_tem_states};
+
+// Positive-edge two-state U8 registers publish simultaneously.
+def u_hw_current: Value = native.cell_new(native.value_unit());
+def u_hw_clock(name: Text) -> Value = native.resource_new("Hardware.Clock", #{name: name, tick: native.cell_new(0)});
+def u_hw_input(clock: Value, values: Value) -> Value = {
+  native.resource_peek(clock, "Hardware.Clock"); native.list_length(values);
+  yield native.resource_new("Hardware.Input", #{clock: clock, values: values});
+};
+def u_hw_reg(clock: Value, initial: Int, update: Value) -> Value = {
+  native.resource_peek(clock, "Hardware.Clock"); u_bits_u8(initial);
+  yield native.resource_new("Hardware.Register", #{clock: clock, value: native.cell_new(initial), update: update});
+};
+def u_hw_at_tick(signal: Value) -> Value = {
+  let clock = native.cell_get(u_hw_current);
+  u_require(native.text_eq(native.value_kind(clock), "resource"), "CLOCK_REGION: observation requires a clock event");
+  let kind = native.resource_kind(signal);
+  u_require(u_contains(["Hardware.Input", "Hardware.Register"], kind), "TYPE_SIGNAL: expected clocked signal");
+  let value = native.resource_peek(signal, kind);
+  u_require(native.value_equal(clock, value.clock), "CLOCK_MISMATCH: signal belongs to another clock");
+  yield u_choose(native.text_eq(kind, "Hardware.Register"), fn() => native.cell_get(value.value),
+    fn() => native.list_get(value.values, native.cell_get(native.resource_peek(clock, "Hardware.Clock").tick)));
+};
+def u_hw_simulate(clock: Value, registers: Value, ticks: Int) -> Value = {
+  let domain = native.resource_peek(clock, "Hardware.Clock");
+  u_require(native.text_eq(native.value_kind(native.cell_get(u_hw_current)), "unit"), "CLOCK_REGION: nested clock simulation is not admitted");
+  let values = u_map(registers, fn(reg: Value) => {
+    let state = native.resource_peek(reg, "Hardware.Register");
+    u_require(native.value_equal(state.clock, clock), "CLOCK_MISMATCH: register belongs to another clock"); yield state;
+  });
+  u_for(native.list_length(registers), fn(i: Int) => u_for(i, fn(j: Int) => u_require(native.bool_not(
+    native.value_equal(native.list_get(registers, i), native.list_get(registers, j))), "REGISTER_ALIAS: one publication per register")));
+  let trace = native.buffer_new(); native.buffer_push(trace, u_map(values, fn(reg: Value) => native.cell_get(reg.value)));
+  u_for(ticks, fn(tick: Int) => {
+    native.cell_set(u_hw_current, clock);
+    let next = u_map(values, fn(reg: Value) => u_bits_u8(reg.update(native.cell_get(reg.value))));
+    native.cell_set(u_hw_current, ());
+    u_for(native.list_length(values), fn(i: Int) => native.cell_set(native.list_get(values, i).value, native.list_get(next, i)));
+    native.cell_set(domain.tick, native.int_add(native.cell_get(domain.tick), 1));
+    yield native.buffer_push(trace, next);
+  });
+  yield #{realization: "two_state_positive_edge_simulator", clock: domain.name, trace: native.buffer_freeze(trace), physical: false};
+};
+def hw: Value = #{clock: u_hw_clock, input: u_hw_input, reg: u_hw_reg, at_tick: u_hw_at_tick, simulate: u_hw_simulate};
+
+// Partitioned lane execution is U code in a lazy isolated worker task.
+def u_gpu_read_lease(values: Value) -> Value = { native.list_length(values); yield #{kind: "GPU.Read", values: values}; };
+def u_gpu_load(input: Value, offset: Int) -> Value = {
+  u_require(native.text_eq(input.kind, "GPU.Read"), "GPU_READ_LEASE: immutable input lease required");
+  yield native.list_get(input.values, offset);
+};
+def u_gpu_read(element: Value) -> Value = {
+  let lease = native.resource_peek(element, "GPU.Element");
+  yield native.list_get(native.cell_get(lease.data), lease.offset);
+};
+def u_gpu_write(element: Value, value: Value) -> Value = {
+  let lease = native.resource_peek(element, "GPU.Element");
+  native.cell_set(lease.data, u_list_set(native.cell_get(lease.data), lease.offset, value));
+  native.cell_set(lease.written, true); yield element;
+};
+def u_gpu_partition_launch(geometry: Value, owner: Value, region: Value) -> Value = {
+  let state = u_mem_owner(owner);
+  let snapshot = native.cell_get(state.data);
+  u_require(native.bool_and(native.int_eq(native.list_length(geometry.grid), 1), native.int_eq(native.list_length(geometry.block), 1)), "GPU_GEOMETRY: one-dimensional launch required");
+  let grid = native.list_get(geometry.grid, 0); let block = native.list_get(geometry.block, 0);
+  u_require(native.bool_and(native.int_ge(grid, 0), native.int_gt(block, 0)), "GPU_GEOMETRY: nonnegative grid and positive block required");
+  u_require(native.int_ge(native.int_mul(grid, block), native.list_length(snapshot)), "GPU_GEOMETRY: lanes must cover output");
+  native.cell_set(state.borrowed, true);
+  yield u_task_new(fn() => {
+    let output = native.cell_new(snapshot);
+    u_for(native.list_length(snapshot), fn(lane: Int) => {
+      let written = native.cell_new(false);
+      let lease = native.resource_new("GPU.Element", #{data: output, offset: lane, written: written});
+      let result = region(#{global_x: lane, block_x: native.int_div(lane, block), local_x: native.int_mod(lane, block)}, lease);
+      u_require(native.bool_and(native.value_equal(result, lease), native.cell_get(written)), "GPU_LEASE_RETURN: lane must return its written exclusive lease");
+      native.resource_take(lease, "GPU.Element"); yield ();
+    }); yield native.cell_get(output);
+  }, fn() => { native.resource_take(owner, "Memory.Owner"); yield (); },
+    fn(values: Value) => {
+      u_require(native.int_eq(native.list_length(values), native.list_length(snapshot)), "GPU_RESULT: worker changed output shape");
+      yield u_mem_owned(values);
+    }, fn() => native.cell_set(state.borrowed, false));
+};
+def gpu: Value = #{partition_launch: u_gpu_partition_launch, read_lease: u_gpu_read_lease,
+  own: u_mem_owned, values: u_mem_values, load: u_gpu_load, read: u_gpu_read, write: u_gpu_write};

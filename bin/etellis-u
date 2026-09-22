@@ -1,7 +1,46 @@
-#!/usr/bin/env python3
-"""Source checkout launcher; installed entry point uses u.cli:main."""
-from pathlib import Path
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from u.cli import main
-raise SystemExit(main())
+#!/bin/sh
+# This launcher supplies paths and explicit compiler privileges, not U semantics.
+set -eu
+U_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export U_ROOT
+U_DRIVER="$U_ROOT/build/native/etellis-u-driver"
+U_REBUILD=0
+for U_TOOL in etellis-u-driver etellis-u-package etellis-u-audit etellis-u-cdc; do
+  if [ ! -x "$U_ROOT/build/native/$U_TOOL" ]; then U_REBUILD=1; fi
+done
+if [ ! -f "$U_ROOT/build/native/complete.stamp" ]; then U_REBUILD=1; fi
+for U_SOURCE in "$U_ROOT"/compiler/*.u "$U_ROOT"/tools/*.u "$U_ROOT"/stdlib/*.u "$U_ROOT"/cdc/*.u \
+  "$U_ROOT/native/runtime.c" "$U_ROOT/native/runtime.h" "$U_ROOT/bootstrap/compiler.generated.c" \
+  "$U_ROOT/bootstrap/native-build.sh"; do
+  if [ "$U_SOURCE" -nt "$U_ROOT/build/native/complete.stamp" ]; then U_REBUILD=1; fi
+done
+if [ "$U_REBUILD" = 1 ]; then
+  sh "$U_ROOT/bootstrap/native-build.sh" >&2
+fi
+U_NATIVE_WORK=$(mktemp -d "${TMPDIR:-/tmp}/etellis-u.XXXXXXXX")
+export U_NATIVE_WORK
+# The compiler creates only these known transient files. Keep named user builds.
+u_cleanup() {
+  rm -f "$U_NATIVE_WORK/program" "$U_NATIVE_WORK/program.c" "$U_NATIVE_WORK/program.json" \
+    "$U_NATIVE_WORK/runtime.c" "$U_NATIVE_WORK/runtime.h"
+  rmdir "$U_NATIVE_WORK" 2>/dev/null || true
+}
+trap u_cleanup EXIT HUP INT TERM
+U_NATIVE_LINK_CRYPTO=0
+if [ "$(uname -s)" != Darwin ]; then U_NATIVE_LINK_CRYPTO=1; fi
+export U_NATIVE_LINK_CRYPTO
+unset U_NATIVE_STEPS U_ARGS_JSON U_USER_ARGS_JSON
+if [ "${1:-}" = test ]; then
+  sh "$U_ROOT/scripts/verify-native.sh"
+elif [ "${1:-}" = package ]; then
+  shift
+  U_NATIVE_ALLOW=read,write,console,env "$U_ROOT/build/native/etellis-u-package" "$@"
+elif [ "${1:-}" = audit ]; then
+  shift
+  U_NATIVE_ALLOW=read,console,env "$U_ROOT/build/native/etellis-u-audit" "$@"
+else
+  case "${2:-}" in
+    *.cdc) U_NATIVE_ALLOW=read,console "$U_ROOT/build/native/etellis-u-cdc" "$@" ;;
+    *) U_NATIVE_ALLOW=read,write,exec,console,env "$U_DRIVER" "$@" ;;
+  esac
+fi

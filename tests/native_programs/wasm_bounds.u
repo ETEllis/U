@@ -1,0 +1,15 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def identity(x: Int) -> Int = x;
+def minimum() -> Int = -9223372036854775808;
+def maximum() -> Int = 9223372036854775807;
+def negative() -> Int = -65;
+def overflowing(x: Int) -> Int = int.mul(x, x);
+def intermediate(x: Int) -> Int = int.sub(int.add(x, 1), 1);
+def negative_nat() -> Nat = int.sub(0, 1);
+def natural_domain() -> Int = nat.add(-1, 2);
+def mixed(x: Int) -> Bool = int.eq(x, true);
+def choose(x: Int) -> Int = value.select(int.lt(x, 0), int.neg(x), x);
+def yes() -> Bool = true;
+def comparisons(x: Int, y: Int) -> Bool = bool.and(int.le(x, y), bool.and(int.ge(y, x),
+  bool.and(bool.or(int.lt(x, y), int.eq(x, y)), bool.not(int.gt(x, y)))));

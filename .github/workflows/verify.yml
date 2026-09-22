@@ -1,4 +1,4 @@
-name: U reference release gates
+name: U native release gates
 on:
   push:
   pull_request:
@@ -17,8 +17,12 @@ jobs:
           build: 'true'
           test: 'false'
           lint: 'false'
-  reference:
-    runs-on: macos-15
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -28,19 +32,19 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - name: Fresh reference, frontend, LSP, native and WASM tests
+      - name: Linux platform crypto headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - name: Build U and tools from the checked C seed without Python
+        run: sh bootstrap/native-build.sh
+      - name: Native compiler, library, CLI, CDC and WASM verification
         run: python scripts/verify.py
-      - name: Independently compiled CDC differential oracle
-        run: python scripts/verify_cdc.py
-      - name: Build installable wheel
-        run: python -m pip wheel --no-deps --wheel-dir dist .
       - name: Verify paper PDF and bibliography are present
         run: test -s paper/main.pdf && test -s paper/main.tex && test -s paper/main.bbl
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: U-reference-evidence
+          name: U-native-evidence-${{ matrix.os }}
           path: |
             artifacts/
-            dist/
             paper/main.pdf

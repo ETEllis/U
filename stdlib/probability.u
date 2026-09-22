@@ -1,0 +1,162 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def u_model_stack: Value = native.cell_new([]);
+def u_pvar(x: Value) -> Bool = u_choose(native.text_eq(native.value_kind(x), "record"),
+  fn() => native.value_equal(u_get(x, "kind", ""), "latent"), fn() => false);
+def u_normal(mean: Value, sigma: Value) -> Value = {
+  u_require(u_choose(u_pvar(mean), fn() => true, fn() => native.math_is_finite(u_real(mean))), "normal mean must be finite");
+  u_require(u_choose(u_pvar(sigma), fn() => true, fn() => native.bool_and(
+    native.math_is_finite(u_real(sigma)), native.f64_gt(u_real(sigma), 0.0))), "normal scale must be positive and finite");
+  yield #{kind: "normal", mean: mean, sigma: sigma};
+};
+def u_model_context() -> Value = {
+  let stack = native.cell_get(u_model_stack);
+  u_require(native.int_gt(native.list_length(stack), 0), "probability operation requires a model region");
+  yield native.list_get(stack, native.int_sub(native.list_length(stack), 1));
+};
+def u_prob_model(region: Value) -> Value = {
+  let context = #{bindings: native.buffer_new(), observations: native.buffer_new()};
+  let old = native.cell_get(u_model_stack);
+  native.cell_set(u_model_stack, native.list_append(old, [context]));
+  let attempted = native.value_try_call(region, []);
+  native.cell_set(u_model_stack, old);
+  u_require(attempted.ok, u_get(attempted, "message", "model region failed"));
+  let output = attempted.value;
+  yield #{kind: "Model", bindings: native.buffer_freeze(context.bindings),
+    observations: native.buffer_freeze(context.observations), output: output};
+};
+def u_prob_sample(distribution: Value) -> Value = {
+  let context = u_model_context();
+  u_require(native.text_eq(distribution.kind, "normal"), "unsupported measure binding");
+  let index = native.buffer_length(context.bindings);
+  native.buffer_push(context.bindings, distribution);
+  yield #{kind: "latent", index: index};
+};
+def u_prob_observe(distribution: Value, data: Value) -> Unit = {
+  let context = u_model_context();
+  u_require(u_all(data, fn(x: Value) => native.math_is_finite(u_real(x))), "observations must be finite");
+  yield native.buffer_push(context.observations, #{distribution: distribution, data: data});
+};
+def u_prob_resolve(value: Value, state: Value) -> Real =
+  u_choose(u_pvar(value), fn() => u_real(native.list_get(state, value.index)), fn() => u_real(value));
+def u_log_normal(distribution: Value, value: Real, state: Value) -> Real = {
+  let mean = u_prob_resolve(distribution.mean, state);
+  let sigma = u_prob_resolve(distribution.sigma, state);
+  u_require(native.f64_gt(sigma, 0.0), "density scale left its domain");
+  let z = u_real_div(u_real_sub(value, mean), sigma);
+  yield u_real_sub(u_real_sub(u_real_mul(-0.5, u_real_mul(z, z)), native.math_log(sigma)), 0.9189385332046727);
+};
+def u_log_density(model: Value, state: Value) -> Real = {
+  let prior = u_fold(u_range(native.list_length(model.bindings)), 0.0,
+    fn(total: Real, i: Int) => u_real_add(total,
+      u_log_normal(native.list_get(model.bindings, i), native.list_get(state, i), state)));
+  yield u_fold(model.observations, prior, fn(total: Real, observation: Value) =>
+    u_fold(observation.data, total, fn(sum: Real, value: Value) =>
+      u_real_add(sum, u_log_normal(observation.distribution, u_real(value), state))));
+};
+def u_density_gradient(model: Value, state: Value) -> Value =
+  u_map(u_range(native.list_length(state)), fn(i: Int) => {
+    let value = native.list_get(state, i);
+    let delta = u_real_mul(0.00001, u_max(1.0, u_abs(value)));
+    let left = u_list_set(state, i, u_real_sub(value, delta));
+    let right = u_list_set(state, i, u_real_add(value, delta));
+    yield u_real_div(u_real_sub(u_log_density(model, right), u_log_density(model, left)), u_real_mul(2.0, delta));
+  });
+def u_rng_uniform(rng: Value) -> Real = {
+  let i = native.cell_get(rng.index);
+  native.cell_set(rng.index, native.int_add(i, 1));
+  yield native.random_uniform(rng.seed, i);
+};
+def u_rng_normal(rng: Value) -> Real = {
+  let a = u_max(0.000000000000001, u_rng_uniform(rng));
+  let b = u_rng_uniform(rng);
+  yield u_real_mul(native.math_sqrt(u_real_mul(-2.0, native.math_log(a))),
+    native.math_cos(u_real_mul(6.283185307179586, b)));
+};
+def u_scaled_add(a: Value, b: Value, scale: Real) -> Value =
+  u_map(u_range(native.list_length(a)), fn(i: Int) =>
+    u_real_add(native.list_get(a, i), u_real_mul(scale, native.list_get(b, i))));
+def u_hmc_step(model: Value, state: Value, rng: Value, epsilon: Real, steps: Int) -> Value = {
+  let momentum = u_map(state, fn(q: Real) => u_rng_normal(rng));
+  let half = u_real_mul(0.5, epsilon);
+  let p0 = u_scaled_add(momentum, u_density_gradient(model, state), half);
+  let evolved = u_fold(u_range(steps), #{q: state, p: p0}, fn(s: Value, i: Int) => {
+    let q = u_scaled_add(s.q, s.p, epsilon);
+    let amount = u_choose(native.int_eq(i, native.int_sub(steps, 1)), fn() => half, fn() => epsilon);
+    yield #{q: q, p: u_scaled_add(s.p, u_density_gradient(model, q), amount)};
+  });
+  let old_energy = u_real_sub(u_real_mul(0.5, u_dot(momentum, momentum)), u_log_density(model, state));
+  let new_energy = u_real_sub(u_real_mul(0.5, u_dot(evolved.p, evolved.p)), u_log_density(model, evolved.q));
+  let change = u_real_sub(old_energy, new_energy);
+  let accepted = native.f64_lt(native.math_log(u_max(0.000000000000001, u_rng_uniform(rng))), u_min(0.0, change));
+  yield #{state: u_choose(accepted, fn() => evolved.q, fn() => state), accepted: accepted,
+    divergent: native.f64_gt(u_abs(change), 1000.0)};
+};
+// Each bounded batch runs in an isolated, unprivileged worker. Only ordinary
+// state and the exact random-stream position return; its temporary arena ends.
+// Batching changes allocation lifetime, not the Markov transition or seed order.
+def u_hmc_batch(model: Value, initial: Value, seed: Int, index: Int,
+                first: Int, count: Int, warmup: Int, epsilon: Real, steps: Int) -> Value = {
+  let rng = #{seed: seed, index: native.cell_new(index)};
+  let state = native.cell_new(initial); let samples = native.buffer_new();
+  let accepted = native.cell_new(0); let divergent = native.cell_new(0);
+  u_for(count, fn(j: Int) => {
+    let result = u_hmc_step(model, native.cell_get(state), rng, epsilon, steps);
+    native.cell_set(state, result.state);
+    native.cell_set(accepted, native.int_add(native.cell_get(accepted), u_choose(result.accepted, fn() => 1, fn() => 0)));
+    native.cell_set(divergent, native.int_add(native.cell_get(divergent), u_choose(result.divergent, fn() => 1, fn() => 0)));
+    yield u_choose(native.int_ge(native.int_add(first, j), warmup), fn() =>
+      native.buffer_push(samples, u_prob_resolve(model.output, result.state)), fn() => ());
+  });
+  yield #{state: native.cell_get(state), index: native.cell_get(rng.index), samples: native.buffer_freeze(samples),
+    accepted: native.cell_get(accepted), divergent: native.cell_get(divergent)};
+};
+def u_prob_infer(model: Value, algorithm: Text, options: Value) -> Value = {
+  u_require(native.bool_and(native.text_eq(model.kind, "Model"), native.text_eq(algorithm, "hmc")), "unsupported inference realization");
+  let chains = u_get(options, "chains", 1); let draws = u_get(options, "draws", 1000);
+  let warmup = u_get(options, "warmup", 500); let steps = u_get(options, "leapfrog_steps", 10);
+  let epsilon = u_real(u_get(options, "step_size", 0.1));
+  u_require(native.bool_and(native.bool_and(native.int_gt(chains, 0), native.int_gt(draws, 0)),
+    native.bool_and(native.bool_and(native.int_ge(warmup, 0), native.int_gt(steps, 0)), native.f64_gt(epsilon, 0.0))), "invalid HMC options");
+  let rng = #{seed: options.seed, index: native.cell_new(0)};
+  let accepted = native.cell_new(0); let divergent = native.cell_new(0);
+  let samples = u_map(u_range(chains), fn(chain: Int) => {
+    let state = native.cell_new(u_map(model.bindings, fn(d: Value) => u_rng_normal(rng)));
+    let samples = native.buffer_new();
+    let total = native.int_add(warmup, draws);
+    u_loop(0, fn(i: Int) => native.int_lt(i, total), fn(i: Int) => {
+      let count = u_choose(native.int_lt(native.int_sub(total, i), 32),
+        fn() => native.int_sub(total, i), fn() => 32);
+      let initial = native.cell_get(state); let index = native.cell_get(rng.index);
+      let worker = native.process_spawn(fn() => u_hmc_batch(model, initial, rng.seed, index, i, count, warmup, epsilon, steps));
+      let finished = native.process_wait(worker, -1);
+      u_require(native.text_eq(finished.state, "completed"), "HMC batch failed; no completed posterior emitted");
+      let result = finished.value;
+      native.cell_set(state, result.state);
+      native.cell_set(rng.index, result.index);
+      native.cell_set(accepted, native.int_add(native.cell_get(accepted), result.accepted));
+      native.cell_set(divergent, native.int_add(native.cell_get(divergent), result.divergent));
+      u_map(result.samples, fn(value: Value) => native.buffer_push(samples, value));
+      yield native.int_add(i, count);
+    });
+    yield native.buffer_freeze(samples);
+  });
+  yield #{kind: "ApproxPosterior", algorithm: "hmc", realization: "u.native.hmc-splitmix-boxmuller/0.2",
+    chains: samples, diagnostics: #{acceptance: u_real_div(native.cell_get(accepted), native.int_mul(chains, native.int_add(warmup, draws))),
+      divergences: native.cell_get(divergent), convergence_claim: false}, seed: options.seed};
+};
+def u_prob_dirac(value: Value) -> Value = #{kind: "Measure", atoms: [#{value: value, weight: 1.0}]};
+def u_prob_weight(weight: Real, measure: Value) -> Value = {
+  u_require(native.bool_and(native.math_is_finite(u_real(weight)), native.f64_ge(u_real(weight), 0.0)), "weight must be finite and nonnegative");
+  yield #{kind: "Measure", atoms: u_map(measure.atoms, fn(atom: Value) => #{value: atom.value, weight: u_real_mul(weight, atom.weight)})};
+};
+def u_prob_normalize(measure: Value) -> Value = {
+  let mass = u_sum_real(u_map(measure.atoms, fn(atom: Value) => atom.weight));
+  yield u_choose(native.bool_and(native.math_is_finite(mass), native.f64_gt(mass, 0.0)),
+    fn() => #{kind: "Measure", atoms: u_map(measure.atoms, fn(atom: Value) => #{value: atom.value, weight: u_real_div(atom.weight, mass)})},
+    fn() => #{verdict: "Held", reason: "positive-finite-mass-required"});
+};
+def dist: Value = #{normal: u_normal};
+def prob: Value = #{model: u_prob_model, sample: u_prob_sample, observe_all: u_prob_observe,
+  infer: u_prob_infer, dirac: u_prob_dirac, weight: u_prob_weight, normalize: u_prob_normalize};

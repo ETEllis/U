@@ -1,21 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/ETEllis/U/spec/receipt.schema.json",
-  "title": "U reference receipt 1",
+  "title": "U typed evidence receipt 2",
+  "description": "Structural shape only. stdlib/evidence.u additionally checks sorted dependencies, subject inclusion and typed canonical identity. Neither check establishes authenticity or truth.",
   "type": "object",
-  "required": ["schema", "scope", "maturity", "verdict", "meaning", "realization", "source", "inputs", "output", "obligations", "assumptions", "observations", "identity"],
   "additionalProperties": false,
+  "required": ["schema", "scope", "subject", "dependencies", "assumptions", "verdict", "payload", "authority", "identity"],
   "properties": {
-    "schema": {"const": "etellis.u.receipt/1"},
+    "schema": {"const": "etellis.u.receipt/2"},
     "scope": {"type": "string"},
-    "maturity": {"type": "object", "required": ["executed", "mechanized", "physical_device"], "additionalProperties": false, "properties": {"executed": {"type": "boolean"}, "mechanized": {"type": "boolean"}, "physical_device": {"type": "boolean"}}},
+    "subject": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "dependencies": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+    "assumptions": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
     "verdict": {"enum": ["Done", "Held", "Rejected", "Fault", "Indeterminate", "Unsupported"]},
-    "meaning": {"type": "string"},
-    "realization": {"type": "string"},
-    "source": {"type": "string"},
-    "inputs": {}, "output": {}, "observations": {},
-    "obligations": {"type": "array"},
-    "assumptions": {"type": "array"},
+    "payload": {},
+    "authority": {"const": "identity-only"},
     "identity": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
   }
 }

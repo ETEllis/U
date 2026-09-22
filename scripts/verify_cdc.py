@@ -7,12 +7,11 @@ from pathlib import Path
 import platform
 import random
 import subprocess
-import sys
+import os
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-from u.cdc import execute_source, PROFILE
+PROFILE = 'etellis.cdc/native-0.3.0@1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157'
 
 PIN = '1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157'
 
@@ -22,6 +21,10 @@ def main():
     parser.add_argument('--bidi', type=Path, default=ROOT/'compatibility/cdc/vendor')
     parser.add_argument('--cases', type=int, default=96)
     args = parser.parse_args()
+    u_cdc_executable = ROOT/'build/native/etellis-u-cdc'
+    if not u_cdc_executable.is_file(): raise RuntimeError('build the native U tools before the independent comparison')
+    native_env = {**os.environ, 'U_NATIVE_ALLOW':'read,console'}
+    native_env.pop('U_NATIVE_STEPS', None)
     repo = args.bidi.resolve()
     git = lambda *a: subprocess.check_output(['git', '-C', str(repo), *a], text=True).strip()
     pin=json.loads((ROOT/'compatibility/cdc/SOURCE_PIN.json').read_text())
@@ -62,7 +65,7 @@ def main():
             path = Path(folder)/f'case-{i}.cdc'
             path.write_text(text)
             oracle = json.loads(subprocess.check_output([str(binary), str(path)], text=True))
-            actual = execute_source(text)
+            actual = json.loads(subprocess.check_output([str(u_cdc_executable), 'run', str(path)], text=True, env=native_env))
             assert actual['verdict'] == 'Done', actual
             for native, computed in zip(oracle['cells'], actual['state']['cells']):
                 assert float.fromhex(native['theta']).hex() == computed['theta'].hex(), (i, native, computed)
@@ -80,10 +83,12 @@ def main():
     receipt = {'schema': 'etellis.u.cdc-parity/1', 'profile': PROFILE, 'bidi_sha': PIN,
                'scope': 'finite well-formed field/module/cell/channel + flow/commit/nest; exact binary64 values and trit outcomes',
                'cases': cases, 'passed': len(cases), 'total': args.cases, 'host': platform.platform(),
-               'python': sys.version, 'oracle_compiler': subprocess.check_output(['cc','--version'],text=True).splitlines()[0],
+               'u_execution': 'native U-written CDC parser and reduction algorithms',
+               'native_executable_sha256': hashlib.sha256(u_cdc_executable.read_bytes()).hexdigest(),
+               'oracle_compiler': subprocess.check_output(['cc','--version'],text=True).splitlines()[0],
                'oracle_snapshot_hashes_verified':True, 'external_bidi_checkout_checked':external,
                'bidi_tracked_source_unchanged':True if external else None, 'full_cdc_compatibility': False}
-    (ROOT/'artifacts/cdc-parity.json').write_text(json.dumps(receipt, indent=2)+'\n')
+    (ROOT/'artifacts/native-cdc-parity.json').write_text(json.dumps(receipt, indent=2)+'\n')
     print(f'CDC primitive differential parity: {len(cases)}/{args.cases}; exact binary64 and latch state; BiDi unchanged')
 
 

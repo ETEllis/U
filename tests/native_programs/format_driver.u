@@ -1,0 +1,16 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def format_test_driver() -> Value = {
+  let args = sys.args();
+  yield cc_choose(int.lt(list.length(args), 2), fn() => format_test_main(), fn() => {
+    cc_require(int.eq(list.length(args), 3), #{start: 0}, "format_test_usage", "file|graph|render INPUT.u");
+    let mode = list.get(args, 1); let path = list.get(args, 2);
+    yield cc_choose(text.eq(mode, "file"), fn() => format_file_test(path), fn() =>
+      cc_choose(text.eq(mode, "graph"), fn() => format_graph_test(path), fn() =>
+      cc_choose(text.eq(mode, "render"), fn() => ff_format(sys.read(path)),
+        fn() => cc_choose(text.eq(mode, "text"), fn() => ff_format(path), fn() =>
+        cc_choose(text.eq(mode, "identity"), fn() => format_graph_identity(path),
+          fn() => cc_error(#{start: 0}, "format_test_mode", mode))))));
+  });
+};

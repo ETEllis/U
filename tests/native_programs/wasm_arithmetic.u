@@ -1,0 +1,3 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def calculate(x: Int, y: Int) -> Int = int.sub(int.mul(int.add(x, 3), y), 65);

@@ -1,6 +1,6 @@
 [package]
 name = "etellis.u"
-version = "0.1.0"
+version = "0.2.0"
 language = "etellis.u/0.1"
 
 [profiles]

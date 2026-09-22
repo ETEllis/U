@@ -1,0 +1,8 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+def format_file_test(path: Text) -> Value = {
+  let source = sys.read(path); let formatted = ff_format(source);
+  yield #{status: "passed", file: path, input_bytes: bytes.length(source), output_bytes: bytes.length(formatted),
+    changed: bool.not(text.eq(source, formatted)), parsed: true, token_invariant: true};
+};

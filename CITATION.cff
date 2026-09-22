@@ -1,14 +1,14 @@
 cff-version: 1.2.0
-message: "Please cite this repository and the included manuscript when discussing U. The manuscript is prepared for author review and has not been submitted to arXiv."
+message: "Please cite this repository and its research preprint. The manuscript has not been submitted to arXiv."
 type: software
 title: "U: Law-Bearing Operations"
 authors:
   - family-names: Ellis
     given-names: Edward
 repository-code: "https://github.com/ETEllis/U"
-url: "https://github.com/ETEllis/U"
-date-released: 2026-09-14
-abstract: "A research language and semantic substrate with explicit operation laws, theory adapters, resource and proof boundaries, residual-preserving ingestion, and evidence-scoped realizations. The repository contains a stage-0 reference implementation and an arXiv-intended formal manuscript."
+url: "https://etellis.github.io/U-web/"
+date-released: 2026-09-22
+abstract: "A programming language with explicit operation laws, theory adapters, resource and proof boundaries, and evidence-scoped realizations. Its compiler, domain libraries and proof kernel are written in U. The repository includes a formal research preprint and independent verification artifacts."
 keywords:
   - programming languages
   - semantics
@@ -18,10 +18,10 @@ keywords:
   - CDC
 preferred-citation:
   type: report
-  title: "U: Law-Bearing Operations, Explicit Semantic Composition, and Earned Artifacts"
+  title: "U: Law-Bearing Operations. Explicit Semantic Composition and Evidence-Bound Computation"
   authors:
     - family-names: Ellis
       given-names: Edward
   year: 2026
   url: "https://github.com/ETEllis/U/blob/main/paper/main.pdf"
-  notes: "ArXiv-intended manuscript for author review; not submitted or peer reviewed. Includes disclosure of AI assistance."
+  notes: "Research preprint prepared for arXiv; not submitted or peer reviewed. Includes disclosure of AI assistance."

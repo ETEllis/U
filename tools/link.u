@@ -1,0 +1,9 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def main() -> Unit = {
+  let args = sys.args();
+  let paths = list.tail_or_empty(list.tail_or_empty(args));
+  let source = text.join(list.map(paths, fn(path: Text) => sys.read(path)), "\n");
+  yield sys.write(list.get(args, 1), source);
+};

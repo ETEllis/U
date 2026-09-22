@@ -1,0 +1,181 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def ca_expect(test: Bool, message: Text) -> Unit = u_require(test, native.text_concat("CDC_ANALYSIS_TEST: ", message));
+def ca_near(a: Value, b: Value) -> Bool = u_real_le(u_abs(u_real_sub(a, b)), 0.00000001);
+def ca_done(result: Value) -> Value = {
+  ca_expect(native.text_eq(result.verdict, "Done"), native.json_encode(u_get(result, "reason", "unexpected hold")));
+  yield result.value;
+};
+def ca_held(result: Value, reason: Text) -> Unit = {
+  ca_expect(native.text_eq(result.verdict, "Held"), "expected held result");
+  yield ca_expect(native.text_eq(result.reason, reason), native.text_concat("wrong hold: ", result.reason));
+};
+def ca_state(gain: Real, theta: Real, omega: Real, latched: Bool) -> Value = u_cdc_make_state(#{
+  fields: [#{name: "f", gain: gain, deadband: 0.5}],
+  modules: [#{name: "p", field: "f", belief: 0.0, prior: 0.0},
+    #{name: "c", field: "f", belief: 0.0, prior: 0.0}],
+  cells: [#{name: "x", module: "c", theta: theta, omega: omega, has_latch: latched, latch: 1}], channels: []});
+def ca_coupled() -> Value = u_cdc_make_state(#{fields: [#{name: "f", gain: 0.2, deadband: 0.5}],
+  modules: [#{name: "c", field: "f"}],
+  cells: [#{name: "x", module: "c", theta: 0.0, omega: 0.0, has_latch: true, latch: 1},
+    #{name: "y", module: "c", theta: 0.0, omega: 0.0, has_latch: true, latch: 1}],
+  channels: [#{source: "x", target: "y", weight: 1.0}, #{source: "y", target: "x", weight: 1.0}]});
+
+def ca_perturb(state: Value, coordinate: Value, delta: Real) -> Value =
+  u_choose(native.text_eq(coordinate.kind, "phase"), fn() =>
+    native.record_put(state, "cells", u_map(state.cells, fn(c: Value) =>
+      u_choose(native.text_eq(c.name, coordinate.name), fn() => native.record_put(c, "theta", u_real_add(c.theta, delta)), fn() => c))),
+    fn() => native.record_put(state, "modules", u_map(state.modules, fn(m: Value) =>
+      u_choose(native.text_eq(m.name, coordinate.name), fn() => native.record_put(m, coordinate.kind,
+        u_real_add(native.record_get(m, coordinate.kind), delta)), fn() => m))));
+def ca_finite_difference(state: Value, steps: Value) -> Unit = {
+  let run = ca_done(u_cdc_analysis.execute(state, steps, "finite-difference-base"));
+  let tangent = u_cdc_analysis.inspect(ca_done(ad.executed_path(run)));
+  let h = 0.000001;
+  u_for(native.list_length(tangent.manifest), fn(column: Int) => {
+    let coordinate = native.list_get(tangent.manifest, column);
+    let plus = ca_done(u_cdc_analysis.execute(ca_perturb(state, coordinate, h), steps, "finite-difference-plus"));
+    let minus = ca_done(u_cdc_analysis.execute(ca_perturb(state, coordinate, u_real_sub(0.0, h)), steps, "finite-difference-minus"));
+    let yp = u_ca_vector(u_cdc_analysis.inspect(plus).final, tangent.manifest);
+    let ym = u_ca_vector(u_cdc_analysis.inspect(minus).final, tangent.manifest);
+    yield u_for(native.list_length(yp), fn(row: Int) => ca_expect(
+      u_real_le(u_abs(u_real_sub(u_real_div(u_real_sub(native.list_get(yp, row), native.list_get(ym, row)), u_real_mul(2.0, h)),
+        u_ca_at(tangent.matrix, row, column))), 0.0000001), "finite difference must match executed-path Jacobian"));
+  });
+  yield ();
+};
+
+def main() -> Value = {
+  let origin = ca_state(0.0, 0.0, 0.0, true);
+  let run = ca_done(u_cdc_analysis.execute(origin, [#{op: "flow", field: "f", duration: 0.1},
+    #{op: "commit", module: "c"}, #{op: "nest", parent: "p", child: "c"}], "native-cdc-analysis-fixture/1"));
+  let tangent = ca_done(ad.executed_path(run));
+  let t = u_cdc_analysis.inspect(tangent);
+  ca_expect(native.int_eq(native.list_length(t.manifest), 5), "active path should have five coordinates");
+  ca_expect(ca_near(u_ca_at(t.matrix, 4, 1), 1.0), "nest prior must depend on parent belief");
+  ca_expect(ca_near(u_ca_at(t.matrix, 4, 4), 0.0), "overwritten prior must lose its identity derivative");
+  let rec = ca_done(recurrence.check(tangent, #{kind: "absolute", tolerance: 0.000000001}));
+  let return_map = linear.return_map(tangent, rec);
+  let spectrum = ca_done(spectral.real_schur(return_map, #{residual_tolerance: 0.0000000001}));
+  let s = u_cdc_analysis.inspect(spectrum);
+  ca_expect(native.text_eq(s.classification, "marginal"), "triangular fixed path is marginal");
+  ca_expect(ca_near(s.residual, 0.0), "Schur reconstruction residual");
+  ca_expect(ca_near(s.orthogonality_residual, 0.0), "Schur orthogonality residual");
+  ca_expect(u_contains(s.eigenvalues, 0.0), "nest overwrite contributes zero multiplier");
+
+  let loop = ca_done(u_cdc_analysis.execute(ca_state(0.0, 0.0, 6.283185307179586, true),
+    [#{op: "flow", field: "f", duration: 2.0}], "two-turn-live-path"));
+  let loop_tangent = ca_done(ad.executed_path(loop));
+  let absolute = recurrence.check(loop_tangent, #{kind: "absolute", tolerance: 0.000000001});
+  ca_held(absolute, "recurrence-residual-exceeds-tolerance");
+  ca_expect(u_real_lt(12.0, absolute.details.max_residual), "absolute return must use unwrapped phase");
+  let restored = ca_done(recurrence.check(loop_tangent, #{kind: "relative", tolerance: 0.000000001,
+    restoration: #{kind: "phase-translation", turns: #{x: 2}}}));
+  let relative_map = linear.return_map(loop_tangent, restored);
+  let relative_spectrum = ca_done(spectral.real_schur(relative_map, #{}));
+  ca_expect(u_all(u_cdc_analysis.inspect(relative_spectrum).eigenvalues, fn(x: Real) => ca_near(x, 1.0)),
+    "relative translation has identity return spectrum");
+  ca_expect(native.int_eq(native.list_length(u_cdc_analysis.inspect(loop_tangent).manifest), 3),
+    "unreferenced parent module must not add inert multipliers");
+
+  let newly_latched = ca_done(u_cdc_analysis.execute(ca_state(0.0, 0.0, 0.0, false),
+    [#{op: "commit", module: "c"}], "latch-mode-change"));
+  let mode_tangent = ca_done(ad.executed_path(newly_latched));
+  ca_held(recurrence.check(mode_tangent, #{}), "recurrence-mode-mismatch");
+  let boundary = ca_done(u_cdc_analysis.execute(ca_state(0.0, 1.0471975511965976, 0.0, true),
+    [#{op: "commit", module: "c"}], "quantization-boundary"));
+  ca_held(ad.executed_path(boundary), "quantization-boundary-or-unstable-itinerary");
+  let denied = u_cdc_analysis.execute(ca_state(0.0, 3.141592653589793, 0.0, true),
+    [#{op: "commit", module: "c"}, #{op: "flow", field: "f", duration: 10.0}], "prefix-refusal");
+  ca_held(denied, "balance-violation");
+  let denied_path = native.list_get(denied.earned, 0);
+  ca_expect(native.int_eq(native.list_length(u_cdc_analysis.inspect(denied_path).trace), 1), "held path must stop");
+  ca_held(ad.executed_path(denied_path), "unaccepted-path-or-invalid-tangent-options");
+
+  let second = ca_done(u_cdc_analysis.execute(origin, [#{op: "flow", field: "f", duration: 0.1},
+    #{op: "commit", module: "c"}, #{op: "nest", parent: "p", child: "c"}], "native-cdc-analysis-fixture/1"));
+  let second_tangent = ca_done(ad.executed_path(second));
+  ca_held(linear.return_map(second_tangent, rec), "recurrence-subject-mismatch");
+  ca_held(recurrence.check(#{kind: "PathTangent", matrix: [[1.0]]}, #{}), "unverified-path-tangent");
+  let forged_tangent = native.resource_new("CDC.PathTangent", t);
+  ca_held(recurrence.check(forged_tangent, #{}), "unverified-path-tangent");
+  let forged_return = native.resource_new("CDC.ReturnMap", u_cdc_analysis.inspect(return_map));
+  ca_held(spectral.real_schur(forged_return, #{}), "unverified-return-map");
+  ca_held(linear.return_map(tangent, native.resource_new("CDC.VerifiedRecurrence", u_cdc_analysis.inspect(rec))),
+    "unverified-return-prerequisites");
+  ca_expect(native.text_eq(native.value_kind(native.resource_peek(rec, "CDC.VerifiedRecurrence")), "unit"),
+    "generic resource reflection must not reveal evidence registry");
+  ca_held(recurrence.check(loop_tangent, #{coordinates: ["x"], tolerance: 100.0}), "invalid-recurrence-options-or-projected-request");
+  ca_held(recurrence.check(loop_tangent, #{kind: "relative", restoration: #{kind: "phase-translation", turns: #{x: 2}, derivative: [[9.0]]}}),
+    "unsupported-or-incomplete-restoration");
+  ca_held(recurrence.check(loop_tangent, #{kind: "relative", restoration: #{kind: "phase-translation", turns: #{}}}),
+    "unsupported-or-incomplete-restoration");
+  ca_held(recurrence.check(tangent, #{tolerance: -1.0}), "invalid-recurrence-options-or-projected-request");
+
+  let dense_run = ca_done(u_cdc_analysis.execute(ca_coupled(), [#{op: "flow", field: "f", duration: 0.3}], "coupled-fixed-state"));
+  let dense_tangent = ca_done(ad.executed_path(dense_run));
+  let dense = u_cdc_analysis.inspect(dense_tangent);
+  ca_expect(ca_near(u_ca_at(dense.matrix, 0, 0), 0.94), "flow diagonal derivative");
+  ca_expect(ca_near(u_ca_at(dense.matrix, 0, 1), 0.06), "flow off-diagonal derivative");
+  ca_held(recurrence.check(dense_tangent, #{kind: "relative", restoration: #{kind: "phase-translation", turns: #{x: 0, y: 1}}}),
+    "phase-translation-not-equivariant-on-coupled-state");
+  let dense_rec = ca_done(recurrence.check(dense_tangent, #{}));
+  let dense_return = linear.return_map(dense_tangent, dense_rec);
+  let held_spectrum = spectral.real_schur(dense_return, #{});
+  ca_held(held_spectrum, "dense-real-schur-backend-unavailable");
+  ca_expect(u_contains(held_spectrum.earned, dense_return), "spectral hold must retain return operator");
+  ca_expect(native.text_eq(u_cdc_analysis.inspect(dense_return).kind, "ReturnMap"), "return remains inspectable after spectral hold");
+  let chained = analysis.then(u_ca_done(dense_tangent, [dense_run, dense_tangent]), fn(dt: Value) =>
+    analysis.then(recurrence.check(dt, #{}), fn(dr: Value) => spectral.real_schur(linear.return_map(dt, dr), #{})));
+  ca_held(chained, "dense-real-schur-backend-unavailable");
+  ca_expect(u_contains(chained.earned, dense_tangent), "analysis.then must retain earlier tangent");
+
+  let self_state = native.record_put(ca_state(0.2, 0.1, 0.0, true), "channels",
+    [#{source: "x", target: "x", weight: 3.0, angle: 0.4, delay: 0.0}]);
+  let self_path = ca_done(u_cdc_analysis.execute(self_state, [#{op: "flow", field: "f", duration: 0.7}], "self-channel"));
+  let self_tangent = ca_done(ad.executed_path(self_path));
+  ca_expect(ca_near(u_ca_at(u_cdc_analysis.inspect(self_tangent).matrix, 0, 0), 1.0), "self-channel derivative must cancel");
+
+  let three = u_cdc_make_state(#{fields: [#{name: "f", gain: 0.0}],
+    modules: [#{name: "p", field: "f"}, #{name: "q", field: "f"}, #{name: "c", field: "f"}],
+    cells: [#{name: "x", module: "c", theta: 0.0, has_latch: true, latch: 1}]});
+  let pq = ca_done(u_cdc_analysis.execute(three, [#{op: "nest", parent: "p", child: "c"}, #{op: "nest", parent: "q", child: "c"}], "ordered-overwrites"));
+  let qp = ca_done(u_cdc_analysis.execute(three, [#{op: "nest", parent: "q", child: "c"}, #{op: "nest", parent: "p", child: "c"}], "reversed-overwrites"));
+  let a = u_cdc_analysis.inspect(ca_done(ad.executed_path(pq))).matrix;
+  let b = u_cdc_analysis.inspect(ca_done(ad.executed_path(qp))).matrix;
+  ca_expect(ca_near(u_ca_at(a, 6, 3), 1.0), "last source-ordered nest should read q belief");
+  ca_expect(ca_near(u_ca_at(a, 6, 1), 0.0), "earlier overwritten derivative should be removed");
+  ca_expect(ca_near(u_ca_at(b, 6, 1), 1.0), "reversed source order should read p belief");
+  ca_expect(native.bool_not(native.value_equal(a, b)), "noncommuting product order must be observable");
+
+  let unequal = native.record_put(ca_coupled(), "cells", [
+    #{name: "x", module: "c", theta: 0.15, omega: 0.3, has_latch: true, latch: 1},
+    #{name: "y", module: "c", theta: 0.65, omega: -0.2, has_latch: true, latch: 1}]);
+  ca_finite_difference(unequal, [#{op: "flow", field: "f", duration: 0.23}, #{op: "flow", field: "f", duration: 0.19}]);
+  ca_finite_difference(ca_state(0.2, 0.1, 0.0, false), [#{op: "nest", parent: "p", child: "c"}]);
+  let aperture = native.record_put(ca_state(0.0, 1.5707963267948966, 0.0, true), "cells", [
+    #{name: "x", module: "c", theta: 1.5707963267948966, omega: 0.0, has_latch: true, latch: 0}]);
+  let aperture_path = ca_done(u_cdc_analysis.execute(aperture, [#{op: "commit", module: "c"}], "fixed-zero-aperture"));
+  let aperture_tangent = ca_done(ad.executed_path(aperture_path));
+  ca_done(recurrence.check(aperture_tangent, #{}));
+  ca_expect(native.int_eq(native.list_get(u_cdc_analysis.inspect(aperture_path).final.cells, 0).latch, 0), "zero aperture must remain zero");
+
+  ca_held(u_cdc_analysis.execute(origin, [#{op: "flow", field: "f", duration: 0.1, guard: "crossing"}], "unbound-event"),
+    "unsupported-scheduled-operation-or-empty-path");
+  let delayed = native.record_put(origin, "channels", [#{source: "x", target: "x", weight: 1.0, angle: 0.0, delay: 0.1}]);
+  ca_held(u_cdc_analysis.execute(delayed, [#{op: "flow", field: "f", duration: 0.1}], "delay-is-state"),
+    "invalid-finite-state-or-unimplemented-delay");
+  ca_held(u_cdc_analysis.u1_close(run, #{reciprocal: true, cover: true, decision: true, effects: true}), "u1-complete-binding-unavailable");
+
+  yield #{status: "passed", scope: "native U CDC executed finite maps, tangent, recurrence, return and triangular spectrum",
+    checks: ["finite-map Jacobians", "nest overwrite", "ordered noncommuting products", "self-channel cancellation",
+      "unwrapped absolute return", "complete relative phase restoration", "mode mismatch", "quantization boundary",
+      "held execution stops", "cross-run certificate mismatch", "forged JSON and native-resource rejection",
+      "private evidence registry", "projected recurrence refusal", "caller derivative rejection", "coupling equivariance",
+      "triangular Schur residual", "dense spectral hold retains return", "analysis chain preserves tangent",
+      "localized guard refusal", "delay refusal", "no boolean U1 certificates", "coupled path finite differences",
+      "nest finite differences", "fixed zero aperture"],
+    relative_spectrum: u_cdc_analysis.inspect(relative_spectrum).eigenvalues,
+    full_u1: "unimplemented obligations held", dense_schur: "held"};
+};

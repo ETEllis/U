@@ -1,0 +1,106 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def u_cdc_named(items: Value, name: Text) -> Value = {
+  let matches = u_filter(items, fn(item: Value) => native.text_eq(item.name, name));
+  u_require(native.int_eq(native.list_length(matches), 1), native.text_concat("missing or duplicate CDC name: ", name));
+  yield native.list_get(matches, 0);
+};
+def u_cdc_make_state(spec: Value) -> Value = {
+  let fields = u_map(u_get(spec, "fields", []), fn(f: Value) =>
+    native.record_put(native.record_put(native.record_put(f, "gain", u_real(u_get(f, "gain", 1.0))),
+      "deadband", u_real(u_get(f, "deadband", 0.5))), "dt", u_real(u_get(f, "dt", 0.01))));
+  let modules = u_map(u_get(spec, "modules", []), fn(m: Value) => {
+    u_cdc_named(fields, m.field);
+    yield native.record_put(native.record_put(m, "belief", u_real(u_get(m, "belief", 0.0))),
+      "prior", u_real(u_get(m, "prior", 0.0)));
+  });
+  let cells = u_map(u_get(spec, "cells", []), fn(c: Value) => {
+    u_cdc_named(modules, c.module);
+    yield native.record_put(native.record_put(native.record_put(native.record_put(c,
+      "theta", u_real(u_get(c, "theta", 0.0))), "omega", u_real(u_get(c, "omega", 0.0))),
+      "has_latch", u_get(c, "has_latch", false)), "latch", u_get(c, "latch", 0));
+  });
+  let channels = u_map(u_get(spec, "channels", []), fn(c: Value) => {
+    u_cdc_named(cells, c.source); u_cdc_named(cells, c.target);
+    yield native.record_put(native.record_put(native.record_put(c, "weight", u_real(u_get(c, "weight", 1.0))),
+      "angle", u_real(u_get(c, "angle", 0.0))), "delay", u_real(u_get(c, "delay", 0.0)));
+  });
+  u_for(native.list_length(fields), fn(i: Int) => u_cdc_named(fields, native.list_get(fields, i).name));
+  u_for(native.list_length(modules), fn(i: Int) => u_cdc_named(modules, native.list_get(modules, i).name));
+  u_for(native.list_length(cells), fn(i: Int) => u_cdc_named(cells, native.list_get(cells, i).name));
+  u_for(4, fn(i: Int) => u_map(native.list_get([fields, modules, cells, channels], i), fn(item: Value) =>
+    u_map(native.record_keys(item), fn(key: Text) => {
+      let value = native.record_get(item, key);
+      yield u_choose(native.text_eq(native.value_kind(value), "real"), fn() =>
+        u_require(native.math_is_finite(value), "CDC finite-input fragment excludes nonfinite parameters"), fn() => ());
+    })));
+  yield #{fields: fields, modules: modules, cells: cells, channels: channels};
+};
+def u_cdc_in_field(state: Value, cell: Value, name: Text) -> Bool =
+  native.text_eq(u_cdc_named(state.modules, cell.module).field, name);
+def u_cdc_flow(state: Value, name: Text, duration: Real) -> Value = {
+  let field = u_cdc_named(state.fields, name);
+  u_require(native.math_is_finite(duration), "nonfinite CDC duration");
+  let next = u_map(state.cells, fn(cell: Value) =>
+    u_choose(u_cdc_in_field(state, cell, name), fn() => {
+      let initial = native.math_fma(cell.omega, duration, cell.theta);
+      let theta = u_fold(state.channels, initial, fn(value: Real, channel: Value) =>
+        u_choose(native.bool_and(native.text_eq(channel.target, cell.name),
+          u_cdc_in_field(state, u_cdc_named(state.cells, channel.source), name)), fn() => {
+            let source = u_cdc_named(state.cells, channel.source);
+            let phase = native.math_sin(u_real_sub(u_real_add(source.theta, channel.angle), cell.theta));
+            yield native.math_fma(u_real_mul(u_real_mul(field.gain, channel.weight), phase), duration, value);
+          }, fn() => value));
+      yield native.record_put(cell, "theta", theta);
+    }, fn() => cell));
+  yield #{verdict: "Done", status: "accepted", operation: "cdc.flow", state: native.record_put(state, "cells", next)};
+};
+def u_cdc_quantize(theta: Real, deadband: Real) -> Int = {
+  let value = native.math_cos(theta);
+  yield u_choose(native.f64_gt(value, deadband), fn() => 1,
+    fn() => u_choose(native.f64_lt(value, u_real_sub(0.0, deadband)), fn() => -1, fn() => 0));
+};
+def u_cdc_prefix(trits: Value) -> Bool =
+  u_fold(trits, #{balance: 0, admitted: true}, fn(s: Value, trit: Int) => {
+    let balance = native.int_add(s.balance, trit);
+    yield #{balance: balance, admitted: native.bool_and(s.admitted, native.int_ge(balance, 0))};
+  }).admitted;
+def u_cdc_commit(state: Value, name: Text) -> Value = {
+  let module = u_cdc_named(state.modules, name);
+  let field = u_cdc_named(state.fields, module.field);
+  let selected = u_filter(state.cells, fn(c: Value) => native.text_eq(c.module, name));
+  u_require(native.int_gt(native.list_length(selected), 0), "commit module has no cells");
+  let trits = u_map(selected, fn(c: Value) => u_cdc_quantize(c.theta, field.deadband));
+  let accepted = u_cdc_prefix(trits);
+  let next = u_choose(accepted, fn() => u_map(state.cells, fn(c: Value) =>
+    u_choose(native.text_eq(c.module, name), fn() => native.record_put(native.record_put(c,
+      "has_latch", true), "latch", u_cdc_quantize(c.theta, field.deadband)), fn() => c)),
+    fn() => state.cells);
+  yield #{verdict: u_choose(accepted, fn() => "Done", fn() => "Held"),
+    status: u_choose(accepted, fn() => "accepted", fn() => "held"),
+    balance: u_choose(accepted, fn() => "admissible", fn() => "violated"),
+    reason: u_choose(accepted, fn() => "none", fn() => "balance-violation"),
+    operation: "cdc.commit", trits: trits, earned_artifacts: [], state: native.record_put(state, "cells", next)};
+};
+def u_cdc_nest(state: Value, parent_name: Text, child_name: Text) -> Value = {
+  let parent = u_cdc_named(state.modules, parent_name);
+  let child = u_cdc_named(state.modules, child_name);
+  u_require(native.text_eq(parent.field, child.field), "nest modules must share a field");
+  let field = u_cdc_named(state.fields, parent.field);
+  let selected = u_filter(state.cells, fn(c: Value) => native.text_eq(c.module, child_name));
+  u_require(native.int_gt(native.list_length(selected), 0), "nest child has no cells");
+  let total = u_sum_real(u_map(selected, fn(c: Value) =>
+    u_real(u_choose(c.has_latch, fn() => c.latch, fn() => u_cdc_quantize(c.theta, field.deadband)))));
+  let up = u_real_div(total, native.list_length(selected));
+  let belief = native.math_fma(field.gain, up, parent.belief);
+  let modules = u_map(state.modules, fn(m: Value) => {
+    let next = u_choose(native.text_eq(m.name, parent_name), fn() => native.record_put(m, "belief", belief), fn() => m);
+    yield u_choose(native.text_eq(m.name, child_name), fn() => native.record_put(next, "prior", belief), fn() => next);
+  });
+  yield #{verdict: "Done", status: "accepted", operation: "cdc.nest", up: up,
+    parent_belief: belief, child_prior: belief, state: native.record_put(state, "modules", modules)};
+};
+def cdc: Value = #{make_state: u_cdc_make_state, flow: u_cdc_flow,
+  commit: u_cdc_commit, nest: u_cdc_nest, quantize: u_cdc_quantize, prefix: u_cdc_prefix,
+  execute: u_cdc_execute, inspect: u_cdc_inspect, u1_close: u_cdc_u1_close};

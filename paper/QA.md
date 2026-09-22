@@ -1,11 +1,15 @@
-# Manuscript presentation and scope check
+# Manuscript verification
 
 Date: September 14, 2026.
 
-The final Tectonic build produced an 18-page letter-size PDF without TeX warnings. All 18 initial rendered pages were visually inspected; the final presentation change standardized plain page numbers and removed running headers. Final rendered contents, structural-rule, CDC-equation and appendix-table pages were inspected again. Equations, theorem statements, tables, citations and page numbers are legible and remain within their intended margins.
+Final source bundle rebuilt September 22, 2026. The PDF remains 20 pages;
+the final page and bibliography were inspected after the source update, and
+the TeX log contains no warnings.
 
-The abstract, body and scope appendix distinguish the mathematical models proved here from the actual implementation and its verification receipts. The paper does not report invented benchmark numbers, completed all-language preservation, full mechanization, self-hosting, physical execution or submission status. The compiler/FMA numeric contract and the distinction between analytic finite-step Jacobians and literal IEEE rounding are explicit.
+The native-implementation revision compiled with Tectonic to a 20-page letter-size PDF without TeX warnings. Every page was rendered. The revised abstract, compact contents, proof-boundary paragraph, FMA contract, implementation section, native feature table, command examples, limitations and appendices were visually inspected. The contents fit one page, the native feature table remains together, and the shell examples contain valid single-backslash continuations. Equations, references and page numbers remain within their margins.
 
-Runtime examples quoted in the repository README were executed while preparing the publication surface: `square(7)` returned `49`; the original Nat/Pi/Eq induction theorem returned its scoped proof receipt while broader static obligations remained visible; console hello returned its observation under an explicit console capability. The root verification process owns the final revision's overall receipt and release claims.
+The mathematical statements and equations are unchanged. The manuscript now describes the U-written compiler and graph, U libraries and proof kernel, direct U CDC analysis, reproducible self-compilation and the disclosed generic platform bridge. Full U1, dense spectral analysis, general dependent soundness, foreign frontends, physical execution and long-running collection remain explicit boundaries. No aggregate native test count or pending CDC comparison total was inserted.
 
-The landing-page JavaScript passed a syntax check. Its interactive model is explicitly explanatory and has no compiler or evidence authority. Live desktop/mobile browser behavior is validated by the root integration process, separately from this PDF review.
+Edward voice was applied in public/essay mode with a formal overlay. Rubric: 15/16, with restrained personal presence appropriate to a mathematical manuscript. The validator reports no deterministic failures. Its two long-sentence warnings arise from structured TeX and were reviewed in the rendered tables and mathematical prose. There are no em dashes, dictated duplicate words, marker overload or assistant handoff residue in the public manuscript.
+
+Compiler, graph and CDC statements use the verified implementation evidence available in this task. The final native verification report binds the release-wide results and source hashes. The public launcher examples and checked-C bootstrap are included in the integration owner's end-to-end release checks. Presentation verification is separate from those runtime checks.

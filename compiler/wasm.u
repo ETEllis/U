@@ -1,0 +1,190 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+// Exact Int arithmetic is admitted to this machine realization only when
+// interval reasoning proves every intermediate fits signed i64. U owns the
+// certificate and binary encoder; C supplies only arbitrary Int and file bytes.
+def ww_low: Int = -9223372036854775808;
+def ww_high: Int = 9223372036854775807;
+def ww_require(test: Bool, message: Text) -> Unit = cc_choose(test, fn() => (), fn() => value.fail(message));
+def ww_concat(a: Value, b: Value) -> Value = list.append(a, b);
+def ww_min(a: Int, b: Int) -> Int = value.select(int.lt(a, b), a, b);
+def ww_max(a: Int, b: Int) -> Int = value.select(int.gt(a, b), a, b);
+def ww_reduce(xs: Value, initial: Value, operation: Value) -> Value = {
+  let result = cell.new(initial); cc_each(xs, fn(x: Value) => cell.set(result, operation(cell.get(result), x)));
+  yield cell.get(result);
+};
+def ww_repeat(count: Int, value: Value) -> Value = {
+  ww_require(int.ge(count, 0), "WASM_LENGTH: nonnegative repetition required");
+  let out = buffer.new(); let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), count), fn() => { buffer.push(out, value); cell.set(i, int.add(cell.get(i), 1)); yield (); });
+  yield buffer.freeze(out);
+};
+def ww_text_bytes(text: Text) -> Value = {
+  let out = buffer.new(); let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), bytes.length(text)), fn() => { buffer.push(out, bytes.at(text, cell.get(i))); cell.set(i, int.add(cell.get(i), 1)); yield (); });
+  yield buffer.freeze(out);
+};
+def ww_uleb(number: Int) -> Value = {
+  ww_require(int.ge(number, 0), "WASM_ULEB: nonnegative integer required");
+  let out = buffer.new(); let n = cell.new(number); let done = cell.new(false);
+  control.while(fn() => bool.not(cell.get(done)), fn() => {
+    let byte = int.mod(cell.get(n), 128); let next = int.div(cell.get(n), 128);
+    buffer.push(out, int.add(byte, value.select(int.eq(next, 0), 0, 128)));
+    cell.set(n, next); cell.set(done, int.eq(next, 0)); yield ();
+  }); yield buffer.freeze(out);
+};
+def ww_sleb(number: Int) -> Value = {
+  let out = buffer.new(); let n = cell.new(number); let done = cell.new(false);
+  control.while(fn() => bool.not(cell.get(done)), fn() => {
+    // Subtracting the positive radix remainder makes division exact even for
+    // negative values; int.div itself deliberately truncates toward zero.
+    let byte = int.mod(int.add(int.mod(cell.get(n), 128), 128), 128);
+    let next = int.div(int.sub(cell.get(n), byte), 128);
+    let last = bool.or(bool.and(int.eq(next, 0), int.lt(byte, 64)), bool.and(int.eq(next, -1), int.ge(byte, 64)));
+    buffer.push(out, int.add(byte, value.select(last, 0, 128)));
+    cell.set(n, next); cell.set(done, last); yield ();
+  }); yield buffer.freeze(out);
+};
+def ww_section(id: Int, body: Value) -> Value = ww_concat([id], ww_concat(ww_uleb(list.length(body)), body));
+def ww_i64_const(number: Int) -> Value = ww_concat([66], ww_sleb(number));
+def ww_result(kind: Text, low: Int, high: Int, code: Value) -> Value = #{kind: kind, low: low, high: high, code: code};
+def ww_fit(result: Value) -> Value = {
+  ww_require(bool.and(int.le(ww_low, result.low), bool.and(int.le(result.low, result.high), int.le(result.high, ww_high))),
+    "WASM_INTERMEDIATE: cannot prove every intermediate fits signed i64"); yield result;
+};
+def ww_binary(left: Value, right: Value, opcode: Int) -> Value = ww_concat(left.code, ww_concat(right.code, [opcode]));
+def ww_expression(e: Value, env: Value, derivation: Value) -> Value = {
+  let result = cc_choose(text.eq(e.kind, "literal"), fn() =>
+    cc_choose(text.eq(e.literal_type, "Int"), fn() => ww_result("i64", e.value, e.value, ww_i64_const(e.value)), fn() => {
+      ww_require(text.eq(e.literal_type, "Bool"), "WASM_LITERAL: only exact Int and Bool literals are admitted");
+      let n = value.select(e.value, 1, 0); yield ww_result("bool", n, n, [65, n]);
+    }), fn() => cc_choose(text.eq(e.kind, "name"), fn() => {
+      ww_require(table.has(env, e.name), "WASM_NAME: only declared parameters are admitted in this expression profile");
+      yield table.get(env, e.name, ());
+    }, fn() => {
+      ww_require(text.eq(e.kind, "call"), "WASM_EXPRESSION: unsupported expression; no approximation emitted");
+      let operation = cc_qname(e.callee); let count = list.length(e.args);
+      yield cc_choose(text.eq(operation, "value.select"), fn() => {
+        ww_require(int.eq(count, 3), "WASM_ARITY: select requires three arguments");
+        let condition = ww_expression(list.get(e.args, 0), env, derivation);
+        let yes = ww_expression(list.get(e.args, 1), env, derivation);
+        let no = ww_expression(list.get(e.args, 2), env, derivation);
+        ww_require(bool.and(text.eq(condition.kind, "bool"), text.eq(yes.kind, no.kind)), "WASM_TYPE: select requires Bool and equal branch representations");
+        yield ww_result(yes.kind, ww_min(yes.low, no.low), ww_max(yes.high, no.high),
+          ww_concat(yes.code, ww_concat(no.code, ww_concat(condition.code, [27]))));
+      }, fn() => cc_choose(cc_has(["bool.not", "int.neg"], operation), fn() => {
+        ww_require(int.eq(count, 1), "WASM_ARITY: unary operation requires one argument");
+        let value = ww_expression(list.get(e.args, 0), env, derivation);
+        yield cc_choose(text.eq(operation, "bool.not"), fn() => {
+          ww_require(text.eq(value.kind, "bool"), "WASM_TYPE: bool.not requires Bool");
+          yield ww_result("bool", int.sub(1, value.high), int.sub(1, value.low), ww_concat(value.code, [69]));
+        }, fn() => {
+          ww_require(text.eq(value.kind, "i64"), "WASM_TYPE: int.neg requires Int");
+          yield ww_result("i64", int.sub(0, value.high), int.sub(0, value.low), ww_concat(ww_i64_const(0), ww_concat(value.code, [125])));
+        });
+      }, fn() => {
+        ww_require(int.eq(count, 2), "WASM_ARITY: binary operation requires two arguments");
+        let left = ww_expression(list.get(e.args, 0), env, derivation);
+        let right = ww_expression(list.get(e.args, 1), env, derivation);
+        yield cc_choose(cc_has(["bool.and", "bool.or"], operation), fn() => {
+          ww_require(bool.and(text.eq(left.kind, "bool"), text.eq(right.kind, "bool")), "WASM_TYPE: Boolean operation requires Bool operands");
+          yield ww_result("bool", 0, 1, ww_binary(left, right, value.select(text.eq(operation, "bool.and"), 113, 114)));
+        }, fn() => {
+          ww_require(bool.and(text.eq(left.kind, "i64"), text.eq(right.kind, "i64")), "WASM_TYPE: integer operation requires Int operands");
+          ww_require(cc_has(["int.add", "int.sub", "int.mul", "int.neg", "int.eq", "int.ne", "int.lt", "int.le", "int.gt", "int.ge",
+            "nat.add", "nat.sub", "nat.mul", "nat.eq", "nat.lt", "nat.le", "nat.gt", "nat.ge"], operation), "WASM_OPERATOR: operation is outside the admitted profile");
+          cc_choose(text.eq(bytes.slice(operation, 0, 3), "nat"), fn() =>
+            ww_require(bool.and(int.ge(left.low, 0), int.ge(right.low, 0)), "WASM_NAT: natural operands must be nonnegative"), fn() => ());
+          let name = bytes.slice(operation, 4, bytes.length(operation));
+          yield cc_choose(text.eq(name, "add"), fn() =>
+            ww_result("i64", int.add(left.low, right.low), int.add(left.high, right.high), ww_binary(left, right, 124)), fn() =>
+          cc_choose(text.eq(name, "sub"), fn() => {
+            let low = int.sub(left.low, right.high); let high = int.sub(left.high, right.low);
+            cc_choose(text.eq(operation, "nat.sub"), fn() => ww_require(int.ge(low, 0), "WASM_NAT: cannot prove natural subtraction is nonnegative"), fn() => ());
+            yield ww_result("i64", low, high, ww_binary(left, right, 125));
+          }, fn() => cc_choose(text.eq(name, "mul"), fn() => {
+            let products = [int.mul(left.low, right.low), int.mul(left.low, right.high), int.mul(left.high, right.low), int.mul(left.high, right.high)];
+            yield ww_result("i64", ww_reduce(products, list.get(products, 0), ww_min), ww_reduce(products, list.get(products, 0), ww_max), ww_binary(left, right, 126));
+          }, fn() => {
+            let comparisons = #{eq: 81, ne: 82, lt: 83, gt: 85, le: 87, ge: 89};
+            ww_require(record.has(comparisons, name), "WASM_OPERATOR: unsupported comparison");
+            yield ww_result("bool", 0, 1, ww_binary(left, right, record.get(comparisons, name)));
+          })));
+        });
+      }));
+    }));
+  ww_fit(result);
+  buffer.push(derivation, #{operation: cc_choose(text.eq(e.kind, "call"), fn() => cc_qname(e.callee), fn() => e.kind),
+    storage: result.kind, range: [result.low, result.high]});
+  yield result;
+};
+def ww_certify(module: Value, entry: Text, bounds: Value) -> Value = {
+  cc_each(module.imports, fn(profile: Text) => ww_require(text.eq(profile, "u.standard/0.1"), "WASM_PROFILE: pinned standard numeric profile required"));
+  let definition = cell.new(());
+  cc_each(module.definitions, fn(d: Value) => {
+    ww_require(bool.not(cc_has(["int", "nat", "bool", "value"], d.name)), "WASM_NAMESPACE: arithmetic or Boolean namespace is shadowed");
+    cc_choose(text.eq(d.name, entry), fn() => cell.set(definition, d), fn() => ()); yield ();
+  });
+  ww_require(text.eq(value.kind(cell.get(definition)), "record"), "WASM_ENTRY: entry definition was not found");
+  let d = cell.get(definition); let params = d.params;
+  ww_require(int.eq(list.length(params), list.length(bounds)), "WASM_BOUNDS: one explicit interval per parameter required");
+  let env = table.new(); let i = cell.new(0); let abi_bounds = buffer.new();
+  cc_each(params, fn(parameter: Value) => {
+    let bound = list.get(bounds, cell.get(i));
+    ww_require(bool.and(text.eq(value.kind(bound), "list"), int.eq(list.length(bound), 2)), "WASM_BOUNDS: each interval has two endpoints");
+    let low = list.get(bound, 0); let high = list.get(bound, 1); let type = cc_qname(parameter.type);
+    ww_require(bool.and(text.eq(value.kind(low), "int"), text.eq(value.kind(high), "int")), "WASM_BOUNDS: integer endpoints required");
+    ww_require(cc_has(["Int", "Nat"], type), "WASM_PARAMETER: only exact Int and Nat parameters are admitted");
+    ww_require(bool.not(cc_has(["int", "nat", "bool", "value"], parameter.name)), "WASM_NAMESPACE: parameter shadows an operator namespace");
+    ww_require(bool.and(int.le(ww_low, low), bool.and(int.le(low, high), int.le(high, ww_high))), "WASM_BOUNDS: invalid signed i64 input interval");
+    cc_choose(text.eq(type, "Nat"), fn() => ww_require(int.ge(low, 0), "WASM_NAT: natural input bounds must be nonnegative"), fn() => ());
+    table.set(env, parameter.name, ww_result("i64", low, high, ww_concat([32], ww_uleb(cell.get(i)))));
+    buffer.push(abi_bounds, #{name: parameter.name, low: cc_num(low), high: cc_num(high), type: type});
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  let result_type = cc_qname(d.type);
+  ww_require(cc_has(["Int", "Nat", "Bool"], result_type), "WASM_RESULT: result must be Int, Nat or Bool");
+  let derivation = buffer.new(); let result = ww_expression(d.body, env, derivation);
+  ww_require(text.eq(result.kind, value.select(text.eq(result_type, "Bool"), "bool", "i64")), "WASM_RESULT: expression and return annotation disagree");
+  cc_choose(text.eq(result_type, "Nat"), fn() => ww_require(int.ge(result.low, 0), "WASM_NAT: cannot prove result nonnegative"), fn() => ());
+  yield #{entry: entry, params: params, bounds: bounds, abi_bounds: buffer.freeze(abi_bounds),
+    return_type: result_type, result: result, derivation: buffer.freeze(derivation)};
+};
+def ww_binary_module(certificate: Value) -> Value = {
+  let count = list.length(certificate.params);
+  let types = ww_concat([1, 96], ww_concat(ww_uleb(count), ww_concat(ww_repeat(count, 126), [1, value.select(text.eq(certificate.return_type, "Bool"), 127, 126)])));
+  let name = ww_text_bytes(certificate.entry);
+  let exports = ww_concat([1], ww_concat(ww_uleb(list.length(name)), ww_concat(name, [0, 0])));
+  let guards = buffer.new(); let i = cell.new(0);
+  cc_each(certificate.bounds, fn(bound: Value) => {
+    let get = ww_concat([32], ww_uleb(cell.get(i)));
+    cc_each(ww_concat(get, ww_concat(ww_i64_const(list.get(bound, 0)), [83, 4, 64, 0, 11])), fn(byte: Int) => buffer.push(guards, byte));
+    cc_each(ww_concat(get, ww_concat(ww_i64_const(list.get(bound, 1)), [85, 4, 64, 0, 11])), fn(byte: Int) => buffer.push(guards, byte));
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  let body = ww_concat([0], ww_concat(buffer.freeze(guards), ww_concat(certificate.result.code, [11])));
+  yield ww_concat([0, 97, 115, 109, 1, 0, 0, 0],
+    ww_concat(ww_section(1, types), ww_concat(ww_section(3, [1, 0]),
+      ww_concat(ww_section(7, exports), ww_section(10, ww_concat([1], ww_concat(ww_uleb(list.length(body)), body)))))));
+};
+def ww_build(module: Value, entry: Text, bounds: Value, output: Text) -> Value = {
+  let certificate = ww_certify(module, entry, bounds);
+  let binary = ww_binary_module(certificate);
+  let steps = list.map(certificate.derivation, fn(step: Value) => #{operation: step.operation, storage: step.storage,
+    range: [cc_num(list.get(step.range, 0)), cc_num(list.get(step.range, 1))]});
+  let contract = #{entry: entry, parameters: certificate.abi_bounds, return_type: certificate.return_type,
+    range: [cc_num(certificate.result.low), cc_num(certificate.result.high)], derivation: steps,
+    external_input_policy: "host must validate exact BigInt bounds before i64 ABI conversion"};
+  let identity_input = #{schema: "etellis.u.wasm-realization/2", contract: contract, binary: binary};
+  let receipt = #{schema: "etellis.u.integer-lowering/2", verdict: "Done", target: "wasm",
+    scope: "exact Int/Nat expressions and Boolean predicates over guarded certified i64 intervals",
+    contract: contract, abi_bounds: certificate.abi_bounds, byte_length: list.length(binary),
+    identity: crypto.sha256(json.encode(identity_input)), identity_profile: "sha256 of ordered JSON contract and byte vector; interval integers are decimal strings"};
+  let receipt_path = cc_cat(output, ".json");
+  ww_require(bool.and(text.eq(sys.file_kind(output), "missing"), text.eq(sys.file_kind(receipt_path), "missing")), "WASM_OUTPUT: choose a new artifact and receipt path");
+  sys.write_bytes_new(output, binary);
+  let complete = record.put(receipt, "binary_sha256", crypto.sha256_file(output));
+  sys.write_new(receipt_path, cc_cat(json.encode(complete), "\n"));
+  yield complete;
+};

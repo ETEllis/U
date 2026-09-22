@@ -1,0 +1,17 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Link after the unchanged original 20_u2.u. Its U1 input must be earned;
+// this fixture proves an unverified U1 path cannot reach its variation chain.
+def ca_original20_request() -> Value = #{kind: "absolute"};
+def main() -> Value = {
+  let state = u_cdc_make_state(#{fields: [#{name: "f", gain: 0.0}],
+    modules: [#{name: "m", field: "f"}],
+    cells: [#{name: "x", module: "m", theta: 0.0, omega: 0.0, has_latch: true, latch: 1}]});
+  let run = u_cdc_analysis.execute(state, [#{op: "flow", field: "f", duration: 1.0}], "original20-u1-boundary");
+  let result = analysis.then(run, fn(path: Value) =>
+    analysis.then(u_cdc_analysis.u1_close(path, #{}), fn(closed: Value) => variation(closed, ca_original20_request())));
+  u_require(native.bool_and(native.text_eq(result.verdict, "Held"), native.text_eq(result.reason, "u1-complete-binding-unavailable")),
+    "unverified U1 must not enter the original20 variation chain");
+  yield #{status: "passed", original_source: "20_u2.u unchanged", verdict: result.verdict, reason: result.reason};
+};

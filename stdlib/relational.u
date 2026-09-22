@@ -1,0 +1,129 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def u_sql_eq(a: Value, b: Value) -> Value =
+  u_choose(native.bool_or(native.text_eq(native.value_kind(a), "unit"),
+      native.text_eq(native.value_kind(b), "unit")),
+    fn() => native.value_unit(), fn() => native.value_equal(a, b));
+def u_sql_and(a: Value, b: Value) -> Value =
+  u_choose(native.bool_or(native.value_equal(a, false), native.value_equal(b, false)),
+    fn() => false, fn() => u_choose(native.bool_or(
+      native.text_eq(native.value_kind(a), "unit"), native.text_eq(native.value_kind(b), "unit")),
+      fn() => native.value_unit(), fn() => true));
+def u_sql_not(a: Value) -> Value =
+  u_choose(native.text_eq(native.value_kind(a), "unit"), fn() => a,
+    fn() => native.bool_not(a));
+def u_sql_join(left: Value, right: Value, predicate: Value) -> Value =
+  u_flatmap(left, fn(a: Value) => u_flatmap(right, fn(b: Value) =>
+    u_choose(native.value_equal(predicate(a, b), true), fn() => [(a, b)], fn() => [])));
+def sql: Value = #{eq: u_sql_eq, and: u_sql_and, not: u_sql_not,
+  inner_join: u_sql_join, project: u_map, union_all: native.list_append};
+
+// Scoped logic identities, finite substitutions and an explicit occurs check.
+def u_logic_counter: Value = native.cell_new(0);
+def u_logic_fresh(sort: Text) -> Value = {
+  let id = native.cell_get(u_logic_counter);
+  native.cell_set(u_logic_counter, native.int_add(id, 1));
+  yield #{kind: "logic-variable", id: id, sort: sort};
+};
+def u_logic_var(value: Value) -> Bool =
+  u_choose(native.text_eq(native.value_kind(value), "record"),
+    fn() => native.value_equal(u_get(value, "kind", ""), "logic-variable"), fn() => false);
+def u_logic_key(variable: Value) -> Text = native.text_from_int(variable.id);
+def u_logic_walk(term: Value, subst: Value) -> Value =
+  u_loop(term, fn(t: Value) => u_choose(u_logic_var(t),
+    fn() => native.record_has(subst, u_logic_key(t)), fn() => false),
+    fn(t: Value) => native.record_get(subst, u_logic_key(t)));
+def u_logic_children(value: Value) -> Value =
+  u_choose(native.text_eq(native.value_kind(value), "record"),
+    fn() => u_map(native.record_keys(value), fn(key: Text) => native.record_get(value, key)),
+    fn() => u_choose(native.text_eq(native.value_kind(value), "tuple"),
+      fn() => u_map(u_range(native.tuple_length(value)), fn(i: Int) => native.tuple_get(value, i)),
+      fn() => value));
+def u_logic_occurs(variable: Value, value: Value, subst: Value) -> Bool = {
+  let term = u_logic_walk(value, subst);
+  yield u_choose(native.value_equal(variable, term), fn() => true,
+    fn() => u_choose(u_logic_var(term), fn() => false,
+      fn() => u_choose(u_contains(["list", "tuple", "record"], native.value_kind(term)),
+        fn() => u_any(u_logic_children(term), fn(item: Value) => u_logic_occurs(variable, item, subst)),
+        fn() => false)));
+};
+def u_logic_sort(sort: Text, term: Value) -> Bool =
+  u_choose(u_logic_var(term), fn() => native.bool_or(native.text_eq(sort, ""),
+    native.bool_or(native.text_eq(term.sort, ""), native.text_eq(sort, term.sort))),
+    fn() => u_choose(native.text_eq(sort, ""), fn() => true,
+      fn() => u_choose(native.text_eq(sort, "Text"), fn() => native.text_eq(native.value_kind(term), "text"),
+        fn() => u_choose(native.text_eq(sort, "Int"), fn() => native.text_eq(native.value_kind(term), "int"),
+          fn() => u_choose(native.text_eq(sort, "Nat"),
+            fn() => u_choose(native.text_eq(native.value_kind(term), "int"), fn() => native.int_ge(term, 0), fn() => false),
+            fn() => false)))));
+def u_logic_unify(left: Value, right: Value, initial: Value) -> Value = {
+  let final = u_loop(#{pending: [(left, right)], subst: initial, valid: true},
+    fn(s: Value) => native.bool_and(s.valid, native.int_gt(native.list_length(s.pending), 0)),
+    fn(s: Value) => {
+      let pair = native.list_get(s.pending, 0);
+      let a = u_logic_walk(pair.first, s.subst);
+      let b = u_logic_walk(pair.second, s.subst);
+      let tail = native.list_tail_or_empty(s.pending);
+      yield u_choose(native.value_equal(a, b), fn() => #{pending: tail, subst: s.subst, valid: true},
+        fn() => u_choose(native.bool_or(u_logic_var(a), u_logic_var(b)), fn() => {
+          let variable = u_choose(u_logic_var(a), fn() => a, fn() => b);
+          let term = u_choose(u_logic_var(a), fn() => b, fn() => a);
+          let valid = native.bool_and(u_logic_sort(variable.sort, term),
+            native.bool_not(u_logic_occurs(variable, term, s.subst)));
+          yield u_choose(valid, fn() => #{pending: tail,
+            subst: native.record_put(s.subst, u_logic_key(variable), term), valid: true},
+            fn() => #{pending: [], subst: s.subst, valid: false});
+        }, fn() => u_choose(native.bool_and(native.text_eq(native.value_kind(a), native.value_kind(b)),
+            u_contains(["list", "tuple", "record"], native.value_kind(a))), fn() => {
+          let aa = u_logic_children(a);
+          let bb = u_logic_children(b);
+          let matching = native.int_eq(native.list_length(aa), native.list_length(bb));
+          let keys = u_choose(native.text_eq(native.value_kind(a), "record"),
+            fn() => native.value_equal(native.record_keys(a), native.record_keys(b)), fn() => true);
+          yield u_choose(native.bool_and(matching, keys), fn() => #{pending:
+            native.list_append(u_map(u_range(native.list_length(aa)), fn(i: Int) =>
+              (native.list_get(aa, i), native.list_get(bb, i))), tail), subst: s.subst, valid: true},
+            fn() => #{pending: [], subst: s.subst, valid: false});
+        }, fn() => #{pending: [], subst: s.subst, valid: false})));
+    });
+  yield #{valid: final.valid, subst: final.subst};
+};
+def u_logic_bindings(region: Value) -> Value =
+  u_map(native.value_describe(region).params, fn(p: Value) =>
+    u_logic_fresh(u_choose(native.value_equal(u_get(p.type, "kind", ""), "call"),
+      fn() => u_get(native.list_get(p.type.args, 0), "name", ""), fn() => "")));
+def u_rel_rows(rows: Value) -> Value = #{kind: "rows", rows: rows};
+def u_logic_relation(region: Value) -> Value = #{kind: "relation", region: region};
+def u_logic_exists(region: Value) -> Value = native.value_call(region, u_logic_bindings(region));
+def u_logic_apply(relation: Value, a: Value, b: Value) -> Value = #{kind: "apply", relation: relation, args: [a, b]};
+def u_logic_and(a: Value, b: Value) -> Value = #{kind: "and", left: a, right: b};
+def u_logic_or(a: Value, b: Value) -> Value = #{kind: "or", left: a, right: b};
+def u_logic_goal_unify(a: Value, b: Value) -> Value = #{kind: "unify", left: a, right: b};
+def u_logic_solve(goal: Value, subst: Value) -> Value =
+  u_choose(native.text_eq(goal.kind, "and"), fn() =>
+    u_flatmap(u_logic_solve(goal.left, subst), fn(s: Value) => u_logic_solve(goal.right, s)),
+    fn() => u_choose(native.text_eq(goal.kind, "or"), fn() =>
+      native.list_append(u_logic_solve(goal.left, subst), u_logic_solve(goal.right, subst)),
+      fn() => u_choose(native.text_eq(goal.kind, "unify"), fn() => {
+        let result = u_logic_unify(goal.left, goal.right, subst);
+        yield u_choose(result.valid, fn() => [result.subst], fn() => []);
+      }, fn() => u_choose(native.text_eq(goal.kind, "apply"), fn() =>
+        u_choose(native.text_eq(goal.relation.kind, "rows"), fn() =>
+          u_flatmap(goal.relation.rows, fn(row: Value) => {
+            let result = u_logic_unify(native.tuple_make(goal.args), row, subst);
+            yield u_choose(result.valid, fn() => [result.subst], fn() => []);
+          }), fn() => u_logic_solve(native.value_call(goal.relation.region, goal.args), subst)),
+        fn() => u_fail("unsupported logic goal")))));
+def u_logic_query(strategy: Text, region: Value) -> Value = {
+  u_require(native.text_eq(strategy, "sld.leftmost.depth_first.finite_terms"), "unsupported logic search strategy");
+  let variables = u_logic_bindings(region);
+  let parameters = native.value_describe(region).params;
+  let answers = u_map(u_logic_solve(native.value_call(region, variables), #{}), fn(s: Value) =>
+    native.record_make(u_map(parameters, fn(p: Value) => p.name),
+      u_map(variables, fn(v: Value) => u_logic_walk(v, s))));
+  yield #{status: "complete", answers: answers, strategy: strategy};
+};
+def rel: Value = #{rows: u_rel_rows};
+def logic: Value = #{relation: u_logic_relation, exists: u_logic_exists,
+  apply: u_logic_apply, and: u_logic_and, or: u_logic_or, unify: u_logic_goal_unify, query: u_logic_query};

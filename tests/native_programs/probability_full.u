@@ -1,0 +1,4 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def main(seed: U64) -> Value = infer([1.0, 2.0, 3.0], seed);

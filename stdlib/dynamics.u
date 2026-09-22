@@ -1,0 +1,155 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Affine equations remain inert values until an explicit numerical solve.
+// Coefficient extraction and partial-pivot elimination are U algorithms.
+def u_dyn_expr(kind: Text, args: Value) -> Value = #{kind: kind, args: args};
+def u_dyn_add(a: Value, b: Value) -> Value = u_dyn_expr("add", [a, b]);
+def u_dyn_scale(a: Value, b: Value) -> Value = u_dyn_expr("scale", [a, b]);
+def u_dyn_equal(a: Value, b: Value) -> Value = u_dyn_expr("equal", [a, b]);
+def u_dyn_derivative(a: Value) -> Value = u_dyn_expr("derivative", [a]);
+def u_dyn_at(a: Value, time: Value, value: Value) -> Value = u_dyn_expr("at", [a, time, value]);
+def u_dyn_finite(value: Value) -> Real = {
+  let x = u_real(value);
+  u_require(native.math_is_finite(x), "DAE_FINITE: finite real value required");
+  yield x;
+};
+def u_dyn_dae(region: Value) -> Value = {
+  let params = native.value_describe(region).params;
+  let variables = u_map(params, fn(p: Value) => native.resource_new("Dynamics.Trajectory", p.name));
+  let description = native.value_call(region, variables);
+  let equations = description.equations;
+  u_require(u_all(equations, fn(e: Value) => native.text_eq(e.kind, "equal")), "DAE_EQUATIONS: equality expressions required");
+  yield native.resource_new("Dynamics.DAE", #{variables: variables, equations: equations,
+    initial: u_get(description, "initial", [])});
+};
+def u_dyn_index(variables: Value, trajectory: Value) -> Int = {
+  let result = u_loop(0, fn(i: Int) => u_choose(native.int_lt(i, native.list_length(variables)),
+    fn() => native.bool_not(native.value_equal(native.list_get(variables, i), trajectory)), fn() => false),
+    fn(i: Int) => native.int_add(i, 1));
+  u_require(native.int_lt(result, native.list_length(variables)), "DAE_VARIABLE: trajectory is outside this system");
+  yield result;
+};
+def u_dyn_basis(variables: Value, trajectory: Value, order: Int) -> Value = {
+  let offset = native.int_add(native.int_mul(u_dyn_index(variables, trajectory), 2), order);
+  yield #{coeff: u_map(u_range(native.int_mul(native.list_length(variables), 2)),
+    fn(i: Int) => u_choose(native.int_eq(i, offset), fn() => 1.0, fn() => 0.0)), constant: 0.0};
+};
+def u_dyn_linear(expression: Value, variables: Value, time: Real) -> Value = {
+  let kind = native.value_kind(expression);
+  yield u_choose(u_contains(["int", "real", "closure"], kind), fn() => {
+    let value = u_choose(native.text_eq(kind, "closure"), fn() => expression(time), fn() => expression);
+    yield #{coeff: u_map(u_range(native.int_mul(native.list_length(variables), 2)), fn(i: Int) => 0.0), constant: u_dyn_finite(value)};
+  }, fn() => u_choose(native.text_eq(kind, "resource"), fn() => u_dyn_basis(variables, expression, 0), fn() => {
+    u_require(native.text_eq(kind, "record"), "DAE_AFFINE: unsupported expression");
+    yield u_choose(native.text_eq(expression.kind, "derivative"), fn() =>
+      u_dyn_basis(variables, native.list_get(expression.args, 0), 1), fn() =>
+      u_choose(native.text_eq(expression.kind, "scale"), fn() => {
+        let scale = u_dyn_finite(native.list_get(expression.args, 0));
+        let value = u_dyn_linear(native.list_get(expression.args, 1), variables, time);
+        yield #{coeff: u_map(value.coeff, fn(x: Real) => u_dyn_finite(u_real_mul(scale, x))),
+          constant: u_dyn_finite(u_real_mul(scale, value.constant))};
+      }, fn() => {
+        u_require(u_contains(["add", "equal"], expression.kind), "DAE_AFFINE: only add, scale, equal and first derivatives are admitted");
+        let left = u_dyn_linear(native.list_get(expression.args, 0), variables, time);
+        let right = u_dyn_linear(native.list_get(expression.args, 1), variables, time);
+        let sign = u_choose(native.text_eq(expression.kind, "equal"), fn() => -1.0, fn() => 1.0);
+        yield #{coeff: u_map(u_range(native.list_length(left.coeff)), fn(i: Int) =>
+          u_dyn_finite(u_real_add(native.list_get(left.coeff, i), u_real_mul(sign, native.list_get(right.coeff, i))))),
+          constant: u_dyn_finite(u_real_add(left.constant, u_real_mul(sign, right.constant)))};
+      }));
+  }));
+};
+def u_dyn_eliminate(matrix: Value, rhs: Value) -> Value = {
+  let size = native.list_length(rhs);
+  u_require(native.int_eq(native.list_length(matrix), size), "DAE_STRUCTURE: square matrix required");
+  let rows = native.buffer_new();
+  u_for(size, fn(i: Int) => {
+    let row = native.list_get(matrix, i);
+    u_require(native.int_eq(native.list_length(row), size), "DAE_STRUCTURE: square rows required");
+    yield native.buffer_push(rows, native.list_append(row, [native.list_get(rhs, i)]));
+  });
+  u_for(size, fn(column: Int) => {
+    let pivot = u_fold(u_range(native.int_sub(size, column)), column, fn(best: Int, offset: Int) => {
+      let row = native.int_add(column, offset);
+      yield u_choose(u_real_lt(u_abs(native.list_get(native.buffer_get(rows, best), column)),
+        u_abs(native.list_get(native.buffer_get(rows, row), column))), fn() => row, fn() => best);
+    });
+    u_require(native.bool_not(u_real_le(u_abs(native.list_get(native.buffer_get(rows, pivot), column)), 0.000000000001)),
+      "DAE_SINGULAR: pivot does not exceed 1e-12");
+    let old = native.buffer_get(rows, column);
+    native.buffer_set(rows, column, native.buffer_get(rows, pivot));
+    native.buffer_set(rows, pivot, old);
+    let scale = native.list_get(native.buffer_get(rows, column), column);
+    let normalized = u_map(native.buffer_get(rows, column), fn(x: Real) => u_dyn_finite(u_real_div(x, scale)));
+    native.buffer_set(rows, column, normalized);
+    yield u_for(size, fn(row: Int) => u_choose(native.int_ne(row, column), fn() => {
+      let current = native.buffer_get(rows, row);
+      let factor = native.list_get(current, column);
+      yield native.buffer_set(rows, row, u_map(u_range(native.int_add(size, 1)), fn(i: Int) =>
+        u_dyn_finite(u_real_sub(native.list_get(current, i), u_real_mul(factor, native.list_get(normalized, i))))));
+    }, fn() => native.value_unit()));
+  });
+  yield u_map(native.buffer_freeze(rows), fn(row: Value) => native.list_get(row, size));
+};
+def u_dyn_state(names: Value, values: Value) -> Value = native.record_make(names, values);
+def u_dyn_solve(handle: Value, method: Text, options: Value) -> Value = {
+  u_require(native.text_eq(method, "backward_euler.affine_index1"), "DAE_METHOD: explicit affine index-1 backward Euler required");
+  let system = native.resource_peek(handle, "Dynamics.DAE");
+  let dt = u_dyn_finite(options.dt);
+  let start = u_dyn_finite(u_get(options, "start", 0.0));
+  let steps = options.steps;
+  u_require(native.bool_and(native.f64_gt(dt, 0.0), native.int_ge(steps, 0)), "DAE_OPTIONS: positive dt and nonnegative steps required");
+  let variables = system.variables;
+  let size = native.list_length(variables);
+  u_require(native.bool_and(native.int_gt(size, 0), native.int_eq(native.list_length(system.equations), size)), "DAE_STRUCTURE: nonempty square equation system required");
+  let names = u_map(variables, fn(v: Value) => native.resource_peek(v, "Dynamics.Trajectory"));
+  let coefficients = u_map(system.equations, fn(e: Value) => u_dyn_linear(e, variables, start));
+  let differentiated = u_filter(u_range(size), fn(i: Int) => u_any(coefficients, fn(e: Value) =>
+    native.bool_not(native.f64_eq(native.list_get(e.coeff, native.int_add(native.int_mul(i, 2), 1)), 0.0))));
+  let initial = native.cell_new(native.record_make([], []));
+  u_for(native.list_length(system.initial), fn(i: Int) => {
+    let condition = native.list_get(system.initial, i);
+    u_require(native.text_eq(condition.kind, "at"), "DAE_INITIAL: explicit at condition required");
+    let index = u_dyn_index(variables, native.list_get(condition.args, 0));
+    let name = native.list_get(names, index);
+    u_require(native.bool_and(native.f64_eq(u_dyn_finite(native.list_get(condition.args, 1)), start),
+      native.bool_not(native.record_has(native.cell_get(initial), name))), "DAE_INITIAL: unique values at start required");
+    yield native.cell_set(initial, native.record_put(native.cell_get(initial), name, u_dyn_finite(native.list_get(condition.args, 2))));
+  });
+  u_require(u_all(differentiated, fn(i: Int) => native.record_has(native.cell_get(initial), native.list_get(names, i))), "DAE_INITIAL: every differentiated trajectory needs an initial value");
+  let free = native.list_append(u_map(differentiated, fn(i: Int) => native.int_add(native.int_mul(i, 2), 1)),
+    u_map(u_filter(u_range(size), fn(i: Int) => native.bool_not(native.record_has(native.cell_get(initial), native.list_get(names, i)))), fn(i: Int) => native.int_mul(i, 2)));
+  u_require(native.int_eq(native.list_length(free), size), "DAE_STRUCTURE: initial constraints do not determine an index-1 state");
+  let matrix = u_map(coefficients, fn(e: Value) => u_map(free, fn(i: Int) => native.list_get(e.coeff, i)));
+  let rhs = u_map(coefficients, fn(e: Value) => u_real_sub(u_real_sub(0.0, e.constant),
+    u_sum_real(u_map(u_range(size), fn(i: Int) => u_real_mul(native.list_get(e.coeff, native.int_mul(i, 2)),
+      u_get(native.cell_get(initial), native.list_get(names, i), 0.0))))));
+  let initial_solution = u_dyn_eliminate(matrix, rhs);
+  u_for(size, fn(i: Int) => {
+    let key = native.list_get(free, i);
+    yield u_choose(native.int_eq(native.int_mod(key, 2), 0), fn() => native.cell_set(initial,
+      native.record_put(native.cell_get(initial), native.list_get(names, native.int_div(key, 2)), native.list_get(initial_solution, i))), fn() => native.value_unit());
+  });
+  let values = native.cell_new(u_map(names, fn(name: Text) => native.record_get(native.cell_get(initial), name)));
+  let trace = native.buffer_new();
+  native.buffer_push(trace, #{time: start, state: u_dyn_state(names, native.cell_get(values))});
+  let residual = native.cell_new(0.0);
+  u_for(steps, fn(step: Int) => {
+    let time = u_dyn_finite(u_real_add(start, u_real_mul(native.int_add(step, 1), dt)));
+    let coefficients = u_map(system.equations, fn(e: Value) => u_dyn_linear(e, variables, time));
+    let matrix = u_map(coefficients, fn(e: Value) => u_map(u_range(size), fn(i: Int) =>
+      u_real_add(native.list_get(e.coeff, native.int_mul(i, 2)), u_real_div(native.list_get(e.coeff, native.int_add(native.int_mul(i, 2), 1)), dt))));
+    let rhs = u_map(coefficients, fn(e: Value) => u_real_add(u_real_sub(0.0, e.constant),
+      u_sum_real(u_map(u_range(size), fn(i: Int) => u_real_div(u_real_mul(native.list_get(e.coeff, native.int_add(native.int_mul(i, 2), 1)), native.list_get(native.cell_get(values), i)), dt)))));
+    let next = u_dyn_eliminate(matrix, rhs);
+    u_for(size, fn(i: Int) => native.cell_set(residual, u_max(native.cell_get(residual), u_abs(u_real_sub(u_dot(native.list_get(matrix, i), next), native.list_get(rhs, i))))));
+    native.cell_set(values, next);
+    yield native.buffer_push(trace, #{time: time, state: u_dyn_state(names, next)});
+  });
+  yield #{status: "approximate", method: method, dt: dt, trace: native.buffer_freeze(trace),
+    max_step_residual: native.cell_get(residual), global_error_bound: native.value_unit(),
+    realization: "binary64.affine_backward_euler", physical: false};
+};
+def dynamics: Value = #{dae: u_dyn_dae, add: u_dyn_add, scale: u_dyn_scale,
+  equal: u_dyn_equal, derivative: u_dyn_derivative, at: u_dyn_at, solve: u_dyn_solve};

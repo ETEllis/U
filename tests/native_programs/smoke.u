@@ -1,0 +1,9 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def fib(n: Nat) -> Nat = tuple.first(nat.rec(n, (0, 1),
+  fn(k: Nat, pair: Pair(Nat, Nat)) => (pair.second, nat.add(pair.first, pair.second))));
+def square(x: Int) -> Int = int.mul(x, x);
+def main() -> Value = #{fibonacci100: fib(100),
+  squares: list.map([1, 2, 3], square),
+  exact: square(1427247692705959881058285969449495136382746624)};

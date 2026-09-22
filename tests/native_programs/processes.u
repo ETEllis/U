@@ -1,0 +1,75 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def worker(state: Int, message: Text) -> Value = u_choose(native.text_eq(message, "inc"),
+  fn() => actor.continue(native.int_add(state, 1)), fn() => actor.fail("requested_failure"));
+def advance(n: Int) -> Value = option.when(native.int_lt(n, 3), fn() => native.int_add(n, 1));
+def main() -> Value = {
+  let supervisor = actor.supervise(actor.capability(), "one_for_one", [actor.child("counter", 0, worker)], #{max_restarts: 3, window: duration.seconds(5)});
+  u_map(["inc", "inc", "crash", "inc"], fn(message: Text) => actor.send(supervisor, "counter", message));
+  let report = actor.run(supervisor);
+  u_require(native.int_eq(report.states.counter, 1), "actor restart state mismatch");
+  u_require(native.value_equal(u_map(report.events, fn(event: Value) => event.kind), ["handled", "handled", "restarted", "handled"]), "actor event order mismatch");
+  u_for(3, fn(i: Int) => actor.send(supervisor, "counter", "crash"));
+  let failed = actor.run(supervisor);
+  u_require(native.text_eq(failed.status, "failed"), "restart intensity did not fail supervisor");
+  let system = temporal.spec(0, advance, temporal.stutter(), temporal.weak_fair(advance));
+  let safe = temporal.always(fn(n: Int) => native.int_le(n, 3));
+  let live = temporal.eventually(fn(n: Int) => native.int_eq(n, 3));
+  let fair = temporal.check(system, temporal.and(safe, live), [0, 1, 2, 3]);
+  let unfair = temporal.check(temporal.without_fairness(0, advance, temporal.stutter()), live, [0, 1, 2, 3]);
+  u_require(native.text_eq(fair.status, "verified"), "weak fairness did not establish finite liveness");
+  u_require(native.text_eq(unfair.status, "refuted"), "unfair stuttering counterexample was missed");
+  let clock = hw.clock("reset"); let reset = hw.input(clock, [false, false, true, false]);
+  let counter = hw.reg(clock, bits.u8(0), fn(q: Int) => value.select(hw.at_tick(reset), bits.u8(0), bits.add_wrap(q, bits.u8(1))));
+  let trace = hw.simulate(clock, [counter], 4).trace;
+  u_require(native.value_equal(trace, [[0], [1], [2], [0], [1]]), "positive-edge reset trace mismatch");
+  let pair_clock = hw.clock("pair"); let second_ref = native.cell_new(());
+  let first = hw.reg(pair_clock, 1, fn(old: Int) => hw.at_tick(native.cell_get(second_ref)));
+  let second = hw.reg(pair_clock, 2, fn(old: Int) => hw.at_tick(first)); native.cell_set(second_ref, second);
+  let simultaneous = hw.simulate(pair_clock, [first, second], 2).trace;
+  u_require(native.value_equal(simultaneous, [[1, 2], [2, 1], [1, 2]]), "register publication was sequential");
+  let wrap_clock = hw.clock("wrap"); let wrap = hw.reg(wrap_clock, 255, fn(q: Int) => bits.add_wrap(q, 1));
+  u_require(native.value_equal(hw.simulate(wrap_clock, [wrap], 1).trace, [[255], [0]]), "U8 wrapping mismatch");
+  let pending = async.task(fn() => 99);
+  u_require(native.text_eq(async.outcome(pending).state, "pending"), "task construction executed action");
+  u_require(async.cancel(pending), "pending task cancellation failed");
+  let delayed = async.task(fn() => { native.process_sleep(80); yield (123456789012345678901234567890, [7, 8], -0.0); });
+  async.start(delayed);
+  let first_state = async.outcome(delayed).state;
+  let data = async.await(delayed);
+  u_require(native.text_eq(native.value_kind(data), "tuple"), "worker transport collapsed tuple and list");
+  u_require(native.text_eq(native.value_kind(data.second), "list"), "worker transport changed list representation");
+  let chained = async.then(async.task(fn() => { native.process_sleep(40); yield 3; }), fn(n: Int) => native.int_add(n, 4));
+  async.start(chained); native.process_sleep(200); let waiting = async.outcome(chained).state;
+  u_require(native.text_eq(waiting, "completed"), "continuation did not run before its first observation");
+  u_require(native.int_eq(async.await(chained), 7), "dependent task result mismatch");
+  let shared = async.task(fn() => { native.process_sleep(40); yield 10; });
+  let subscriber_a = async.then(shared, fn(n: Int) => native.int_add(n, 1));
+  let subscriber_b = async.then(shared, fn(n: Int) => native.int_add(n, 2));
+  async.start(subscriber_a); async.start(subscriber_b); native.process_sleep(200);
+  u_require(native.bool_and(native.text_eq(async.outcome(subscriber_a).state, "completed"),
+    native.text_eq(async.outcome(subscriber_b).state, "completed")), "shared result readers interfered or required polling");
+  u_require(native.value_equal((async.await(shared), async.await(subscriber_a), async.await(subscriber_b)), (10, 11, 12)), "multiple subscribers consumed another reader's data");
+  let y = gpu.own([1.0, 2.0, 3.0]); let x = gpu.read_lease([2.0, 3.0, 4.0]);
+  let task = gpu.partition_launch(#{grid: [1], block: [256]}, y, fn(thread: Value, element: Value) =>
+    gpu.write(element, f32.add(f32.mul(2.0, gpu.load(x, thread.global_x)), gpu.read(element))));
+  let output = gpu.values(async.await(task));
+  u_require(native.value_equal(output, [5.0, 8.0, 11.0]), "partitioned GPU simulator mismatch");
+  let cancelled_owner = gpu.own([1.0]);
+  let cancelled_task = gpu.partition_launch(#{grid: [1], block: [1]}, cancelled_owner, fn(thread: Value, element: Value) => gpu.write(element, 5.0));
+  u_require(async.cancel(cancelled_task), "pending GPU cancellation failed");
+  u_require(native.value_equal(gpu.values(cancelled_owner), [1.0]), "cancelled GPU task consumed reserved owner");
+  let owned = mem.owned([1, 2]); mem.with_mut(owned, fn(view: Value) => mem.write(view, 1, 9));
+  u_require(native.value_equal(mem.values(owned), [1, 9]), "exclusive memory update failed");
+  let escaped = native.cell_new(());
+  let recovered = native.value_try_call(fn() => mem.with_mut(owned, fn(view: Value) => {
+    native.cell_set(escaped, view); mem.write(view, 0, 8); yield u_fail("borrowed callback fixture");
+  }), []);
+  u_require(native.bool_not(recovered.ok), "borrowed callback failure was swallowed");
+  u_require(native.value_equal(mem.values(owned), [8, 9]), "borrow cleanup rolled back writes or poisoned owner");
+  u_require(native.bool_not(native.value_try_call(fn() => mem.read(native.cell_get(escaped), 0), []).ok), "failed borrow left its lease live");
+  yield #{status: "passed", actor_state: report.states.counter, actor_terminal: failed.status,
+    fair: fair.status, unfair: unfair.status, hardware_trace: trace, simultaneous: simultaneous,
+    worker_observed_state: first_state, dependent_observed_state: waiting,
+    task_result: data, gpu_output: output, realization: "U_algorithms_with_isolated_OS_workers", physical: false};
+};

@@ -1,0 +1,91 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def cdc_source_fixture: Text = "field f gain=1.0 deadband=0.1\nmodule parent field=f belief=0.0 prior=0.0\nmodule child field=f belief=0.0 prior=0.0\ncell p module=parent theta=0.0 omega=0.0\ncell c module=child theta=0.0 omega=1.0\nflow s field=f duration=0.1\ncommit a module=child\nnest n parent=parent child=child\n";
+def cdc_source_test_main() -> Value = {
+  let result = u_cdc_execute_source(cdc_source_fixture);
+  u_require(native.text_eq(result.verdict, "Done"), "CDC source execution failed");
+  u_require(native.int_eq(native.list_length(result.trace), 3), "CDC source step ordering lost");
+  u_require(native.f64_eq(u_cdc_named(result.state.cells, "c").theta, 0.1), "CDC flow did not execute");
+  u_require(native.f64_eq(u_cdc_named(result.state.modules, "parent").belief, 1.0), "CDC nest belief mismatch");
+  u_require(native.f64_eq(u_cdc_named(result.state.modules, "child").prior, 1.0), "CDC nest prior mismatch");
+  let duplicates = u_cdc_parse("field f gain=1.0 gain=2.0 label=first label=last\n");
+  let statement = native.list_get(duplicates.statements, 0);
+  u_require(native.text_eq(statement.native_first.gain, "1.0"), "native duplicate policy is not first value");
+  u_require(native.text_eq(statement.registry_last.gain, "2.0"), "registry duplicate policy is not last value");
+  u_require(native.int_eq(native.list_length(statement.ordered_attributes), 4), "ordered duplicate attributes were discarded");
+  u_require(native.f64_eq(native.list_get(duplicates.state.fields, 0).gain, 1.0), "duplicate gain changed native meaning");
+  u_require(native.text_eq(native.list_get(duplicates.state.fields, 0).label, "first"), "extra attribute was dropped");
+  let invalid_last = u_cdc_parse("field f gain=1 gain=nan\n");
+  u_require(native.f64_eq(native.list_get(invalid_last.state.fields, 0).gain, 1.0), "ineffective duplicate was executed");
+  u_require(native.text_eq(native.list_get(invalid_last.statements, 0).registry_last.gain, "nan"), "ineffective duplicate metadata lost");
+  let quoted_source = "# header\r\nfield \"f space\" gain=' 1_0.0 ' label=\"a # b\" path=\"x\\q\" empty=\"\"\nmodule m field=f\\ space\ncell \"λ c\" module=m theta=.5 omega=+1.e-1 # trailing\n";
+  let quoted = u_cdc_parse(quoted_source);
+  let field = native.list_get(quoted.state.fields, 0);
+  u_require(native.text_eq(field.name, "f space"), "quoted identifier changed");
+  u_require(native.text_eq(field.label, "a # b"), "quoted comment marker changed");
+  u_require(native.text_eq(field.path, "x\\q"), "double quote non-escape was changed");
+  u_require(native.text_eq(field.empty, ""), "empty quoted value lost");
+  u_require(native.f64_eq(field.gain, 10.0), "decimal separator normalization failed");
+  u_require(native.text_eq(native.list_get(quoted.state.cells, 0).name, "λ c"), "Unicode identifier changed");
+  u_require(native.text_eq(quoted.residual, quoted_source), "source residual was rewritten");
+  u_require(native.text_eq(quoted.source_identity, native.text_concat("sha256:", native.crypto_sha256(quoted_source))), "source identity mismatch");
+  u_require(native.int_eq(native.list_get(quoted.statements, 0).line, 2), "CRLF line number mismatch");
+  let separated = u_cdc_parse("field f\u0085module m field=f\u2028cell c module=m\u2029");
+  u_require(native.int_eq(native.list_get(separated.statements, 2).line, 3), "Unicode line separators changed numbering");
+  let adjacent = u_cdc_parse("field f\" space\" label='single \\ slash'\nmodule m field=\"f space\"\n");
+  u_require(native.text_eq(native.list_get(adjacent.state.fields, 0).name, "f space"), "adjacent quoted segments did not join");
+  u_require(native.text_eq(native.list_get(adjacent.state.fields, 0).label, "single \\ slash"), "single quote backslash changed");
+  let escaped = u_cdc_parse("field f\\#one label=\"say \\\"hi\\\"\" note='it # stays'\n");
+  u_require(native.text_eq(native.list_get(escaped.state.fields, 0).name, "f#one"), "escaped comment marker was treated as a comment");
+  u_require(native.bool_and(native.text_eq(native.list_get(escaped.state.fields, 0).label, "say \"hi\""),
+    native.text_eq(native.list_get(escaped.state.fields, 0).note, "it # stays")), "quoted token escape changed");
+  let positional = u_cdc_parse("field f name=ignored\nmodule m field=f\ncell a module=m\ncell b module=m\nchannel a -> b source=missing target=missing\n");
+  u_require(native.text_eq(native.list_get(positional.state.fields, 0).name, "f"), "declaration identifier was overridden by an attribute");
+  u_require(native.bool_and(native.text_eq(native.list_get(positional.state.channels, 0).source, "a"),
+    native.text_eq(native.list_get(positional.state.channels, 0).target, "b")), "positional channel endpoints were overridden");
+  let unsupported = u_cdc_execute_source(native.text_concat(cdc_source_fixture, "inspect later anything=true\n"));
+  u_require(native.text_eq(unsupported.verdict, "Unsupported"), "unknown directive was executed or ignored");
+  u_require(native.f64_eq(u_cdc_named(unsupported.state.cells, "c").theta, 0.0), "unsupported program executed earlier steps");
+  let hold_source = "field f gain=1 deadband=.1\nmodule parent field=f\nmodule child field=f\ncell c module=child theta=3.141592653589793 omega=1\nflow s field=f duration=.1\ncommit a module=child expect-status=held expect-reason=balance-violation expect-balance=violated expect-trits=-\nnest n parent=parent child=child expect-parent-belief=-1 expect-child-prior=-1\n";
+  let held = u_cdc_execute_source(hold_source);
+  u_require(native.text_eq(held.verdict, "Done"), "held commit prevented completion");
+  u_require(native.text_eq(native.list_get(held.trace, 1).verdict, "Held"), "held commit was incorrectly accepted");
+  u_require(native.bool_not(u_cdc_named(held.state.cells, "c").has_latch), "held commit changed latch");
+  u_require(native.f64_eq(u_cdc_named(held.state.modules, "parent").belief, -1.0), "later nest did not run after hold");
+  let faulty = u_cdc_execute_source("field f gain=0\nmodule m field=f\ncell c module=m theta=0 omega=1\nflow s field=f duration=1 expect-theta=c:77\ncommit later module=m\n");
+  u_require(native.text_eq(faulty.verdict, "Fault"), "failed expectation did not fault");
+  u_require(native.int_eq(faulty.known_progress, 1), "fault lost known progress");
+  u_require(native.f64_eq(native.list_get(faulty.state.cells, 0).theta, 1.0), "fault rolled back applied flow");
+  let bad_expectation = u_cdc_execute_source("field f\nmodule m field=f\ncell c module=m omega=1\nflow s field=f duration=1 expect-theta=c:nan\n");
+  u_require(native.bool_and(native.text_eq(bad_expectation.verdict, "Fault"), native.int_eq(bad_expectation.known_progress, 1)), "nonfinite expectation did not preserve progress");
+  let budget = u_cdc_execute_source_budget(cdc_source_fixture, 1);
+  u_require(native.text_eq(budget.verdict, "Held"), "step budget did not hold");
+  u_require(native.int_eq(native.list_length(budget.trace), 1), "step budget executed too much");
+  let zero_budget = u_cdc_execute_source_budget(cdc_source_fixture, 0);
+  u_require(native.bool_and(native.text_eq(zero_budget.verdict, "Held"), native.int_eq(native.list_length(zero_budget.trace), 0)), "zero budget performed a step");
+  u_require(native.f64_eq(u_cdc_named(zero_budget.state.cells, "c").theta, 0.0), "zero budget changed state");
+  let colon = u_cdc_execute_source("field f gain=-0.0\nmodule m field=f\ncell 'c:part' module=m omega=1\nflow s field=f duration=.5 expect-theta=c:part:.5\n");
+  u_require(native.text_eq(colon.verdict, "Done"), "expect-theta did not split the final colon");
+  u_require(native.text_eq(native.f64_bits(native.list_get(colon.state.fields, 0).gain), "8000000000000000"), "signed zero was lost during source import");
+  let missing_step = u_cdc_execute_source("field f\nflow s field=missing duration=1\n");
+  u_require(native.bool_and(native.text_eq(missing_step.verdict, "Fault"), native.int_eq(missing_step.known_progress, 0)), "missing operation reference was fabricated");
+  let bad_inputs = ["module m field=missing\n", "field f gain=nan\n", "field f gain=1e999\n", "field f gain=0x1p2\n", "field f gain=1__0\n",
+    "field f\nfield f\n", "field \"unclosed\n", "field f label=x\\\n", "field f\nchannel c target\n", "field\n",
+    "field 'unclosed\n", "channel a => b\n", "field f gain=1e+\n"];
+  u_for(native.list_length(bad_inputs), fn(i: Int) => {
+    let outcome = native.value_try_call(u_cdc_parse, [native.list_get(bad_inputs, i)]);
+    yield u_require(native.bool_not(outcome.ok), native.text_concat("malformed CDC input accepted: ", native.text_from_int(i)));
+  });
+  yield #{status: "passed", direct_checks: 45, rejected_inputs: native.list_length(bad_inputs),
+    profile: result.profile, ordered_duplicate_policy: true, native_execution: true};
+};
+def cdc_source_test_driver() -> Value = {
+  let args = native.sys_args();
+  yield u_choose(native.int_eq(native.list_length(args), 1), fn() => cdc_source_test_main(), fn() => {
+    u_require(native.int_eq(native.list_length(args), 3), "cdc source test: parse|execute SOURCE");
+    let mode = native.list_get(args, 1); let source = native.list_get(args, 2);
+    yield u_choose(native.text_eq(mode, "parse"), fn() => u_cdc_parse(source),
+      fn() => u_choose(native.text_eq(mode, "execute"), fn() => u_cdc_execute_source(source), fn() => u_fail("unknown source test mode")));
+  });
+};

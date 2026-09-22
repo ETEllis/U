@@ -1,26 +1,28 @@
-# U 0.1.0 reference release: demonstrated scope
+# U 0.2: implementation and evidence
 
-Fresh local verification on September 14, 2026: **121/121 tests passed, zero skipped; 96/96 randomized CDC primitive comparisons matched exact binary64 and latch state; 23 Lean theorems compiled without axiom dependencies.** The formal manuscript is 18 pages and was rendered and visually inspected. These results describe the tested reference release, not completion of the entire original language directive.
+U's compiler, graph reconstruction, domain libraries, proof kernel and production tools are written in U and compile to native functions. The ordinary build starts from a checked generated-C seed. It does not require Python.
 
-| Surface | Demonstrated result | Evidence and boundary |
+The [native verification report](artifacts/native-verification.json) records the tested checkout and results. The [normal bootstrap report](artifacts/native-bootstrap.json) covers the checked-C build without Python, while the [self-compilation record](tests/selfhost/verification.json) records compiler generations and toolchain identity. Earlier reports without the `native-` prefix describe the historical 0.1 reference implementation; their counts are not native-release results.
+
+| Area | Implemented path | Evidence boundary |
 |---|---|---|
-| Preservation | Five supplied sources remain byte-exact; all 22 original examples match historical source hashes | `artifacts/verification.json`; original 40-check historical audit was not rerun |
-| Frontend | All 22 parse, format idempotently, elaborate deterministically and reconstruct from six kernel tags | `tests/test_frontend.py`; seven pass the bounded static checker, advanced domains retain explicit obligations |
-| Reference runtime | 123 registered operators with inspectable implementations across V/M/R/P/C/D/Q | `spec/capabilities.json`, `docs/RUNTIME.md`; registration is not a native-subsumption proof or complete descriptor/expansion certificate |
-| Values/resources | Arbitrary-precision arithmetic, lexical closures, structural recursion, explicit partial iteration, borrowing and scoped capabilities | Actual source execution and negative tests; full dependent/resource calculus remains open |
-| Scientific domains | Typed finite logic/search, SQL bags/NULL, strict contraction, explicit measures and seeded HMC, affine DAE integration | Tested supported fragments; no claim of general Prolog/SQL/Stan/Modelica source frontends |
-| Processes and simulators | Real asynchronous HTTP against a loopback server; cancellation/failure; bounded supervision; fairness-sensitive finite temporal checking; clocked and GPU reference simulation; joint quantum instrument simulation | `tests/test_runtime.py`, `tests/test_integration.py`; simulators earn no device execution |
-| Proof | Original `zero_add` source yields a checked closed Nat/Pi/Eq induction judgment | Independent `u/proof.py`; malformed steps, shadowing exploits and partial/foreign operations are rejected. Wider dependent static checking remains incomplete |
-| CDC primitive bridge | Flow/commit/nest reproduce the pinned C runtime on 96 seeded multi-step programs, including HOLD and source order | `artifacts/cdc-parity.json`; exact tested Apple arm64/libm/FMA profile, finite valid primitive source fragment |
-| CDC analysis | Actual finite-map local derivatives, ordered tangents, full-manifest numerical absolute recurrence, certificate binding and retained return artifacts on spectral HOLD | `tests/test_foundations.py`; full U1/U2 source parity, general relative symmetry and validated Schur remain open |
-| Native and WASM | Direct compiled exact-integer expression functions agree with the U reference evaluator over 35 test inputs; out-of-domain inputs are rejected/trapped | `tests/test_integration.py`; interval certification bounds every intermediate; not a general compiler backend |
-| Identity/persistence | Injective typed encoding for admitted values, domain-separated identities, transitive dependency checks, local locked/fsynced journal, corruption/torn-tail detection | Regression and runtime tests; hashes are not authentication, process-local leases are not distributed cryptographic authority |
-| Tooling | CLI, stdio LSP diagnostics/hover/definitions/formatting, exact source lift/export, locked local package installation, installable wheel | Integration tests; no package scripts executed; no network dependency resolver or hostile-host sandbox |
-| Formal artifact | 23 machine-checked theorems with no axiom dependencies, plus 1,092 finite trit sequences in empirical bridge tests | `formal/U.lean`, `formal/README.md`; proofs concern defined abstract/finite models, not whole Python runtime correctness |
-| Publication | Substantial README, responsive landing page, 18-page PDF and arXiv source ZIP | Browser interactions checked at desktop/mobile; paper rendered. No arXiv submission or public-site deployment |
+| Source and compiler | U scanner, parser, core checking, lexical closures, lazy globals and direct C generation | General dependent conversion and complete static resource checking remain obligations |
+| Self-compilation | Checked C seed, U-owned regeneration, three identical generated-C stages, same-basename native binary comparison | Reproducibility is not a proof against a compromised compiler or platform |
+| Graph | Six-constructor executable bodies, deterministic lexical bindings, validated reconstruction and relowering | Structural identity is not general semantic equivalence; provenance text is checked separately before export |
+| Values and staging | Arbitrary-precision integers, structural recursion, collections, compiled quotation and single-evaluation binding | General typed macro expansion and total conversion are not inferred from a Code label |
+| Relations and probability | Finite unification/search, SQL bags and NULL, weighted measures, seeded HMC | HMC uses numerical gradients and bounded isolated batches; no convergence certificate |
+| Processes | OS-isolated tasks, result sharing, cancellation, autonomous continuations, HTTP and actor supervision | Resource transfer across processes is restricted; no distributed correctness claim |
+| Scientific models | Strict array contraction, affine index-1 backward Euler, finite temporal checks, clock/GPU/statevector simulation | Simulator output is not physical GPU, HDL or QPU execution |
+| Proof | U-written total Nat/Pi/Eq checker; original induction example checked; opaque bound certificates | Not a complete dependent type theory or a whole-compiler correctness proof |
+| CDC reductions | U flow, nonnegative-prefix commit and nest under the pinned numeric contract | Exact parity is scoped by the independent oracle receipt and host numeric profile |
+| CDC analysis | Recorded paths, local Jacobians, ordered tangents, complete-state recurrence, uniform phase restoration and triangular spectra | General dense Schur and complete U1 source/effect binding remain explicit holds |
+| Evidence | Typed length-framed identities, dependency validation and invalidation | Hashes establish identity, not authenticity, truth or authority |
+| Tooling | Native CLI, formatter, graph lift/export, stdio language server, immutable local package snapshots and artifact audit | No network resolver, package hooks or hostile-host sandbox |
+| Browser target | U interval analysis and direct WASM emission for exact integer expressions and Boolean predicates | Guarded signed-i64 intervals; exact BigInt input checks must precede host ABI coercion |
+| Publication | Interactive U and BiDi sites, outward-facing READMEs, formal manuscripts and source bundles | Manuscripts are preprints; no arXiv submission or peer review is claimed |
 
-## Full completion remains open
+## Remaining limits
 
-This build does **not** complete the full original directive. The material remaining work includes complete theory/adapter machine contracts and checked expansions; the full dependent type/resource core; native U1/U2 CDC source compatibility and all original mutants; the eighteen foreign frontends and preservation theorems; a general optimizing native/WASM runtime; production crash/security/distribution hardening; physical GPU/HDL/QPU gates; and actual stage1/stage2 self-hosting. These are tracked individually in `docs/FULL_COMPLETION_BACKLOG.md`.
+The [remaining-gates inventory](docs/FULL_COMPLETION_BACKLOG.md) retains the wider language target. Major open areas are complete theory/adapter contracts, stronger dependent and static resource analysis, full CDC U1/U2 compatibility, the eighteen foreign-language frontends and their preservation arguments, general WASM lowering, long-running garbage collection, production persistence/distribution and physical realization gates.
 
-The repository preserves the original end state. A successful build, clean commit, GitHub workflow, rendered paper or a passed narrow test is not evidence that those unimplemented gates have closed. The private repository and local landing page keep that distinction visible.
+The handwritten C bridge supplies generic values, arithmetic, storage, calling conventions and operating-system primitives. Generated C is recorded as build output. The [native ABI](native/ABI.md) identifies this platform boundary, its trust requirements and its allocation model.

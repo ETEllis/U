@@ -1,0 +1,298 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Native U local package snapshots. Only .u files and U.toml are installed.
+// Manifest metadata never grants permissions and no hook is executed.
+// Schema 2 uses typed content identities; schema 1 requires explicit relocking.
+// Publication is one same-filesystem rename after staged and source rechecks.
+// This is a trusted-local filesystem protocol, not an adversarial filesystem
+// sandbox or a crash-durability/fsync theorem. Failed staging data is retained.
+
+def pk_fail(message: Text) -> Value = u_fail(native.text_concat("U_PACKAGE: ", message));
+def pk_require(test: Bool, message: Text) -> Unit = u_choose(test, fn() => (), fn() => pk_fail(message));
+def pk_join(parent: Text, child: Text) -> Text =
+  native.text_concat(native.text_concat(parent, u_choose(native.text_eq(parent, "/"), fn() => "", fn() => "/")), child);
+def pk_split(text: Text, delimiter: Text) -> Value = {
+  let result = native.buffer_new(); let position = native.cell_new(0);
+  u_loop(true, fn(more: Bool) => more, fn(more: Bool) => {
+    let next = native.bytes_find(text, delimiter, native.cell_get(position));
+    let end = u_choose(native.int_lt(next, 0), fn() => native.bytes_length(text), fn() => next);
+    native.buffer_push(result, native.bytes_slice(text, native.cell_get(position), end));
+    native.cell_set(position, native.int_add(end, native.bytes_length(delimiter)));
+    yield native.int_ge(next, 0);
+  });
+  yield native.buffer_freeze(result);
+};
+def pk_space(text: Text, i: Int) -> Bool = u_choose(native.bool_and(native.int_ge(i, 0), native.int_lt(i, native.bytes_length(text))),
+  fn() => u_contains([9, 10, 13, 32], native.bytes_at(text, i)), fn() => false);
+def pk_trim(text: Text) -> Text = {
+  let first = u_loop(0, fn(i: Int) => pk_space(text, i), fn(i: Int) => native.int_add(i, 1));
+  let last = u_loop(native.bytes_length(text), fn(i: Int) => native.bool_and(native.int_gt(i, first), pk_space(text, native.int_sub(i, 1))),
+    fn(i: Int) => native.int_sub(i, 1));
+  yield native.bytes_slice(text, first, last);
+};
+def pk_clean_component(name: Text) -> Bool = native.bool_and(native.int_gt(native.bytes_length(name), 0),
+  native.bool_and(native.bool_not(u_contains([".", ".."], name)), u_all(u_range(native.bytes_length(name)), fn(i: Int) => {
+    let byte = native.bytes_at(name, i);
+    yield native.bool_and(native.int_ge(byte, 32), native.bool_and(native.int_ne(byte, 127), native.int_ne(byte, 47)));
+  })));
+def pk_identifier(text: Text) -> Bool = native.bool_and(native.bool_and(native.int_gt(native.bytes_length(text), 0), native.int_le(native.bytes_length(text), 128)),
+  native.bool_and(native.bool_not(u_contains([".", ".."], text)), u_all(u_range(native.bytes_length(text)), fn(i: Int) => {
+    let c = native.bytes_at(text, i);
+    yield native.bool_or(u_contains([45, 46, 95, 43], c), native.bool_or(
+      native.bool_and(native.int_ge(c, 48), native.int_le(c, 57)), native.bool_or(
+      native.bool_and(native.int_ge(c, 65), native.int_le(c, 90)), native.bool_and(native.int_ge(c, 97), native.int_le(c, 122)))));
+  })));
+def pk_absolute(path: Text) -> Text = {
+  pk_require(native.int_gt(native.bytes_length(path), 0), "empty path");
+  let full = u_choose(native.int_eq(native.bytes_at(path, 0), 47), fn() => path, fn() => pk_join(native.sys_cwd(), path));
+  let parts = u_fold(pk_split(full, "/"), [], fn(parts: Value, part: Text) =>
+    u_choose(u_contains(["", "."], part), fn() => parts, fn() =>
+      u_choose(native.text_eq(part, ".."), fn() => {
+        pk_require(native.int_gt(native.list_length(parts), 0), "path escapes filesystem root");
+        yield native.list_reverse(native.list_tail_or_empty(native.list_reverse(parts)));
+      }, fn() => { pk_require(pk_clean_component(part), "invalid path component"); yield native.list_append(parts, [part]); })));
+  yield native.text_concat("/", native.text_join(parts, "/"));
+};
+def pk_directory(path: Text, create: Bool) -> Text = {
+  let full = pk_absolute(path);
+  u_fold(u_filter(pk_split(full, "/"), fn(part: Text) => native.bool_not(native.text_eq(part, ""))), "/", fn(parent: Text, part: Text) => {
+    let next = pk_join(parent, part); let kind = native.sys_file_kind(next);
+    u_choose(native.bool_and(create, native.text_eq(kind, "missing")), fn() => native.sys_mkdir(next),
+      fn() => pk_require(native.text_eq(kind, "directory"), native.text_concat("directory is missing, symbolic, or not a directory: ", next)));
+    yield next;
+  });
+  yield full;
+};
+def pk_excluded(name: Text) -> Bool = native.bool_or(native.int_eq(native.bytes_at(name, 0), 46),
+  u_contains(["build", "dist", "work", "provenance"], name));
+def pk_included(name: Text) -> Bool = native.bool_or(native.text_eq(name, "U.toml"),
+  u_choose(native.int_ge(native.bytes_length(name), 2), fn() =>
+    native.int_eq(native.bytes_find(name, ".u", native.int_sub(native.bytes_length(name), 2)), native.int_sub(native.bytes_length(name), 2)), fn() => false));
+def pk_member(path: Text) -> Bool = {
+  let parts = pk_split(path, "/");
+  yield native.bool_and(u_all(parts, fn(part: Text) =>
+    u_choose(pk_clean_component(part), fn() => native.bool_not(pk_excluded(part)), fn() => false)),
+    pk_included(native.list_get(parts, native.int_sub(native.list_length(parts), 1))));
+};
+def pk_string(raw: Text) -> Text = {
+  let value = pk_trim(raw);
+  pk_require(native.int_ge(native.bytes_length(value), 2), "manifest name/version requires a quoted string");
+  let quote = native.bytes_at(value, 0);
+  pk_require(u_contains([34, 39], quote), "manifest uses quoted name/version fields");
+  let scan = u_loop(#{i: 1, escaped: false, end: -1},
+    fn(s: Value) => native.bool_and(native.int_lt(s.i, native.bytes_length(value)), native.int_lt(s.end, 0)),
+    fn(s: Value) => {
+      let byte = native.bytes_at(value, s.i);
+      let closed = native.bool_and(native.bool_not(s.escaped), native.int_eq(byte, quote));
+      yield #{i: native.int_add(s.i, 1), end: u_choose(closed, fn() => s.i, fn() => -1),
+        escaped: native.bool_and(native.int_eq(quote, 34), native.bool_and(native.bool_not(s.escaped), native.int_eq(byte, 92)))};
+    });
+  pk_require(native.int_ge(scan.end, 0), "unterminated manifest string");
+  let remainder = pk_trim(native.bytes_slice(value, native.int_add(scan.end, 1), native.bytes_length(value)));
+  pk_require(u_choose(native.text_eq(remainder, ""), fn() => true,
+    fn() => native.int_eq(native.bytes_at(remainder, 0), 35)), "unexpected text after manifest string");
+  let decoded = u_choose(native.int_eq(quote, 34), fn() => native.json_parse(native.bytes_slice(value, 0, native.int_add(scan.end, 1))),
+    fn() => native.bytes_slice(value, 1, scan.end));
+  pk_require(native.text_eq(native.value_kind(decoded), "text"), "manifest identity field must be text");
+  yield decoded;
+};
+def pk_manifest(text: Text) -> Value = {
+  let active = native.cell_new(false); let seen = native.cell_new(false); let values = native.cell_new(#{});
+  let lines = pk_split(text, "\n");
+  u_for(native.list_length(lines), fn(i: Int) => {
+    let line = pk_trim(native.list_get(lines, i));
+    yield u_choose(native.bool_not(native.text_eq(line, "")), fn() => {
+      let first = native.bytes_at(line, 0);
+      yield u_choose(native.int_eq(first, 35), fn() => (), fn() =>
+        u_choose(native.int_eq(first, 91), fn() => {
+          let end = native.bytes_find(line, "]", 0);
+          pk_require(native.int_ge(end, 0), "unclosed manifest section");
+          let tail = pk_trim(native.bytes_slice(line, native.int_add(end, 1), native.bytes_length(line)));
+          pk_require(u_choose(native.text_eq(tail, ""), fn() => true,
+            fn() => native.int_eq(native.bytes_at(tail, 0), 35)), "unexpected text after manifest section");
+          let name = pk_trim(native.bytes_slice(line, 1, end));
+          let package = native.text_eq(name, "package");
+          u_choose(package, fn() => {
+            pk_require(native.bool_not(native.cell_get(seen)), "duplicate package section");
+            native.cell_set(seen, true); yield ();
+          }, fn() => ());
+          native.cell_set(active, package); yield ();
+        }, fn() => u_choose(native.cell_get(active), fn() => {
+          let equal = native.bytes_find(line, "=", 0);
+          pk_require(native.int_gt(equal, 0), "invalid package field");
+          let key = pk_trim(native.bytes_slice(line, 0, equal));
+          yield u_choose(u_contains(["name", "version", "language"], key), fn() => {
+            pk_require(native.bool_not(native.record_has(native.cell_get(values), key)), "duplicate package identity field");
+            native.cell_set(values, native.record_put(native.cell_get(values), key,
+              pk_string(native.bytes_slice(line, native.int_add(equal, 1), native.bytes_length(line))))); yield ();
+          }, fn() => ());
+        }, fn() => ())));
+    }, fn() => ());
+  });
+  let result = native.cell_get(values);
+  pk_require(native.bool_and(native.record_has(result, "name"), native.record_has(result, "version")), "package requires name and version");
+  pk_require(native.bool_and(pk_identifier(result.name), pk_identifier(result.version)), "unsafe or invalid package name/version");
+  yield #{name: result.name, version: result.version, language: u_get(result, "language", "etellis.u/0.1")};
+};
+def pk_policy: Value = #{members: ".u files and U.toml", excludes: ["dot-prefixed entries", "build", "dist", "work", "provenance"],
+  symlinks: "rejected in source traversal and path components", scripts: "never-executed", permissions: "never-granted-by-install"};
+def pk_collect(root: Text, relative: Text, depth: Int, visited: Value) -> Value = {
+  pk_require(native.int_le(depth, 64), "source traversal exceeds 64 directory levels");
+  let directory = u_choose(native.text_eq(relative, ""), fn() => root, fn() => pk_join(root, relative));
+  pk_directory(directory, false);
+  let entries = native.sys_list_dir(directory);
+  let by_name = native.record_make(u_map(entries, fn(e: Value) => e.name), entries);
+  yield u_flatmap(u_ev_sort(native.record_keys(by_name)), fn(name: Text) => {
+    pk_require(pk_clean_component(name), "invalid source entry name");
+    yield u_choose(pk_excluded(name), fn() => [], fn() => {
+      native.cell_set(visited, native.int_add(native.cell_get(visited), 1));
+      pk_require(native.int_le(native.cell_get(visited), 25000), "source traversal entry budget exceeded");
+      let path = u_choose(native.text_eq(relative, ""), fn() => name, fn() => pk_join(relative, name));
+      let kind = native.sys_file_kind(pk_join(root, path));
+      pk_require(native.bool_not(native.text_eq(kind, "symlink")), native.text_concat("symbolic source member refused: ", path));
+      yield u_choose(native.text_eq(kind, "directory"), fn() => pk_collect(root, path, native.int_add(depth, 1), visited), fn() => {
+        pk_require(native.text_eq(kind, "file"), native.text_concat("nonregular source member refused: ", path));
+        yield u_choose(pk_included(name), fn() => [path], fn() => []);
+      });
+    });
+  });
+};
+def pk_inventory(path: Text) -> Value = {
+  let root = pk_directory(path, false); let manifest_path = pk_join(root, "U.toml");
+  pk_require(native.text_eq(native.sys_file_kind(manifest_path), "file"), "package requires a regular U.toml");
+  let manifest_text = native.sys_read(manifest_path); let manifest = pk_manifest(manifest_text);
+  let paths = u_ev_sort(pk_collect(root, "", 0, native.cell_new(0)));
+  let hashes = u_map(paths, fn(member: Text) => native.crypto_sha256_file(pk_join(root, member)));
+  let members = native.record_make(paths, hashes);
+  pk_require(native.text_eq(native.record_get(members, "U.toml"), native.crypto_sha256(manifest_text)), "manifest changed during inventory");
+  let body = #{name: manifest.name, version: manifest.version, language: manifest.language, members: members, policy: pk_policy};
+  yield native.record_put(body, "identity", u_ev_digest("package-snapshot/2", body));
+};
+def pk_lock_value(snapshot: Value) -> Value = {
+  let body = #{schema: "etellis.u.lock/2", packages: [snapshot]};
+  yield native.record_put(body, "identity", u_ev_digest("package-lock/2", body));
+};
+def pk_digest(value: Value) -> Bool = u_choose(native.text_eq(native.value_kind(value), "text"), fn() =>
+  u_choose(native.int_eq(native.bytes_length(value), 64), fn() => u_ev_id(native.text_concat("sha256:", value)), fn() => false), fn() => false);
+def pk_validate_lock(locked: Value) -> Value = {
+  pk_require(native.text_eq(native.value_kind(locked), "record"), "lock must be a JSON object");
+  pk_require(native.bool_not(native.value_equal(u_get(locked, "schema", ""), "etellis.u.lock/1")),
+    "legacy lock schema 1: run etellis-u package lock SOURCE to create schema 2 and preserve the old lock");
+  pk_require(native.value_equal(u_ev_keys(locked), ["identity", "packages", "schema"]), "invalid lock fields");
+  pk_require(native.text_eq(locked.schema, "etellis.u.lock/2"), "unsupported lock schema");
+  pk_require(native.int_eq(native.list_length(locked.packages), 1), "one local source package is required");
+  let package = native.list_get(locked.packages, 0);
+  pk_require(native.value_equal(u_ev_keys(package), ["identity", "language", "members", "name", "policy", "version"]), "invalid package record fields");
+  pk_require(native.bool_and(pk_identifier(package.name), pk_identifier(package.version)), "invalid locked package identity");
+  pk_require(native.value_equal(package.policy, pk_policy), "unsupported package selection or authority policy");
+  pk_require(u_all(native.record_keys(package.members), fn(member: Text) => native.bool_and(pk_member(member), pk_digest(native.record_get(package.members, member)))),
+    "unsafe member path or invalid member hash");
+  pk_require(native.record_has(package.members, "U.toml"), "lock does not include U.toml");
+  pk_require(native.text_eq(package.identity, u_ev_digest("package-snapshot/2", u_ev_without(package, "identity"))), "package content identity mismatch");
+  pk_require(native.text_eq(locked.identity, u_ev_digest("package-lock/2", u_ev_without(locked, "identity"))), "lock identity mismatch");
+  yield package;
+};
+def pk_read_lock(root: Text) -> Value = {
+  let path = pk_join(root, "U.lock");
+  pk_require(native.text_eq(native.sys_file_kind(path), "file"), "package requires a regular U.lock; run package lock SOURCE");
+  let locked = native.json_parse(native.sys_read(path)); pk_validate_lock(locked); yield locked;
+};
+def pk_verify(path: Text) -> Value = {
+  let root = pk_directory(path, false); let locked = pk_read_lock(root);
+  let actual = pk_inventory(root); let expected = native.list_get(locked.packages, 0);
+  pk_require(native.value_equal(actual, expected), "package content differs from the locked snapshot");
+  yield #{verdict: "Done", identity: actual.identity, lock_identity: locked.identity,
+    members: native.list_length(native.record_keys(actual.members)), scope: "exact locked local source members", authority: "content-integrity-only"};
+};
+def pk_unused(parent: Text, prefix: Text) -> Text = {
+  let suffix = u_loop(0, fn(i: Int) => {
+    pk_require(native.int_lt(i, 1000), "staging-name budget exceeded");
+    yield native.bool_not(native.text_eq(native.sys_file_kind(pk_join(parent, native.text_concat(prefix, native.text_from_int(i)))), "missing"));
+  }, fn(i: Int) => native.int_add(i, 1));
+  yield pk_join(parent, native.text_concat(prefix, native.text_from_int(suffix)));
+};
+def pk_lock(path: Text) -> Value = {
+  let root = pk_directory(path, false); let snapshot = pk_inventory(root); let locked = pk_lock_value(snapshot);
+  let destination = pk_join(root, "U.lock"); let kind = native.sys_file_kind(destination);
+  pk_require(u_contains(["file", "missing"], kind), "existing U.lock must be a regular file");
+  let backup = u_choose(native.text_eq(kind, "file"), fn() => {
+    let old = native.sys_read(destination); let hash = native.crypto_sha256(old);
+    let saved = pk_join(root, native.text_concat(".u-lock.previous-", hash));
+    yield u_choose(native.text_eq(native.sys_file_kind(saved), "missing"), fn() => {
+      native.sys_write_new(saved, old); yield saved;
+    }, fn() => {
+      pk_require(native.bool_and(native.text_eq(native.sys_file_kind(saved), "file"), native.text_eq(native.crypto_sha256_file(saved), hash)), "previous-lock backup conflicts"); yield saved;
+    });
+  }, fn() => "");
+  pk_require(native.value_equal(snapshot, pk_inventory(root)), "source changed while creating lock");
+  let temporary = pk_unused(root, ".u-lock.stage-");
+  native.sys_write_new(temporary, native.text_concat(native.json_encode(locked), "\n"));
+  pk_validate_lock(native.json_parse(native.sys_read(temporary)));
+  native.sys_rename(temporary, destination);
+  yield #{verdict: "Done", schema: locked.schema, identity: snapshot.identity, lock_identity: locked.identity,
+    path: destination, previous_lock_backup: backup, members: native.list_length(native.record_keys(snapshot.members))};
+};
+def pk_install(source_path: Text, destination_path: Text) -> Value = {
+  let source = pk_directory(source_path, false); pk_verify(source);
+  let locked = pk_read_lock(source); let package = native.list_get(locked.packages, 0);
+  let destination = pk_absolute(destination_path);
+  let source_prefix = native.text_concat(source, "/");
+  let nested = native.int_eq(native.bytes_find(destination, source_prefix, 0), 0);
+  pk_require(native.bool_not(native.text_eq(source, destination)), "installation store cannot be the package source");
+  u_choose(nested, fn() => {
+    let relative = native.bytes_slice(destination, native.bytes_length(source_prefix), native.bytes_length(destination));
+    pk_require(pk_excluded(native.list_get(pk_split(relative, "/"), 0)), "an in-source store must be under an excluded directory"); yield ();
+  }, fn() => ());
+  let parent = pk_directory(pk_join(pk_join(destination, package.name), package.version), true);
+  let hash = native.bytes_slice(package.identity, 7, 71); let target = pk_join(parent, hash);
+  yield u_choose(native.bool_not(native.text_eq(native.sys_file_kind(target), "missing")), fn() => {
+    let verified = pk_verify(target);
+    pk_require(native.text_eq(verified.identity, package.identity), "installed target identity conflicts");
+    yield #{verdict: "Done", path: target, identity: package.identity, lock_identity: locked.identity, reused: true};
+  }, fn() => {
+    let staging = pk_unused(parent, ".u-install-stage-"); native.sys_mkdir(staging);
+    let members = u_ev_keys(package.members);
+    u_for(native.list_length(members), fn(i: Int) => {
+      let member = native.list_get(members, i); let input = pk_join(source, member);
+      let pieces = pk_split(member, "/");
+      let subdir = native.text_join(native.list_reverse(native.list_tail_or_empty(native.list_reverse(pieces))), "/");
+      pk_directory(u_choose(native.text_eq(subdir, ""), fn() => source, fn() => pk_join(source, subdir)), false);
+      pk_require(native.text_eq(native.sys_file_kind(input), "file"), native.text_concat("source member became nonregular: ", member));
+      let bytes = native.sys_read(input); let expected = native.record_get(package.members, member);
+      pk_require(native.text_eq(native.crypto_sha256(bytes), expected), native.text_concat("source changed during installation: ", member));
+      pk_directory(u_choose(native.text_eq(subdir, ""), fn() => staging, fn() => pk_join(staging, subdir)), true);
+      let output = pk_join(staging, member); native.sys_write_new(output, bytes);
+      pk_require(native.text_eq(native.crypto_sha256_file(output), expected), "staged bytes differ from lock"); yield ();
+    });
+    native.sys_write_new(pk_join(staging, "U.lock"), native.text_concat(native.json_encode(locked), "\n"));
+    pk_verify(staging); pk_verify(source);
+    pk_require(native.text_eq(native.sys_file_kind(target), "missing"), native.text_concat("another install published first; verified staging retained at ", staging));
+    native.sys_rename(staging, target);
+    let verified = pk_verify(target);
+    yield #{verdict: "Done", path: target, identity: verified.identity, lock_identity: verified.lock_identity,
+      reused: false, hooks: "never-executed", publication: "atomic-rename", durability: "no-fsync-guarantee"};
+  });
+};
+def pk_main() -> Unit = {
+  let args = native.sys_args();
+  pk_require(native.int_ge(native.list_length(args), 2), "usage: package lock|verify|install [SOURCE] [--destination STORE]");
+  let operation = native.list_get(args, 1);
+  let options = u_loop(#{i: 2, source: ".", selected: false, destination: ".u-packages"},
+    fn(s: Value) => native.int_lt(s.i, native.list_length(args)), fn(s: Value) => {
+      let arg = native.list_get(args, s.i);
+      yield u_choose(native.text_eq(arg, "--destination"), fn() => {
+        pk_require(native.int_lt(native.int_add(s.i, 1), native.list_length(args)), "--destination requires a path");
+        yield #{i: native.int_add(s.i, 2), source: s.source, selected: s.selected, destination: native.list_get(args, native.int_add(s.i, 1))};
+      }, fn() => {
+        pk_require(native.bool_not(s.selected), "unexpected extra source or option");
+        pk_require(native.bool_not(native.int_eq(native.bytes_find(arg, "--", 0), 0)), "unknown package option");
+        yield #{i: native.int_add(s.i, 1), source: arg, selected: true, destination: s.destination};
+      });
+    });
+  let result = u_choose(native.text_eq(operation, "lock"), fn() => pk_lock(options.source), fn() =>
+    u_choose(native.text_eq(operation, "verify"), fn() => pk_verify(options.source), fn() =>
+      u_choose(native.text_eq(operation, "install"), fn() => pk_install(options.source, options.destination),
+        fn() => pk_fail("unknown package operation"))));
+  native.sys_print(native.json_encode(result)); yield ();
+};

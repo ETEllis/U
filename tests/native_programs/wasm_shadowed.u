@@ -1,0 +1,4 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def int: Value = #{add: fn(a: Int, b: Int) => native.int_mul(a, b)};
+def bad(x: Int) -> Int = int.add(x, 1);

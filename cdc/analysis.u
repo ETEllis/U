@@ -1,0 +1,360 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Native U analysis of the executed finite CDC maps. Derivatives concern the
+// real extension of the finite formulas, not literal IEEE rounding or an ODE.
+// Evidence handles carry no payload. A private lexical registry owns every
+// issuance; JSON, resource.new and a matching kind string cannot forge one.
+// The registry is process-local. Persistent evidence requires revalidation.
+// Scheduled flow/commit/nest are implemented. Localized guards/saltation,
+// delay histories, general endpoint maps, dense Schur and full U1 are held.
+// Source identity is a caller-supplied label, not an authenticated file claim.
+// SHA-256 binds that label to normalized input state, schedule and manifest;
+// live handle identity additionally prevents reusing checks from another run.
+
+def ExecutedPath: Type = #{kind: "opaque-executed-path"};
+def CdcNative: Type = #{kind: "finite-cdc-profile"};
+def U1Closure: Type = #{kind: "opaque-u1-closure"};
+def PathTangent: Type = #{kind: "opaque-path-tangent"};
+def VerifiedRecurrence: Type = #{kind: "opaque-verified-recurrence"};
+def RecurrenceRequest: Type = #{kind: "recurrence-request"};
+def Spectrum: Type = #{kind: "opaque-spectrum"};
+def Analysis: Type = #{kind: "analysis-result"};
+
+def u_ca_done(value: Value, earned: Value) -> Value =
+  #{verdict: "Done", status: "accepted", value: value, earned: earned};
+def u_ca_hold(reason: Text, earned: Value, details: Value) -> Value =
+  #{verdict: "Held", status: "held", reason: reason, earned: earned, details: details};
+def u_ca_then(result: Value, next: Value) -> Value =
+  u_choose(native.text_eq(result.verdict, "Done"), fn() => {
+    let later = next(result.value);
+    let earned = u_fold(native.list_append(u_get(result, "earned", []), u_get(later, "earned", [])), [],
+      fn(items: Value, item: Value) => u_choose(u_contains(items, item), fn() => items,
+        fn() => native.list_append(items, [item])));
+    yield native.record_put(later, "earned", earned);
+  }, fn() => result);
+def u_ca_keys(record: Value, allowed: Value) -> Bool =
+  u_all(native.record_keys(record), fn(key: Text) => u_contains(allowed, key));
+def u_ca_finite(x: Value) -> Bool =
+  u_choose(u_contains(["int", "real"], native.value_kind(x)),
+    fn() => native.math_is_finite(u_real(x)), fn() => false);
+def u_ca_identity(n: Int) -> Value = u_map(u_range(n), fn(i: Int) =>
+  u_map(u_range(n), fn(j: Int) => u_choose(native.int_eq(i, j), fn() => 1.0, fn() => 0.0)));
+def u_ca_at(a: Value, i: Int, j: Int) -> Real = native.list_get(native.list_get(a, i), j);
+def u_ca_matrix_finite(a: Value) -> Bool = u_all(a, fn(row: Value) => u_all(row, u_ca_finite));
+def u_ca_multiply(a: Value, b: Value) -> Value = {
+  let n = native.list_length(a);
+  u_require(native.int_eq(native.list_length(b), n), "CDC_MATRIX_DIMENSION");
+  u_require(native.bool_and(u_all(a, fn(r: Value) => native.int_eq(native.list_length(r), n)),
+    u_all(b, fn(r: Value) => native.int_eq(native.list_length(r), n))), "CDC_MATRIX_SQUARE");
+  yield u_map(u_range(n), fn(i: Int) => u_map(u_range(n), fn(j: Int) =>
+    u_fold(u_range(n), 0.0, fn(total: Real, k: Int) =>
+      u_real_add(total, u_real_mul(u_ca_at(a, i, k), u_ca_at(b, k, j))))));
+};
+def u_ca_index(items: Value, name: Text) -> Int =
+  u_loop(0, fn(i: Int) => u_choose(native.int_lt(i, native.list_length(items)),
+    fn() => native.bool_not(native.text_eq(native.list_get(items, i).name, name)), fn() => false),
+    fn(i: Int) => native.int_add(i, 1));
+def u_ca_step_supported(step: Value) -> Bool = {
+  let op = u_get(step, "op", "");
+  yield u_choose(native.text_eq(op, "flow"), fn() =>
+    native.bool_and(u_ca_keys(step, ["op", "field", "duration"]),
+      native.bool_and(native.record_has(step, "field"),
+        native.bool_and(native.record_has(step, "duration"), u_ca_finite(u_get(step, "duration", ()))))) ,
+    fn() => u_choose(native.text_eq(op, "commit"), fn() =>
+      native.bool_and(u_ca_keys(step, ["op", "module"]), native.record_has(step, "module")),
+      fn() => u_choose(native.text_eq(op, "nest"), fn() =>
+        native.bool_and(u_ca_keys(step, ["op", "parent", "child"]),
+          native.bool_and(native.record_has(step, "parent"), native.record_has(step, "child"))), fn() => false)));
+};
+def u_ca_manifest(state: Value, steps: Value) -> Value = {
+  let cells = u_filter(state.cells, fn(c: Value) => u_any(steps, fn(step: Value) =>
+    u_choose(native.text_eq(step.op, "flow"), fn() => u_cdc_in_field(state, c, step.field),
+      fn() => u_choose(native.text_eq(step.op, "commit"), fn() => native.text_eq(c.module, step.module),
+        fn() => native.text_eq(c.module, step.child)))));
+  let modules = u_filter(state.modules, fn(m: Value) => native.bool_or(
+    u_any(cells, fn(c: Value) => native.text_eq(c.module, m.name)),
+    u_any(steps, fn(step: Value) => u_choose(native.text_eq(step.op, "nest"), fn() =>
+      native.bool_or(native.text_eq(step.parent, m.name), native.text_eq(step.child, m.name)), fn() => false))));
+  yield native.list_append(u_map(cells, fn(c: Value) => #{kind: "phase", name: c.name}),
+    u_flatmap(modules, fn(m: Value) => [#{kind: "belief", name: m.name}, #{kind: "prior", name: m.name}]));
+};
+def u_ca_vector(state: Value, manifest: Value) -> Value = u_map(manifest, fn(c: Value) =>
+  u_choose(native.text_eq(c.kind, "phase"), fn() => u_cdc_named(state.cells, c.name).theta,
+    fn() => native.record_get(u_cdc_named(state.modules, c.name), c.kind)));
+def u_ca_modes(state: Value) -> Value = u_map(state.cells, fn(c: Value) =>
+  #{name: c.name, has_latch: c.has_latch, latch: c.latch});
+def u_ca_state_finite(state: Value) -> Bool = native.bool_and(
+  u_all(state.fields, fn(f: Value) => native.bool_and(u_ca_finite(f.gain),
+    native.bool_and(u_ca_finite(f.dt), native.bool_and(u_ca_finite(f.deadband),
+      native.bool_and(u_real_le(0.0, f.deadband), u_real_le(f.deadband, 1.0)))))),
+  native.bool_and(u_all(state.cells, fn(c: Value) => native.bool_and(u_ca_finite(c.theta),
+    native.bool_and(u_ca_finite(c.omega), u_contains([-1, 0, 1], c.latch)))),
+  native.bool_and(u_all(state.modules, fn(m: Value) => native.bool_and(u_ca_finite(m.belief), u_ca_finite(m.prior))),
+    u_all(state.channels, fn(c: Value) => native.bool_and(u_ca_finite(c.weight), native.bool_and(u_ca_finite(c.angle), u_ca_finite(c.delay)))))));
+def u_ca_step(state: Value, step: Value) -> Value =
+  u_choose(native.text_eq(step.op, "flow"), fn() => u_cdc_flow(state, step.field, u_real(step.duration)),
+    fn() => u_choose(native.text_eq(step.op, "commit"), fn() => u_cdc_commit(state, step.module),
+      fn() => u_cdc_nest(state, step.parent, step.child)));
+def u_ca_margin(state: Value, step: Value) -> Real =
+  u_choose(native.text_eq(step.op, "flow"), fn() => 1.0,
+    fn() => {
+      let name = u_choose(native.text_eq(step.op, "commit"), fn() => step.module, fn() => step.child);
+      let m = u_cdc_named(state.modules, name);
+      let field = u_cdc_named(state.fields, m.field);
+      let cells = u_filter(state.cells, fn(c: Value) => native.bool_and(native.text_eq(c.module, name),
+        native.bool_or(native.text_eq(step.op, "commit"), native.bool_not(c.has_latch))));
+      yield u_fold(cells, 1.0, fn(margin: Real, c: Value) =>
+        u_min(margin, u_abs(u_real_sub(u_abs(native.math_cos(c.theta)), field.deadband))));
+    });
+def u_ca_jacobian(state: Value, step: Value, manifest: Value) -> Value = {
+  let n = native.list_length(manifest);
+  yield u_map(u_range(n), fn(i: Int) => u_map(u_range(n), fn(j: Int) => {
+    let row = native.list_get(manifest, i); let col = native.list_get(manifest, j);
+    let identity = u_choose(native.int_eq(i, j), fn() => 1.0, fn() => 0.0);
+    yield u_choose(native.text_eq(step.op, "flow"), fn() =>
+      u_choose(native.bool_and(native.text_eq(row.kind, "phase"), native.text_eq(col.kind, "phase")), fn() => {
+        let cell = u_cdc_named(state.cells, row.name);
+        let field = u_cdc_named(state.fields, step.field);
+        yield u_choose(u_cdc_in_field(state, cell, step.field), fn() =>
+          u_fold(state.channels, identity, fn(value: Real, channel: Value) =>
+            u_choose(native.bool_and(native.text_eq(channel.target, row.name),
+              u_cdc_in_field(state, u_cdc_named(state.cells, channel.source), step.field)), fn() => {
+              let source = u_cdc_named(state.cells, channel.source);
+              let source_delta = u_choose(native.text_eq(col.name, source.name), fn() => 1, fn() => 0);
+              let target_delta = u_choose(native.text_eq(col.name, cell.name), fn() => 1, fn() => 0);
+              let coefficient = u_real_mul(u_real_mul(u_real_mul(field.gain, channel.weight), step.duration),
+                native.math_cos(u_real_sub(u_real_add(source.theta, channel.angle), cell.theta)));
+              yield u_real_add(value, u_real_mul(coefficient, native.int_sub(source_delta, target_delta)));
+            }, fn() => value)), fn() => identity);
+      }, fn() => identity), fn() =>
+      u_choose(native.text_eq(step.op, "nest"), fn() =>
+        u_choose(native.bool_and(native.text_eq(row.kind, "prior"), native.text_eq(row.name, step.child)), fn() =>
+          u_choose(native.bool_and(native.text_eq(col.kind, "belief"), native.text_eq(col.name, step.parent)),
+            fn() => 1.0, fn() => 0.0), fn() => identity), fn() => identity));
+  }));
+};
+def u_ca_triangle(matrix: Value, lower: Bool) -> Bool = {
+  let n = native.list_length(matrix);
+  yield u_all(u_range(n), fn(i: Int) => u_all(u_range(n), fn(j: Int) =>
+    u_choose(u_choose(lower, fn() => native.int_lt(i, j), fn() => native.int_gt(i, j)),
+      fn() => native.f64_eq(u_ca_at(matrix, i, j), 0.0), fn() => true)));
+};
+
+def u_cdc_analysis: Value = {
+  let registry = native.buffer_new();
+  let lookup = fn(handle: Value, kind: Text) => {
+    let entries = u_filter(native.buffer_freeze(registry), fn(e: Value) =>
+      native.bool_and(native.value_equal(e.handle, handle), native.text_eq(e.kind, kind)));
+    yield u_choose(native.int_eq(native.list_length(entries), 1), fn() => {
+      native.resource_peek(handle, kind);
+      yield #{found: true, value: native.list_get(entries, 0).payload};
+    }, fn() => #{found: false});
+  };
+  let issue = fn(kind: Text, payload: Value) => {
+    let handle = native.resource_new(kind, ());
+    native.buffer_push(registry, #{handle: handle, kind: kind, payload: payload});
+    yield handle;
+  };
+  let execute = fn(initial: Value, steps: Value, source_identity: Text) =>
+    u_choose(native.bool_and(native.int_gt(native.list_length(steps), 0), u_all(steps, u_ca_step_supported)), fn() => {
+      let state = u_cdc_make_state(initial);
+      yield u_choose(native.bool_and(u_ca_state_finite(state),
+        u_all(state.channels, fn(c: Value) => native.f64_eq(c.delay, 0.0))), fn() => {
+        let manifest = u_ca_manifest(state, steps);
+        let result = u_loop(#{index: 0, state: state, trace: [], status: "accepted", reason: "none"},
+          fn(s: Value) => native.bool_and(native.int_lt(s.index, native.list_length(steps)), native.text_eq(s.status, "accepted")),
+          fn(s: Value) => {
+            let step = native.list_get(steps, s.index);
+            let outcome = u_ca_step(s.state, step);
+            let finite = u_ca_state_finite(outcome.state);
+            let accepted = native.bool_and(finite, native.text_eq(outcome.status, "accepted"));
+            yield #{index: native.int_add(s.index, 1), state: outcome.state,
+              trace: native.list_append(s.trace, [#{index: s.index, step: step, before: s.state, after: outcome.state,
+                status: outcome.status, margin: u_ca_margin(s.state, step), outcome: outcome}]),
+              status: u_choose(accepted, fn() => "accepted", fn() => "held"),
+              reason: u_choose(finite, fn() => u_get(outcome, "reason", "none"), fn() => "nonfinite-execution")};
+          });
+        let binding = native.crypto_sha256(native.json_encode(#{profile: "cdc.finite-map.fma/0.2", source: source_identity,
+          initial: state, steps: steps, manifest: manifest}));
+        let handle = issue("CDC.ExecutedPath", #{source_identity: source_identity,
+          source_identity_kind: "caller-label", binding_kind: "sha256-canonical-execution-input", binding: binding,
+          initial: state, final: result.state, steps: steps, trace: result.trace, manifest: manifest,
+          status: result.status, reason: result.reason, kind: "ExecutedPath", u1: "not-verified"});
+        yield u_choose(native.text_eq(result.status, "accepted"), fn() => u_ca_done(handle, [handle]),
+          fn() => u_ca_hold(result.reason, [handle], #{path: handle, executed_steps: result.index}));
+      }, fn() => u_ca_hold("invalid-finite-state-or-unimplemented-delay", [], #{}));
+    }, fn() => u_ca_hold("unsupported-scheduled-operation-or-empty-path", [], #{localized_events: "unavailable"}));
+  let tangent_with = fn(path: Value, options: Value) => {
+    let found = lookup(path, "CDC.ExecutedPath");
+    yield u_choose(found.found, fn() => {
+      let run = found.value;
+      let minimum = u_real(u_get(options, "mode_margin", 0.000000001));
+      yield u_choose(native.bool_and(u_ca_keys(options, ["mode_margin"]),
+        native.bool_and(u_ca_finite(minimum), native.bool_and(u_real_le(0.0, minimum), native.text_eq(run.status, "accepted")))), fn() => {
+        let margins = u_map(run.trace, fn(t: Value) => t.margin);
+        let separated = u_all(margins, fn(m: Real) => native.f64_gt(m, minimum));
+        yield u_choose(separated, fn() => {
+          let n = native.list_length(run.manifest);
+          let jacobians = u_map(run.trace, fn(t: Value) => u_ca_jacobian(t.before, t.step, run.manifest));
+          let matrix = u_fold(jacobians, u_ca_identity(n), fn(product: Value, jacobian: Value) => u_ca_multiply(jacobian, product));
+          yield u_choose(u_ca_matrix_finite(matrix), fn() => {
+            let handle = issue("CDC.PathTangent", #{kind: "PathTangent", path: path, binding: run.binding,
+              manifest: run.manifest, matrix: matrix, jacobians: jacobians, margins: margins, mode_margin: minimum,
+              derivative: "real-extension-of-executed-finite-maps", guard_method: "scheduled-reset-only"});
+            yield u_ca_done(handle, [path, handle]);
+          }, fn() => u_ca_hold("nonfinite-tangent", [path], #{}));
+        }, fn() => u_ca_hold("quantization-boundary-or-unstable-itinerary", [path], #{margins: margins, required_margin: minimum}));
+      }, fn() => u_ca_hold("unaccepted-path-or-invalid-tangent-options", [path], #{}));
+    }, fn() => u_ca_hold("unverified-executed-path", [], #{}));
+  };
+  let tangent = fn(path: Value) => tangent_with(path, #{});
+  let recurrence_check = fn(tangent_handle: Value, request: Value) => {
+    let checked = lookup(tangent_handle, "CDC.PathTangent");
+    yield u_choose(checked.found, fn() => {
+      let t = checked.value;
+      let path = lookup(t.path, "CDC.ExecutedPath").value;
+      let kind = u_get(request, "kind", "absolute");
+      let absolute = u_real(u_get(request, "tolerance", 0.000000001));
+      let relative = u_real(u_get(request, "relative_tolerance", 0.0));
+      let options_ok = native.bool_and(u_ca_keys(request, ["kind", "tolerance", "relative_tolerance", "norm", "restoration"]),
+        native.bool_and(u_ca_finite(absolute), native.bool_and(u_ca_finite(relative),
+        native.bool_and(u_real_le(0.0, absolute), native.bool_and(u_real_le(0.0, relative),
+          native.text_eq(u_get(request, "norm", "linf"), "linf"))))));
+      yield u_choose(options_ok, fn() => {
+        let relative_kind = native.text_eq(kind, "relative");
+        let restoration = u_get(request, "restoration", #{});
+        let phases = u_filter(t.manifest, fn(c: Value) => native.text_eq(c.kind, "phase"));
+        let names = u_map(phases, fn(c: Value) => c.name);
+        let turns = u_get(restoration, "turns", #{});
+        let valid_restoration = u_choose(relative_kind, fn() => native.bool_and(
+          u_ca_keys(restoration, ["kind", "turns"]), native.bool_and(
+          native.text_eq(u_get(restoration, "kind", ""), "phase-translation"), native.bool_and(
+          native.value_equal(native.record_keys(turns), names), u_choose(native.value_equal(native.record_keys(turns), names),
+            fn() => u_all(names, fn(name: Text) => native.text_eq(native.value_kind(native.record_get(turns, name)), "int")),
+            fn() => false)))),
+          fn() => native.bool_and(native.text_eq(kind, "absolute"), native.int_eq(native.list_length(native.record_keys(restoration)), 0)));
+        yield u_choose(valid_restoration, fn() => {
+          // Uniform integer turns on every coupled edge preserve phase differences;
+          // each translated cos observation has the same ideal real-periodic law.
+          // The certificate records numerical recurrence under that stated action.
+          let equivariant = u_choose(relative_kind, fn() => u_all(path.initial.channels, fn(edge: Value) =>
+            u_choose(native.bool_and(native.bool_not(native.f64_eq(edge.weight, 0.0)),
+              native.bool_or(u_contains(names, edge.source), u_contains(names, edge.target))), fn() =>
+              native.int_eq(u_get(turns, edge.source, 0), u_get(turns, edge.target, 0)), fn() => true)), fn() => true);
+          yield u_choose(equivariant, fn() => {
+            let x0 = u_ca_vector(path.initial, t.manifest);
+            let x1 = u_ca_vector(path.final, t.manifest);
+            let restored = u_map(u_range(native.list_length(t.manifest)), fn(i: Int) => {
+              let coordinate = native.list_get(t.manifest, i);
+              yield u_choose(native.bool_and(relative_kind, native.text_eq(coordinate.kind, "phase")), fn() =>
+                u_real_sub(native.list_get(x1, i), u_real_mul(6.283185307179586, native.record_get(turns, coordinate.name))),
+                fn() => native.list_get(x1, i));
+            });
+            let differences = u_map(u_range(native.list_length(x0)), fn(i: Int) =>
+              u_abs(u_real_sub(native.list_get(restored, i), native.list_get(x0, i))));
+            let limits = u_map(u_range(native.list_length(x0)), fn(i: Int) =>
+              u_real_add(absolute, u_real_mul(relative, u_max(u_abs(native.list_get(restored, i)), u_abs(native.list_get(x0, i))))));
+            let modes = native.value_equal(u_ca_modes(path.initial), u_ca_modes(path.final));
+            let returned = native.bool_and(u_all(restored, u_ca_finite),
+              u_all(u_range(native.list_length(differences)), fn(i: Int) => u_real_le(native.list_get(differences, i), native.list_get(limits, i))));
+            let details = #{kind: kind, norm: "linf", tolerance: absolute, relative_tolerance: relative,
+              coordinate_residuals: differences, coordinate_limits: limits,
+              max_residual: u_fold(differences, 0.0, u_max), mode_equal: modes, initial: x0, restored_final: restored};
+            yield u_choose(native.bool_and(modes, returned), fn() => {
+              let handle = issue("CDC.VerifiedRecurrence", #{kind: "VerifiedRecurrence", tangent: tangent_handle,
+                path: t.path, binding: t.binding, manifest: t.manifest, details: details,
+                restoration: restoration, derivative: u_ca_identity(native.list_length(t.manifest)),
+                guarantee: "complete-selected-state-numerical-recurrence",
+                equivariance_scope: u_choose(relative_kind, fn() => "uniform-integer-turns-in-the-real-finite-map",
+                  fn() => "identity-restoration"), ieee_global_equivariance_proved: false});
+              yield u_ca_done(handle, [t.path, tangent_handle, handle]);
+            }, fn() => u_ca_hold(u_choose(modes, fn() => "recurrence-residual-exceeds-tolerance", fn() => "recurrence-mode-mismatch"),
+              [t.path, tangent_handle], details));
+          }, fn() => u_ca_hold("phase-translation-not-equivariant-on-coupled-state", [t.path, tangent_handle], #{}));
+        }, fn() => u_ca_hold("unsupported-or-incomplete-restoration", [t.path, tangent_handle], #{}));
+      }, fn() => u_ca_hold("invalid-recurrence-options-or-projected-request", [t.path, tangent_handle], #{}));
+    }, fn() => u_ca_hold("unverified-path-tangent", [], #{}));
+  };
+  let return_map = fn(tangent_handle: Value, recurrence_handle: Value) => {
+    let tangent = lookup(tangent_handle, "CDC.PathTangent");
+    let recurrence = lookup(recurrence_handle, "CDC.VerifiedRecurrence");
+    yield u_choose(native.bool_and(tangent.found, recurrence.found), fn() => {
+      let t = tangent.value; let r = recurrence.value;
+      yield u_choose(native.bool_and(native.value_equal(r.tangent, tangent_handle),
+        native.bool_and(native.value_equal(r.path, t.path), native.bool_and(native.text_eq(r.binding, t.binding),
+          native.value_equal(r.manifest, t.manifest)))), fn() => {
+        let matrix = u_ca_multiply(r.derivative, t.matrix);
+        yield issue("CDC.ReturnMap", #{kind: "ReturnMap", tangent: tangent_handle, recurrence: recurrence_handle,
+          path: t.path, binding: t.binding, manifest: t.manifest, matrix: matrix, restoration_derivative: r.derivative,
+          recurrence_details: r.details});
+      }, fn() => u_ca_hold("recurrence-subject-mismatch", [tangent_handle], #{}));
+    }, fn() => u_ca_hold("unverified-return-prerequisites", [], #{}));
+  };
+  let spectral = fn(return_handle: Value, options: Value) => {
+    let found = lookup(return_handle, "CDC.ReturnMap");
+    yield u_choose(found.found, fn() => {
+      let r = found.value; let matrix = r.matrix; let n = native.list_length(matrix);
+      let tolerance = u_real(u_get(options, "residual_tolerance", 0.0000000001));
+      let stability = u_real(u_get(options, "stability_tolerance", 0.00000001));
+      let earned = [r.path, r.tangent, r.recurrence, return_handle];
+      yield u_choose(native.bool_and(u_ca_keys(options, ["residual_tolerance", "stability_tolerance"]),
+        native.bool_and(u_ca_finite(tolerance), native.bool_and(u_ca_finite(stability),
+          native.bool_and(u_real_le(0.0, tolerance), u_real_le(0.0, stability))))), fn() => {
+        let upper = u_ca_triangle(matrix, false); let lower = u_ca_triangle(matrix, true);
+        yield u_choose(native.bool_and(native.int_gt(n, 0), native.bool_or(upper, lower)), fn() => {
+          let order = u_choose(upper, fn() => u_range(n), fn() => native.list_reverse(u_range(n)));
+          let q = u_map(u_range(n), fn(i: Int) => u_map(order, fn(j: Int) => u_choose(native.int_eq(i, j), fn() => 1.0, fn() => 0.0)));
+          let t = u_map(order, fn(i: Int) => u_map(order, fn(j: Int) => u_ca_at(matrix, i, j)));
+          let qt = u_map(u_range(n), fn(i: Int) => u_map(u_range(n), fn(j: Int) => u_ca_at(q, j, i)));
+          let reconstructed = u_ca_multiply(u_ca_multiply(q, t), qt);
+          let orthogonal = u_ca_multiply(qt, q);
+          let residual = u_fold(u_range(n), 0.0, fn(acc: Real, i: Int) => u_fold(u_range(n), acc,
+            fn(value: Real, j: Int) => u_max(value, u_abs(u_real_sub(u_ca_at(reconstructed, i, j), u_ca_at(matrix, i, j))))));
+          let orthogonality = u_fold(u_range(n), 0.0, fn(acc: Real, i: Int) => u_fold(u_range(n), acc,
+            fn(value: Real, j: Int) => u_max(value, u_abs(u_real_sub(u_ca_at(orthogonal, i, j),
+              u_choose(native.int_eq(i, j), fn() => 1.0, fn() => 0.0))))));
+          let eigenvalues = u_map(u_range(n), fn(i: Int) => u_ca_at(t, i, i));
+          yield u_choose(native.bool_and(u_real_le(residual, tolerance), u_real_le(orthogonality, tolerance)), fn() => {
+            let unstable = u_any(eigenvalues, fn(x: Real) => native.f64_gt(u_abs(x), u_real_add(1.0, stability)));
+            let stable = u_all(eigenvalues, fn(x: Real) => native.f64_lt(u_abs(x), u_real_sub(1.0, stability)));
+            let verdict = u_choose(unstable, fn() => "unstable", fn() => u_choose(stable, fn() => "stable", fn() => "marginal"));
+            let handle = issue("CDC.Spectrum", #{kind: "Spectrum", return_map: return_handle, eigenvalues: eigenvalues,
+              classification: verdict, q: q, t: t, residual: residual, orthogonality_residual: orthogonality,
+              tolerance: tolerance, stability_tolerance: stability, method: "validated-triangular-real-schur",
+              neutral_modes_removed: 0, numerical: true});
+            yield u_ca_done(handle, native.list_append(earned, [handle]));
+          }, fn() => u_ca_hold("spectral-residual-validation-failed", earned, #{residual: residual, orthogonality: orthogonality}));
+        }, fn() => u_ca_hold("dense-real-schur-backend-unavailable", earned, #{return_map: return_handle, dimension: n}));
+      }, fn() => u_ca_hold("invalid-spectral-options", earned, #{}));
+    }, fn() => u_ca_hold("unverified-return-map", [], #{}));
+  };
+  let inspect = fn(handle: Value) => {
+    let entries = u_filter(native.buffer_freeze(registry), fn(e: Value) => native.value_equal(e.handle, handle));
+    yield u_choose(native.int_eq(native.list_length(entries), 1), fn() => {
+      let entry = native.list_get(entries, 0);
+      native.resource_peek(handle, entry.kind);
+      yield entry.payload;
+    }, fn() => u_ca_hold("unverified-cdc-artifact", [], #{}));
+  };
+  let u1_close = fn(path: Value, checks: Value) => {
+    let entry = lookup(path, "CDC.ExecutedPath");
+    yield u_choose(entry.found, fn() => u_ca_hold("u1-complete-binding-unavailable", [path],
+      #{executed_path: entry.value.status, obligations: ["source-bound reciprocal roles and pair identity",
+        "oriented double-cover and holonomy", "generated decision coordinate", "executed effect binding"],
+        caller_checks_confer_authority: false}), fn() => u_ca_hold("unverified-executed-path", [], #{}));
+  };
+  yield #{execute: execute, tangent: tangent, tangent_with: tangent_with, recurrence: recurrence_check,
+    return_map: return_map, spectral: spectral, inspect: inspect, u1_close: u1_close};
+};
+def ad: Value = #{executed_path: u_cdc_analysis.tangent};
+def recurrence: Value = #{check: u_cdc_analysis.recurrence};
+def linear: Value = #{return_map: u_cdc_analysis.return_map};
+def spectral: Value = #{real_schur: u_cdc_analysis.spectral};
+def analysis: Value = #{then: u_ca_then};
+// Hoisted wrappers allow the earlier CDC namespace to expose these operations
+// without reading this module's private registry before initialization.
+def u_cdc_execute(initial: Value, steps: Value, source_identity: Text) -> Value =
+  u_cdc_analysis.execute(initial, steps, source_identity);
+def u_cdc_inspect(artifact: Value) -> Value = u_cdc_analysis.inspect(artifact);
+def u_cdc_u1_close(path: Value, checks: Value) -> Value = u_cdc_analysis.u1_close(path, checks);

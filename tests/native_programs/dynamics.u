@@ -1,0 +1,29 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+def rc(resistance: Real, capacitance: Real, source: Value) -> Value =
+  dynamics.dae(fn(v: Value, i: Value) => #{equations: [
+    dynamics.equal(source, dynamics.add(v, dynamics.scale(resistance, i))),
+    dynamics.equal(i, dynamics.scale(capacitance, dynamics.derivative(v)))],
+    initial: [dynamics.at(v, 0.0, 0.0)]});
+def main() -> Value = {
+  let system = rc(1.0, 1.0, 1.0);
+  let coarse = dynamics.solve(system, "backward_euler.affine_index1", #{dt: 0.1, steps: 10});
+  let fine = dynamics.solve(system, "backward_euler.affine_index1", #{dt: 0.05, steps: 20});
+  let exact = u_real_sub(1.0, native.math_exp(-1.0));
+  let coarse_error = u_abs(u_real_sub(native.list_get(coarse.trace, 10).state.v, exact));
+  let fine_error = u_abs(u_real_sub(native.list_get(fine.trace, 20).state.v, exact));
+  u_require(u_real_lt(fine_error, coarse_error), "RC refinement must reduce endpoint error");
+  u_require(u_real_lt(fine.max_step_residual, 0.000000000001), "RC equation residual exceeds declared tolerance");
+  u_require(u_all(fine.trace, fn(sample: Value) => u_real_lt(u_abs(u_real_sub(u_real_add(sample.state.v, sample.state.i), 1.0)), 0.000000000001)), "RC algebraic equation violated");
+  let calls = native.cell_new(0);
+  let inert = rc(1.0, 1.0, fn(time: Real) => { native.cell_set(calls, native.int_add(native.cell_get(calls), 1)); yield 1.0; });
+  u_require(native.int_eq(native.cell_get(calls), 0), "DAE construction sampled forcing trajectory");
+  dynamics.solve(inert, "backward_euler.affine_index1", #{dt: 0.1, steps: 2});
+  u_require(native.int_eq(native.cell_get(calls), 3), "forcing trajectory sampling points changed");
+  let algebraic = dynamics.dae(fn(x: Value, y: Value) => #{equations: [dynamics.equal(y, 2.0), dynamics.equal(x, 1.0)]});
+  let pivoted = dynamics.solve(algebraic, "backward_euler.affine_index1", #{dt: 0.1, steps: 1});
+  u_require(native.value_equal(native.list_get(pivoted.trace, 0).state, #{x: 1.0, y: 2.0}), "initial algebraic values were not solved");
+  yield #{status: "passed", coarse_error: coarse_error, fine_error: fine_error,
+    max_step_residual: fine.max_step_residual, forcing_samples: native.cell_get(calls),
+    pivoted_initial: native.list_get(pivoted.trace, 0).state, physical: false};
+};

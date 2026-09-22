@@ -1,0 +1,79 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def main() -> Value = {
+  let a = #{a: 1, b: [2, 3]}; let b = native.record_make(["b", "a"], [[2, 3], 1]);
+  u_require(native.text_eq(evidence.canonical(a), evidence.canonical(b)), "record order changes identity");
+  let forged_int = native.record_make(["$int"], ["1"]);
+  let forged_float = native.record_make(["$f64"], ["3ff0000000000000"]);
+  u_require(native.bool_not(native.text_eq(evidence.canonical(1), evidence.canonical(forged_int))), "integer tag collides with map");
+  u_require(native.bool_not(native.text_eq(evidence.canonical(1.0), evidence.canonical(forged_float))), "float tag collides with map");
+  u_require(native.bool_not(native.text_eq(evidence.canonical([1, 2]), evidence.canonical((1, 2)))), "tuple/list identity collision");
+  u_require(native.bool_not(native.text_eq(evidence.canonical(1), evidence.canonical(1.0))), "integer/float identity collision");
+  u_require(native.bool_not(native.text_eq(evidence.canonical(0.0), evidence.canonical(-0.0))), "signed zero lost");
+  u_require(native.text_eq(evidence.canonical(1.0), "f3ff0000000000000;"), "binary64 bits changed");
+  u_require(native.text_eq(evidence.canonical(123456789012345678901234567890), "i123456789012345678901234567890;"), "integer narrowed");
+  u_require(native.bool_not(native.text_eq(evidence.digest("a", "bc"), evidence.digest("ab", "c"))), "unframed domain collision");
+  u_require(native.text_eq(evidence.digest("vector", 1), "sha256:e888cf2a6705718f09f32ce10530da6ee84d2e7735fe5eb9386b88af88eddd08"), "independent SHA-256 framing vector mismatch");
+  u_require(native.text_eq(evidence.canonical("λ\u0000"), "t3:λ\u0000"), "UTF-8 or embedded NUL framing changed");
+  let source = evidence.artifact("source", #{text: "sample"}, []);
+  let meaning = evidence.artifact("meaning", #{operation: "identity"}, [source.identity]);
+  let receipt = evidence.receipt("execution", meaning.identity, [], ["finite input"], "Done", #{output: 1});
+  u_require(evidence.verify(receipt, meaning.identity), "valid receipt rejected");
+  let changed = evidence.artifact("meaning", #{operation: "changed"}, [source.identity]);
+  u_require(native.bool_not(evidence.verify(receipt, changed.identity)), "stale subject accepted");
+  u_require(native.bool_not(evidence.verify(native.record_put(receipt, "payload", #{output: 2}), meaning.identity)), "tampered receipt accepted");
+  let forged_authority_body = native.record_put(u_ev_without(receipt, "identity"), "authority", "proof");
+  let forged_authority = native.record_put(forged_authority_body, "identity", evidence.digest("receipt", forged_authority_body));
+  u_require(native.bool_not(evidence.verify(forged_authority, meaning.identity)), "JSON proof authority accepted");
+  let store = native.record_make([source.identity, meaning.identity], [source, meaning]);
+  u_require(evidence.validate_dag(store).admitted, "valid dependency graph refused");
+  let observation = evidence.artifact("evidence", #{observation: 1}, []);
+  let intermediary = evidence.artifact("operator", #{name: "indirect"}, [observation.identity]);
+  let contaminated = evidence.artifact("meaning", #{name: "contaminated"}, [intermediary.identity]);
+  let bad_store = native.record_make([observation.identity, intermediary.identity, contaminated.identity], [observation, intermediary, contaminated]);
+  let transitive = evidence.validate_dag(bad_store);
+  u_require(native.bool_not(transitive.admitted), "transitive meaning/evidence dependency admitted");
+  u_require(u_contains(transitive.obligations, native.text_concat("meaning-evidence-dependency:", contaminated.identity)), "transitive dependency not identified");
+  let cyclic = evidence.validate_dag(#{a: #{kind: "meaning", dependencies: ["b"]}, b: #{kind: "operator", dependencies: ["a"]}});
+  u_require(native.bool_not(cyclic.admitted), "cycle admitted");
+  u_require(u_contains(cyclic.obligations, "dependency-cycle:a"), "cycle not identified");
+  u_require(native.bool_not(evidence.validate_dag(#{bad: 1}).admitted), "malformed graph item admitted");
+  let transformed = evidence.transform(meaning, #{operation: "changed"}, [source.identity],
+    #{rule: "replace-payload", scope: "payload", source: meaning.identity, evidence: [receipt], checked: true});
+  u_require(transformed.admitted, "valid replacement refused");
+  u_require(native.int_eq(native.list_length(transformed.retained_evidence), 0), "changed subject retained evidence");
+  u_require(native.int_eq(native.list_length(transformed.invalidated_evidence), 1), "old evidence not invalidated");
+  u_require(native.text_eq(meaning.payload.operation, "identity"), "immutable source was changed");
+  let scope_forgery = evidence.transform(meaning, #{operation: "changed"}, [source.identity],
+    #{rule: "identity", scope: "all", source: meaning.identity, evidence: [receipt], checked: true});
+  u_require(native.bool_not(scope_forgery.admitted), "unchecked identity transform accepted");
+  let stale_transform = evidence.transform(meaning, meaning.payload, meaning.dependencies,
+    #{rule: "identity", scope: "all", source: changed.identity});
+  u_require(native.bool_not(stale_transform.admitted), "wrong transform source accepted");
+  let same_transform = evidence.transform(meaning, meaning.payload, meaning.dependencies,
+    #{rule: "identity", scope: "all", source: meaning.identity, evidence: [receipt]});
+  u_require(native.int_eq(native.list_length(same_transform.retained_evidence), 1), "unchanged subject lost scoped evidence");
+  let realization = evidence.artifact("realization", #{meaning: meaning.identity, backend: "A", semantic_contract: "strict-v1"}, [meaning.identity]);
+  let swap = evidence.transform(realization, #{meaning: meaning.identity, backend: "B", semantic_contract: "strict-v1"}, [meaning.identity],
+    #{rule: "replace-realization", scope: "realization", source: realization.identity});
+  u_require(native.bool_and(swap.admitted, swap.declared_meaning_unchanged), "contract-preserving backend swap refused");
+  let semantic_swap = evidence.transform(realization, #{meaning: meaning.identity, backend: "B", semantic_contract: "fast-v2"}, [meaning.identity],
+    #{rule: "replace-realization", scope: "realization", source: realization.identity});
+  u_require(native.bool_not(semantic_swap.admitted), "semantic change disguised as backend swap");
+  let prior = admission.compose(["V", "P", "R"], ["u.standard/0.1", "u.prob-choice/before/0.1"], ());
+  let later = admission.compose(["V", "P", "R"], ["u.standard/0.1", "u.prob-choice/after/0.1"], ());
+  u_require(native.bool_and(prior.admitted, later.admitted), "explicit ordered profiles refused");
+  u_require(native.bool_not(native.text_eq(prior.profile, later.profile)), "observation orders share identity");
+  u_require(native.bool_not(admission.compose(["P", "R"], ["u.standard/0.1"], ()).admitted), "implicit P/R order admitted");
+  u_require(native.bool_not(admission.compose(["P", "R"], ["u.prob-choice/before/0.1", "u.prob-choice/after/0.1"], ()).admitted), "conflicting profiles admitted");
+  u_require(native.bool_not(admission.compose(["P", "R"], ["u.prob-choice/before/0.1"], "after").admitted), "conflicting explicit order admitted");
+  u_require(native.bool_not(admission.compose(["unknown"], ["u.standard/0.1"], ()).admitted), "unknown family admitted");
+  u_require(native.bool_not(admission.compose(["V"], ["unavailable/1"], ()).admitted), "unknown profile admitted");
+  u_require(native.bool_not(admission.compose(["P", "R"], ["u.standard/0.1"], 42).admitted), "malformed ordering admitted");
+  u_require(native.bool_not(admission.compose(["P", "Q"], ["u.standard/0.1"], ()).admitted), "unknown composite admitted");
+  let descriptor = admission.descriptor("native-definition", "native-u", ["associativity"], [], ["checked-library"], ["portable-c/1"]);
+  u_require(native.text_eq(descriptor.law_verification, "requires separate checked certificates"), "law names became proof authority");
+  yield #{status: "passed", canonical_profile: "etellis.u/typed-identity/2", checks: 40,
+    identity: meaning.identity, proof_authority: false, exact_binary64: true};
+};

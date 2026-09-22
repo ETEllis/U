@@ -1,0 +1,113 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Classical value algorithms are U definitions. Native calls below are the
+// disclosed value, allocation, arithmetic and function-application boundary.
+def u_choose(test: Bool, yes: Value, no: Value) -> Value =
+  native.value_select(test, yes, no)();
+
+def u_fail(message: Text) -> Value = native.value_fail(message);
+def u_require(test: Bool, message: Text) -> Value =
+  u_choose(test, fn() => native.value_unit(), fn() => u_fail(message));
+def u_loop(initial: Value, predicate: Value, step: Value) -> Value =
+  native.partial_value(native.core_fix_partial(
+    fn(again: Value, state: Value) =>
+      u_choose(predicate(state), fn() => again(step(state)),
+        fn() => native.partial_done(state)), initial));
+def u_for(count: Int, body: Value) -> Value = {
+  u_require(native.int_ge(count, 0), "negative iteration count");
+  u_loop(0, fn(i: Int) => native.int_lt(i, count), fn(i: Int) => {
+    body(i);
+    yield native.int_add(i, 1);
+  });
+  yield native.value_unit();
+};
+def u_fold(xs: Value, initial: Value, body: Value) -> Value = {
+  let state = u_loop(#{i: 0, value: initial},
+    fn(s: Value) => native.int_lt(s.i, native.list_length(xs)),
+    fn(s: Value) => #{i: native.int_add(s.i, 1),
+      value: body(s.value, native.list_get(xs, s.i))});
+  yield state.value;
+};
+def u_map(xs: Value, body: Value) -> Value = {
+  let out = native.buffer_new();
+  u_for(native.list_length(xs), fn(i: Int) =>
+    native.buffer_push(out, body(native.list_get(xs, i))));
+  yield native.buffer_freeze(out);
+};
+def u_filter(xs: Value, predicate: Value) -> Value = {
+  let out = native.buffer_new();
+  u_for(native.list_length(xs), fn(i: Int) => {
+    let value = native.list_get(xs, i);
+    yield u_choose(predicate(value), fn() => native.buffer_push(out, value),
+      fn() => native.value_unit());
+  });
+  yield native.buffer_freeze(out);
+};
+def u_range(count: Int) -> Value = {
+  let out = native.buffer_new();
+  u_for(count, fn(i: Int) => native.buffer_push(out, i));
+  yield native.buffer_freeze(out);
+};
+def u_all(xs: Value, predicate: Value) -> Bool =
+  u_fold(xs, true, fn(value: Bool, x: Value) =>
+    u_choose(value, fn() => predicate(x), fn() => false));
+def u_any(xs: Value, predicate: Value) -> Bool =
+  u_fold(xs, false, fn(value: Bool, x: Value) =>
+    u_choose(value, fn() => true, fn() => predicate(x)));
+def u_contains(xs: Value, value: Value) -> Bool =
+  u_any(xs, fn(x: Value) => native.value_equal(x, value));
+def u_get(record: Value, key: Text, fallback: Value) -> Value =
+  u_choose(native.record_has(record, key),
+    fn() => native.record_get(record, key), fn() => fallback);
+def u_flatmap(xs: Value, body: Value) -> Value = {
+  let out = native.buffer_new();
+  u_for(native.list_length(xs), fn(i: Int) => {
+    let values = body(native.list_get(xs, i));
+    yield u_for(native.list_length(values), fn(j: Int) =>
+      native.buffer_push(out, native.list_get(values, j)));
+  });
+  yield native.buffer_freeze(out);
+};
+def u_list_set(xs: Value, index: Int, value: Value) -> Value = {
+  u_require(native.bool_and(native.int_ge(index, 0), native.int_lt(index, native.list_length(xs))), "list index out of range");
+  yield u_map(u_range(native.list_length(xs)), fn(i: Int) =>
+    u_choose(native.int_eq(i, index), fn() => value, fn() => native.list_get(xs, i)));
+};
+def u_nat_rec(n: Nat, initial: Value, body: Value) -> Value = {
+  u_require(native.int_ge(n, 0), "Nat recursion requires nonnegative input");
+  yield u_fold(u_range(n), initial, fn(result: Value, i: Int) => body(i, result));
+};
+def u_nat_succ(n: Nat) -> Nat = native.nat_succ(n);
+def u_nat_induction(n: Nat, motive: Value, base: Value, step: Value) -> Value =
+  u_nat_rec(n, base, step);
+def u_sum_make(tag: Text, value: Value) -> Value = #{tag: tag, value: value};
+def u_sum_case(value: Value, branches: Value) -> Value =
+  native.record_get(branches, value.tag)(value.value);
+def u_option_when(test: Bool, body: Value) -> Value =
+  u_choose(test, fn() => #{tag: "some", value: body()},
+    fn() => #{tag: "none", value: native.value_unit()});
+def u_option_some(value: Value) -> Value = #{tag: "some", value: value};
+def u_option_none() -> Value = #{tag: "none", value: native.value_unit()};
+def u_type_record(fields: Value) -> Value = #{kind: "record-type", fields: fields};
+def u_type_sum(fields: Value) -> Value = #{kind: "sum-type", fields: fields};
+def u_bits_u8(n: Int) -> Int = {
+  u_require(native.bool_and(native.int_ge(n, 0), native.int_lt(n, 256)), "U8 out of range");
+  yield n;
+};
+def u_bits_add_wrap(a: Int, b: Int) -> Int = native.int_mod(native.int_add(a, b), 256);
+
+def list: Value = #{map: u_map, filter: u_filter, fold_left: u_fold,
+  cons: native.list_cons, head_or: native.list_head_or, tail_or_empty: native.list_tail_or_empty,
+  length: native.list_length, get: native.list_get, reverse: native.list_reverse,
+  append: native.list_append, range: u_range};
+def nat: Value = #{zero: native.nat_zero, succ: u_nat_succ,
+  add: native.nat_add, sub: native.nat_sub, mul: native.nat_mul,
+  eq: native.nat_eq, lt: native.nat_lt, le: native.nat_le, gt: native.nat_gt, ge: native.nat_ge,
+  ceil_div: native.nat_ceil_div, rec: u_nat_rec, induction: u_nat_induction};
+def tuple: Value = #{first: native.tuple_first, second: native.tuple_second,
+  get: native.tuple_get, make: native.tuple_make};
+def sum: Value = #{make: u_sum_make, case: u_sum_case};
+def option: Value = #{when: u_option_when, some: u_option_some, none: u_option_none};
+def types: Value = #{record: u_type_record, sum: u_type_sum};
+def bits: Value = #{u8: u_bits_u8, add_wrap: u_bits_add_wrap};

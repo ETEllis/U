@@ -1,0 +1,6 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+// Synthetic encoder fixture; this balanced nonzero predicate is not a CDC law.
+def admissible(a: Int, b: Int, c: Int, d: Int) -> Bool =
+  bool.and(int.eq(int.add(int.add(a, b), int.add(c, d)), 0),
+    bool.or(bool.not(int.eq(a, 0)), bool.or(int.ne(b, 0), bool.or(int.ne(c, 0), int.ne(d, 0)))));

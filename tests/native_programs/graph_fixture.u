@@ -1,0 +1,10 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+def square(x: Int) -> Int = int.mul(x, x);
+def graph_fixture() -> Value = {
+  let offset = 7;
+  let add = fn(x: Int) => int.add(x, offset);
+  let values = [1, 2, 3];
+  yield #{square: square(7), captured: add(5), values: values, text: "λ\u0000U", pair: (1, 2)};
+};

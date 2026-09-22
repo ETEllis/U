@@ -1,0 +1,29 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// Code is a classical, staged description with an already compiled U region.
+// Realization calls that region directly; it never interprets foreign source.
+def u_code_stage: Value = native.cell_new(0);
+def u_code_quote(region: Value) -> Value = #{kind: "Code", region: region,
+  description: native.value_describe(region), stage: 1};
+def u_code_realize(code: Value) -> Value = {
+  u_require(native.text_eq(code.kind, "Code"), "code realization requires a Code value");
+  let previous = native.cell_get(u_code_stage);
+  native.cell_set(u_code_stage, native.int_add(previous, 1));
+  let result = native.value_try_call(code.region, []);
+  native.cell_set(u_code_stage, previous);
+  u_require(result.ok, u_get(result, "message", "quoted region failed"));
+  yield result.value;
+};
+def u_code_splice(code: Value) -> Value = {
+  u_require(native.int_gt(native.cell_get(u_code_stage), 0), "splice requires an active quotation region");
+  yield u_code_realize(code);
+};
+def u_code_bind_once(argument: Value, body: Value) -> Value = u_code_quote(fn() => {
+  let value = u_code_realize(argument);
+  let variable = u_code_quote(fn() => value);
+  yield u_code_realize(body(variable));
+});
+def u_code_inspect(code: Value) -> Value = code.description;
+def syntax: Value = #{quote: u_code_quote, splice: u_code_splice,
+  bind_once: u_code_bind_once, realize: u_code_realize, inspect: u_code_inspect};

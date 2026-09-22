@@ -1,0 +1,255 @@
+u "etellis.u/0.1";
+use "u.standard/0.1";
+
+// A closed total proof calculus, implemented in U. Candidate syntax cannot
+// introduce ordinary program evaluation, foreign calls or partial recursion.
+def u_pk_remaining: Value = native.cell_new(100000);
+def u_pk_tick() -> Unit = {
+  let n = native.int_sub(native.cell_get(u_pk_remaining), 1);
+  native.cell_set(u_pk_remaining, n);
+  yield u_require(native.int_ge(n, 0), "proof checker resource limit; no proof issued");
+};
+def u_pk_tag(term: Value) -> Text = native.list_get(term, 0);
+def u_pk_arg(term: Value, i: Int) -> Value = native.list_get(term, i);
+def u_pk_validate_shape(term: Value) -> Unit = {
+  let arities = #{Nat: 1, sort: 2, nat: 2, var: 2, pi: 4, lam: 4,
+    app: 3, succ: 2, add: 3, eq: 4, refl: 3, cong: 5, ind: 5};
+  let tag = u_pk_tag(term);
+  u_require(native.record_has(arities, tag), "unadmitted total proof constructor");
+  yield u_require(native.int_eq(native.list_length(term), native.record_get(arities, tag)), "invalid total proof constructor arity");
+};
+def u_pk_term(value: Value) -> Bool = native.text_eq(native.value_kind(value), "list");
+def u_pk_free(term: Value) -> Value = {
+  let tag = u_pk_tag(term);
+  yield u_choose(native.text_eq(tag, "var"), fn() => [u_pk_arg(term, 1)],
+    fn() => u_choose(u_contains(["lam", "pi"], tag), fn() =>
+      native.list_append(u_pk_free(u_pk_arg(term, 2)),
+        u_filter(u_pk_free(u_pk_arg(term, 3)), fn(name: Text) => native.bool_not(native.text_eq(name, u_pk_arg(term, 1))))),
+      fn() => u_flatmap(native.list_tail_or_empty(term), fn(item: Value) =>
+        u_choose(u_pk_term(item), fn() => u_pk_free(item), fn() => []))));
+};
+def u_pk_fresh(name: Text, used: Value) -> Text =
+  u_loop(name, fn(candidate: Text) => u_contains(used, candidate),
+    fn(candidate: Text) => native.text_concat(candidate, "_"));
+def u_pk_subst(term: Value, name: Text, value: Value) -> Value = {
+  u_pk_tick();
+  let tag = u_pk_tag(term);
+  yield u_choose(native.text_eq(tag, "var"), fn() =>
+    u_choose(native.text_eq(u_pk_arg(term, 1), name), fn() => value, fn() => term),
+    fn() => u_choose(u_contains(["lam", "pi"], tag), fn() => {
+      let binder = u_pk_arg(term, 1);
+      let type = u_pk_subst(u_pk_arg(term, 2), name, value);
+      let body = u_pk_arg(term, 3);
+      yield u_choose(native.text_eq(binder, name), fn() => [tag, binder, type, body], fn() => {
+        let fresh = u_choose(u_contains(u_pk_free(value), binder), fn() =>
+          u_pk_fresh(native.text_concat(binder, "_"), native.list_append(u_pk_free(body),
+            native.list_append(u_pk_free(value), [name, binder]))), fn() => binder);
+        let renamed = u_choose(native.text_eq(fresh, binder), fn() => body,
+          fn() => u_pk_subst(body, binder, ["var", fresh]));
+        yield [tag, fresh, type, u_pk_subst(renamed, name, value)];
+      });
+    }, fn() => u_map(term, fn(item: Value) =>
+      u_choose(u_pk_term(item), fn() => u_pk_subst(item, name, value), fn() => item))));
+};
+def u_pk_alpha(term: Value, context: Value) -> Value = {
+  let tag = u_pk_tag(term);
+  yield u_choose(native.text_eq(tag, "var"), fn() => {
+    let found = u_filter(u_range(native.list_length(context)), fn(i: Int) =>
+      native.text_eq(native.list_get(context, i), u_pk_arg(term, 1)));
+    yield u_choose(native.int_gt(native.list_length(found), 0),
+      fn() => ["bound", native.list_get(found, 0)], fn() => term);
+  }, fn() => u_choose(u_contains(["lam", "pi"], tag), fn() =>
+    [tag, u_pk_alpha(u_pk_arg(term, 2), context),
+      u_pk_alpha(u_pk_arg(term, 3), native.list_cons(u_pk_arg(term, 1), context))],
+    fn() => u_map(term, fn(item: Value) =>
+      u_choose(u_pk_term(item), fn() => u_pk_alpha(item, context), fn() => item))));
+};
+def u_pk_norm(term: Value) -> Value = {
+  u_pk_tick();
+  u_pk_validate_shape(term);
+  let tag = u_pk_tag(term);
+  yield u_choose(u_contains(["sort", "Nat", "nat", "var"], tag), fn() => term,
+    fn() => u_choose(u_contains(["lam", "pi"], tag), fn() =>
+      [tag, u_pk_arg(term, 1), u_pk_norm(u_pk_arg(term, 2)), u_pk_norm(u_pk_arg(term, 3))], fn() => {
+      let args = u_map(native.list_tail_or_empty(term), fn(a: Value) =>
+        u_choose(u_pk_term(a), fn() => u_pk_norm(a), fn() => a));
+      yield u_choose(native.text_eq(tag, "app"), fn() => {
+        let f = native.list_get(args, 0); let x = native.list_get(args, 1);
+        yield u_choose(native.text_eq(u_pk_tag(f), "lam"), fn() =>
+          u_pk_norm(u_pk_subst(u_pk_arg(f, 3), u_pk_arg(f, 1), x)), fn() => native.list_cons(tag, args));
+      }, fn() => u_choose(native.text_eq(tag, "succ"), fn() => {
+        let x = native.list_get(args, 0);
+        yield u_choose(native.text_eq(u_pk_tag(x), "nat"),
+          fn() => ["nat", native.int_add(u_pk_arg(x, 1), 1)], fn() => ["succ", x]);
+      }, fn() => u_choose(native.text_eq(tag, "add"), fn() => {
+        let a = native.list_get(args, 0); let b = native.list_get(args, 1);
+        yield u_choose(native.value_equal(b, ["nat", 0]), fn() => a,
+          fn() => u_choose(native.text_eq(u_pk_tag(b), "nat"), fn() =>
+            u_choose(native.text_eq(u_pk_tag(a), "nat"), fn() => ["nat", native.int_add(u_pk_arg(a, 1), u_pk_arg(b, 1))],
+              fn() => u_fold(u_range(u_pk_arg(b, 1)), a, fn(value: Value, i: Int) => {u_pk_tick(); yield ["succ", value];})),
+            fn() => u_choose(native.text_eq(u_pk_tag(b), "succ"),
+              fn() => u_pk_norm(["succ", ["add", a, u_pk_arg(b, 1)]]), fn() => ["add", a, b])));
+      }, fn() => u_choose(native.text_eq(tag, "ind"), fn() => {
+        let n = native.list_get(args, 0);
+        yield u_choose(native.text_eq(u_pk_tag(n), "nat"), fn() =>
+          u_fold(u_range(u_pk_arg(n, 1)), native.list_get(args, 2), fn(value: Value, i: Int) =>
+            u_pk_norm(["app", ["app", native.list_get(args, 3), ["nat", i]], value])),
+          fn() => native.list_cons(tag, args));
+      }, fn() => native.list_cons(tag, args)))));
+    }));
+};
+def u_pk_equal(a: Value, b: Value) -> Bool = native.value_equal(u_pk_alpha(u_pk_norm(a), []), u_pk_alpha(u_pk_norm(b), []));
+def u_pk_expect(term: Value, type: Value, context: Value) -> Unit =
+  u_require(u_pk_equal(u_pk_infer(term, context), type), "proof type mismatch");
+def u_pk_infer(term: Value, context: Value) -> Value = {
+  u_pk_tick();
+  u_pk_validate_shape(term);
+  let tag = u_pk_tag(term);
+  yield u_choose(native.text_eq(tag, "sort"), fn() => {
+    let level = u_pk_arg(term, 1);
+    u_require(native.bool_and(native.int_ge(level, 0), native.int_le(level, 64)), "invalid universe level");
+    yield ["sort", native.int_add(level, 1)];
+  }, fn() => u_choose(native.text_eq(tag, "Nat"), fn() => ["sort", 0],
+    fn() => u_choose(native.text_eq(tag, "nat"), fn() => {
+      u_require(native.int_ge(u_pk_arg(term, 1), 0), "negative Nat literal"); yield ["Nat"];
+    }, fn() => u_choose(native.text_eq(tag, "var"), fn() => native.record_get(context, u_pk_arg(term, 1)),
+      fn() => u_choose(u_contains(["lam", "pi"], tag), fn() => {
+        let name = u_pk_arg(term, 1); let type = u_pk_arg(term, 2); let body = u_pk_arg(term, 3);
+        u_require(native.bool_not(native.record_has(context, name)), "proof binder shadows dependent context");
+        let universe = u_pk_norm(u_pk_infer(type, context));
+        u_require(native.text_eq(u_pk_tag(universe), "sort"), "binder annotation is not a type");
+        let result = u_pk_infer(body, native.record_put(context, name, type));
+        yield u_choose(native.text_eq(tag, "lam"), fn() => ["pi", name, type, result], fn() => {
+          let codomain = u_pk_norm(result);
+          u_require(native.text_eq(u_pk_tag(codomain), "sort"), "Pi codomain is not a type");
+          yield ["sort", u_choose(native.int_gt(u_pk_arg(universe, 1), u_pk_arg(codomain, 1)),
+            fn() => u_pk_arg(universe, 1), fn() => u_pk_arg(codomain, 1))];
+        });
+      }, fn() => u_choose(native.text_eq(tag, "app"), fn() => {
+        let f = u_pk_norm(u_pk_infer(u_pk_arg(term, 1), context));
+        u_require(native.text_eq(u_pk_tag(f), "pi"), "proof application requires Pi");
+        u_pk_expect(u_pk_arg(term, 2), u_pk_arg(f, 2), context);
+        yield u_pk_subst(u_pk_arg(f, 3), u_pk_arg(f, 1), u_pk_arg(term, 2));
+      }, fn() => u_choose(u_contains(["succ", "add"], tag), fn() => {
+        u_for(native.int_sub(native.list_length(term), 1), fn(i: Int) => u_pk_expect(u_pk_arg(term, native.int_add(i, 1)), ["Nat"], context));
+        yield ["Nat"];
+      }, fn() => u_choose(native.text_eq(tag, "eq"), fn() => {
+        let type = u_pk_arg(term, 1); let universe = u_pk_norm(u_pk_infer(type, context));
+        u_require(native.text_eq(u_pk_tag(universe), "sort"), "equality carrier is not a type");
+        u_pk_expect(u_pk_arg(term, 2), type, context); u_pk_expect(u_pk_arg(term, 3), type, context);
+        yield universe;
+      }, fn() => u_choose(native.text_eq(tag, "refl"), fn() => {
+        u_pk_expect(u_pk_arg(term, 2), u_pk_arg(term, 1), context);
+        yield ["eq", u_pk_arg(term, 1), u_pk_arg(term, 2), u_pk_arg(term, 2)];
+      }, fn() => u_choose(native.text_eq(tag, "cong"), fn() => {
+        let a = u_pk_arg(term, 1); let b = u_pk_arg(term, 2); let f = u_pk_arg(term, 3);
+        let fresh = u_pk_fresh("_cong", native.list_append(native.record_keys(context), native.list_append(u_pk_free(a), u_pk_free(b))));
+        u_pk_expect(f, ["pi", fresh, a, b], context);
+        let equality = u_pk_norm(u_pk_infer(u_pk_arg(term, 4), context));
+        u_require(native.bool_and(native.text_eq(u_pk_tag(equality), "eq"), u_pk_equal(u_pk_arg(equality, 1), a)), "congruence requires equality evidence");
+        yield ["eq", b, ["app", f, u_pk_arg(equality, 2)], ["app", f, u_pk_arg(equality, 3)]];
+      }, fn() => u_choose(native.text_eq(tag, "ind"), fn() => {
+        let n = u_pk_arg(term, 1); let motive = u_pk_arg(term, 2); let base = u_pk_arg(term, 3); let step = u_pk_arg(term, 4);
+        u_pk_expect(n, ["Nat"], context);
+        let mt = u_pk_norm(u_pk_infer(motive, context));
+        u_require(native.text_eq(u_pk_tag(mt), "pi"), "induction motive must be a function");
+        u_require(native.bool_and(u_pk_equal(u_pk_arg(mt, 2), ["Nat"]),
+          native.text_eq(u_pk_tag(u_pk_norm(u_pk_arg(mt, 3))), "sort")), "induction motive must return a type");
+        u_pk_expect(base, ["app", motive, ["nat", 0]], context);
+        let used = native.list_append(native.record_keys(context), native.list_append(u_pk_free(motive), u_pk_free(step)));
+        let k = u_pk_fresh("_ind_k", used); let ih = u_pk_fresh("_ind_ih", native.list_cons(k, used));
+        u_pk_expect(step, ["pi", k, ["Nat"], ["pi", ih, ["app", motive, ["var", k]],
+          ["app", motive, ["succ", ["var", k]]]]], context);
+        yield ["app", motive, n];
+      }, fn() => u_fail(native.text_concat("operation outside total proof calculus: ", tag)))))))))))));
+};
+def u_pk_qualified(expr: Value) -> Text =
+  u_choose(native.text_eq(expr.kind, "name"), fn() => expr.name,
+    fn() => u_choose(native.text_eq(expr.kind, "member"),
+      fn() => native.text_concat(native.text_concat(u_pk_qualified(expr.object), "."), expr.name), fn() => ""));
+def u_pk_surface(expr: Value, bound: Value) -> Value = {
+  u_pk_tick();
+  let kind = expr.kind;
+  let name = u_pk_qualified(expr);
+  yield u_choose(native.text_eq(kind, "literal"), fn() => {
+    u_require(native.text_eq(native.value_kind(expr.value), "int"), "proof literal must be a natural");
+    yield ["nat", expr.value];
+  }, fn() => u_choose(native.bool_not(native.text_eq(name, "")), fn() =>
+    u_choose(u_contains(bound, name), fn() => ["var", name],
+      fn() => u_choose(native.text_eq(name, "Nat"), fn() => ["Nat"],
+        fn() => u_choose(native.text_eq(name, "Type"), fn() => ["sort", 0],
+          fn() => u_choose(native.text_eq(name, "nat.succ"), fn() => ["lam", "_succ", ["Nat"], ["succ", ["var", "_succ"]]],
+            fn() => u_fail(native.text_concat("unadmitted proof name: ", name)))))),
+    fn() => u_choose(native.text_eq(kind, "lambda"), fn() => {
+      let context = native.cell_new(bound); let types = native.buffer_new();
+      u_for(native.list_length(expr.params), fn(i: Int) => {
+        let p = native.list_get(expr.params, i);
+        u_require(native.bool_not(u_contains(["Nat", "Type", "Eq", "Pi", "nat", "eq", "proof", "native"], p.name)),
+          "reserved proof name cannot be rebound in the total fragment");
+        native.buffer_push(types, u_pk_surface(p.type, native.cell_get(context)));
+        yield native.cell_set(context, native.list_append(native.cell_get(context), [p.name]));
+      });
+      let body = u_pk_surface(expr.body, native.cell_get(context));
+      yield u_fold(native.list_reverse(u_range(native.list_length(expr.params))), body,
+        fn(result: Value, i: Int) => ["lam", native.list_get(expr.params, i).name, native.buffer_get(types, i), result]);
+    }, fn() => u_choose(native.text_eq(kind, "call"), fn() => {
+      let callee = u_pk_qualified(expr.callee);
+      let names = #{Eq: "eq", nat: ""};
+      let mapping = native.record_make(["Eq", "nat.add", "nat.succ", "native.nat_succ", "eq.refl", "eq.congr", "nat.induction"],
+        ["eq", "add", "succ", "succ", "refl", "cong", "ind"]);
+      yield u_choose(native.text_eq(callee, "Pi"), fn() => {
+        let motive = native.list_get(expr.args, 1);
+        let binder = native.list_get(motive.params, 0).name;
+        yield ["pi", binder, u_pk_surface(native.list_get(expr.args, 0), bound),
+          u_pk_surface(motive.body, native.list_append(bound, [binder]))];
+      }, fn() => u_choose(native.record_has(mapping, callee), fn() =>
+        native.list_cons(native.record_get(mapping, callee), u_map(expr.args, fn(arg: Value) => u_pk_surface(arg, bound))),
+        fn() => u_fold(expr.args, u_pk_surface(expr.callee, bound),
+          fn(f: Value, a: Value) => ["app", f, u_pk_surface(a, bound)])));
+    }, fn() => u_fail("syntax outside total proof calculus")))));
+};
+def u_proof_check(candidate: Value) -> Value = {
+  native.cell_set(u_pk_remaining, 100000);
+  let term = u_choose(native.text_eq(native.value_kind(candidate), "closure"), fn() => {
+    let description = native.value_describe(candidate);
+    yield u_pk_surface(#{kind: "lambda", params: description.params, body: description.body}, []);
+  }, fn() => candidate);
+  let type = u_pk_norm(u_pk_infer(term, #{}));
+  let conclusion = u_loop(type, fn(t: Value) => native.text_eq(u_pk_tag(t), "pi"), fn(t: Value) => u_pk_arg(t, 3));
+  u_require(native.text_eq(u_pk_tag(conclusion), "eq"), "proof.check requires an equality proposition");
+  yield #{verdict: "Done", kind: "ProofReceipt", theorem: type, term: term,
+    checker: "etellis.u/native-total-nat-pi-eq/0.2", assumptions: [],
+    certificate: native.resource_new("CheckedProof", #{term: term, theorem: type})};
+};
+def u_proof_require(receipt: Value) -> Value = {
+  u_require(u_choose(native.text_eq(native.value_kind(receipt), "record"), fn() =>
+    u_all(["certificate", "kind", "checker", "theorem", "term", "assumptions", "verdict"],
+      fn(key: Text) => native.record_has(receipt, key)), fn() => false),
+    "proof execution requires a checked proof receipt");
+  let payload = native.resource_peek(receipt.certificate, "CheckedProof");
+  u_require(native.bool_and(native.bool_and(native.text_eq(receipt.kind, "ProofReceipt"),
+    native.text_eq(receipt.checker, "etellis.u/native-total-nat-pi-eq/0.2")),
+    native.bool_and(native.value_equal(payload.theorem, receipt.theorem),
+      native.value_equal(payload.term, receipt.term))), "invalid proof receipt binding");
+  yield receipt;
+};
+def Eq(carrier: Value, left: Value, right: Value) -> Type =
+  #{kind: "type", name: "Eq", carrier: carrier, left: left, right: right};
+def Pi(domain: Value, codomain: Value) -> Type =
+  #{kind: "type", name: "Pi", domain: domain, codomain: codomain};
+def u_pk_nat_carrier(carrier: Value) -> Unit = u_require(
+  u_choose(native.text_eq(native.value_kind(carrier), "record"),
+    fn() => native.value_equal(u_get(carrier, "name", ""), "Nat"),
+    fn() => native.value_equal(carrier, "Nat")), "this proof realization requires the Nat carrier");
+def u_eq_refl(carrier: Value, value: Nat) -> Value = {
+  u_pk_nat_carrier(carrier);
+  yield ["refl", ["Nat"], ["nat", value]];
+};
+def u_eq_congr(a: Value, b: Value, function: Value, candidate: Value) -> Value = {
+  u_pk_nat_carrier(a); u_pk_nat_carrier(b);
+  let description = native.value_describe(function);
+  let term = u_pk_surface(#{kind: "lambda", params: description.params, body: description.body}, []);
+  yield ["cong", ["Nat"], ["Nat"], term, candidate];
+};
+def eq: Value = #{refl: u_eq_refl, congr: u_eq_congr};
+def proof: Value = #{check: u_proof_check, require_checked: u_proof_require};

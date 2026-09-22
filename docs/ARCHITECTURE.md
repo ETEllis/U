@@ -1,12 +1,12 @@
 # U architecture and lineage
 
-U gives operations one explicit structural form while preserving the theories that determine their meaning. The architecture has three authority boundaries: syntax becomes a checked graph; a graph is assigned an admitted realization; a realization produces evidence whose scope is no wider than the operation, inputs and contracts that it binds.
+U gives operations one explicit structural form while preserving the theories that determine their meaning. The architecture connects meaning, realization and evidence. The compiler checks the structural graph; domain admission and preservation requirements remain explicit at its boundaries. A realization's evidence is scoped to the operation, inputs and contracts it binds.
 
 ## Source to operation
 
 The language identifier is `etellis.u`; package, profile, graph-schema, elaboration and compiler versions are distinct. The preserved design uses the header `u "etellis.u/0.1";`. A source header is syntax selection, not approval of arbitrary imported generators.
 
-Readable syntax contains definitions, calls, typed regions, binders, records, lists, tuples, staging and sequencing. Elaboration resolves lexical bindings and immutable dependencies deterministically into `wire`, `gen`, `seq`, `par`, `scope` and `fix`. Domain operations remain named `gen` nodes with their signatures and expansion or reference-rule dependency intact. Unsupported obligations are reported on the graph rather than concealed by a successful parse.
+Readable syntax contains definitions, calls, typed regions, binders, records, lists, tuples, staging and sequencing. Elaboration resolves lexical bindings and immutable dependencies deterministically into `wire`, `gen`, `seq`, `par`, `scope` and `fix`. Qualified operation names, declared interfaces and rule obligations remain available throughout the graph. Unsupported obligations are reported on the graph rather than concealed by a successful parse.
 
 The rich syntax tree remains useful for editor features, diagnostics and exact-source residuals. Its existence does not add a seventh semantic kernel tag. Conversely, assigning a surface construct one of six tags does not itself prove that its binding, typing or evaluation rules are correct.
 
@@ -16,13 +16,13 @@ An operation's interface closes over carrier types, usage, effects, stages, cloc
 
 Sequential composition requires compatible boundaries. Mixed theories require a checked composite profile or adapter. A graph may contain inferred adapter evidence even when no extra source annotation was necessary. The inference must be deterministic under the same manifest, and the emitted evidence must pass the same checks as an explicit annotation.
 
-The first parallel admission rule checks disjoint owned identities and an explicit shared-read allowance. It refuses a shared writer, duplicated linear token or insufficient alias information. This proves only its declared ownership/footprint statement. General causal independence, commutation, device synchronization and physical simultaneity require further theory-specific premises.
+Parallel composition requires disjoint owned identities or an explicit shared-read allowance. A shared writer, duplicated linear token or unresolved alias prevents that admission. The current graph emits `par` for literal-only groups with a checked empty-resource footprint; broader resource independence still requires its domain checker. Runtime borrowing contracts apply separately. Causal independence, commutation, device synchronization and physical simultaneity have further premises.
 
-## Reference realization
+## Native realization
 
-Stage 0 is an explicit Python 3.13+ bootstrap using the standard library. The CDC compatibility path requires `math.fma` for its explicit native floating-point contraction profile. The evaluator interprets U syntax and its own operation rules directly. It must not invoke host `eval` or `exec` on U or foreign source. Host closures used to implement named reference operations are inspectable trusted implementation, not an equivalence certificate.
+The production compiler and domain algorithms are written in U. A checked generated-C seed starts a fresh build; the U compiler then reproduces its own output. Native functions execute closures and library operations directly. The generic C bridge supplies values, allocation, arithmetic and operating-system access, not U syntax interpretation. The independent Python seed is optional development verification.
 
-The implementation interfaces are in [INTEGRATION.md](../INTEGRATION.md). The parser/formatter, graph/elaborator, checker, evaluator, proof/resource/evidence core, theories, CDC specialization, compiler backends, CLI and package path have separate ownership and verification boundaries. The callable evaluator is useful as the independent reference when native and WASM fragments are compiled.
+The implementation interfaces are in [INTEGRATION.md](../INTEGRATION.md). Source, graph, proof, evidence, domain, compiler-target and tool contracts have separate verification boundaries. The historical reference implementation remains in Git history for differential comparison; it is not the default engine.
 
 The first total proof calculus is deliberately smaller than the full V theory proposal. Type annotations or a `Proof` name do not establish a dependent type system. The authoritative support inventory must state the terms checked, normalization rules admitted, assumptions retained and constructor authority. Unbounded program recursion never becomes total conversion.
 
@@ -52,7 +52,7 @@ The reference checkout is [ETEllis/BiDi](https://github.com/ETEllis/BiDi/tree/13
 | [Formal semantic spine](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/FORMAL_SEMANTIC_SPINE.md) | Rich calculus and narrower native realization remain distinguishable | Lower consumed native fields exactly; classify richer declarations as unsupported or separate profiles |
 | [Verification matrix](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/VERIFICATION_OBLIGATION_MATRIX.md) | Each capability is attached to its witness and open obligation | Compare ordered results, identity and effects; no transfer of historical BiDi counts into fresh U claims |
 | [Frameworks](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/FRAMEWORKS.md) | Task-shaped bindings, exemplars and role contracts are derived over existing machinery | Retain derived framework identity and check bindings rather than inventing universal primitives |
-| [Native self-hosting mandate](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/NATIVE_SELF_HOSTING_MANDATE.md) | Historical host-debt and removal program; current authority is explicitly elsewhere | State U's independent stage-0 trust; do not inherit or claim completion of BiDi's historical milestones |
+| [Native self-hosting mandate](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/NATIVE_SELF_HOSTING_MANDATE.md) | Historical host-dependency and removal program; current authority is explicitly elsewhere | Verify U's own compiler stages and platform boundary; do not inherit BiDi's historical milestones |
 | [Toolchain plan](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/CDC_TOOLCHAIN_PLAN.md) | Binding amendments separate ABI, durability, keyed authority, per-check parity and trusted-local packages | Treat similarly named U commands as their own implemented contracts, not parity by naming |
 | [U2 semantics](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/docs/u2/U2_SEMANTICS.md) | Actual finite-map Jacobians, exact itinerary, complete/relative return and gated spectrum | Differentiate the executed maps and preserve canonical recurrence hold |
 | [RFTC matrix](https://github.com/ETEllis/BiDi/blob/1307f2a7f32ab5beb64fe5cd0c0faf13ec9c8157/docs/rftc/VERIFICATION_OBLIGATION_MATRIX.md) | Bounded classical local evidence; deployment and physical claims have additional gates | No multi-host, quantum, physical-law or advantage claim from local simulation or receipt machinery |
@@ -75,4 +75,4 @@ All 22 original examples were recovered from supplied text. The original grammar
 
 ## Full-completion boundary
 
-The [original execution directive](../provenance/source/CODEX_EXECUTION_DIRECTIVE.md) remains the end-state target. The [current claim ledger](../CLAIMS.md) controls what this checkout has earned. A complete language requires coherent classical production paths, admitted source fragments with preservation evidence, specialized execution gates, strengthened formal correspondence and staged self-hosting. Local reference execution, compiled-fragment parity, mathematical arguments and device simulation each support narrower statements.
+The [original execution directive](../provenance/source/CODEX_EXECUTION_DIRECTIVE.md) remains the end-state target. The [current claim ledger](../CLAIMS.md) controls what this checkout has earned. The native compiler, graph, libraries and developer tools now execute in U, and self-compilation is reproducible under the recorded toolchain. The wider target includes admitted source fragments with preservation evidence, complete domain contracts, production hardening, specialized execution and stronger formal correspondence. Each part retains its own acceptance criteria.

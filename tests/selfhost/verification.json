@@ -1,0 +1,57 @@
+{
+  "observed_on": "2026-09-14",
+  "compiler_source": "compiler/compiler.u",
+  "compiler_source_sha256": "3231dccc3c2c597c3205edca7000890c9d5ccf94424dbcba84c0faa996c516b8",
+  "compiler_definitions": 74,
+  "native_runtime_sha256": "56ea4df442542dd387352f06e55308f6e5ca26d6216d102b7bb185b87ab723f8",
+  "proof_library_sha256": "6f473e2493f32bdb94def2551c30fd8f10a22066d8575d6f496f5a3e02797692",
+  "toolchain": "Apple clang 21.0.0 (clang-2100.3.23.3)",
+  "platform": "arm64-apple-darwin27.0.0",
+  "c_flags": ["-std=c11", "-O1", "-ffp-contract=off"],
+  "arena_limit_mib": 1024,
+  "generated_c": {
+    "stage_count": 3,
+    "byte_identical": true,
+    "sha256": "82e72bc3a5c392b454b464a0bac20fe628d3a1834ef3ee922d49793df96e439f"
+  },
+  "native_binaries": {
+    "compared_stages": [2, 3],
+    "same_output_basename": "uc",
+    "separate_output_directories": true,
+    "byte_identical": true,
+    "sha256": "633e02dd2af329fd566c22cf2b04a1a67a0fe949f96d2774c2e7f47ba7367dc1",
+    "note": "macOS ad-hoc signatures encode the output basename; comparing uc-stage1 with uc changes signature identity and UUID even when emitted C is identical"
+  },
+  "independent_native_compiler_test_groups": 34,
+  "test_result": "passed",
+  "original_examples_parsed_unchanged": 22,
+  "compiler_and_program_test_path": "nonexistent directory, with no interpreters available",
+  "python_role": "initial independent seed and independent test harness only",
+  "complete_library_capacity": {
+    "source_sha256": "5ac28eff9333987d415cc4716e3e957670c751603e65514552003e8b7a361097",
+    "source_lines": 2145,
+    "source_bytes": 145085,
+    "arena_limit_mib": 1024,
+    "native_source_emission": "passed",
+    "observed_emission_seconds": 12.05,
+    "observed_maximum_resident_bytes": 904888320,
+    "compiled_program": "fib(100)",
+    "compiled_result_decimal": "354224848179261915075",
+    "note": "One local timing observation, not a general performance guarantee. The allocation limit is distinct from operating-system resident memory."
+  },
+  "claim_scope": [
+    "U owns scanning, parsing, core source validation, closure conversion and deterministic C generation",
+    "generated programs execute direct compiled closure functions, never an interpreted U AST",
+    "core annotation runtime guards cover storage kinds and Nat nonnegativity",
+    "top-level value definitions are forced once on demand and cyclic forcing is rejected",
+    "closures retain earlier lexical frames when a later local shadows a global",
+    "duplicate local binding names remain rejected by the original surface contract",
+    "unknown qualified members of unshadowed native namespaces are rejected before code emission",
+    "original nominal theory constructors retain arity, binder scope and explicit theory/index obligations",
+    "the untouched original induction example executes successfully through the independent total U proof kernel",
+    "a dependent annotation on an ordinary identity function does not earn a proof receipt",
+    "syntax coverage does not establish execution or proof for every theory",
+    "collection element types, complete higher-order contracts and dependent refinements are not established by these checks",
+    "this dated receipt applies to the recorded source and runtime hashes"
+  ]
+}

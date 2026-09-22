@@ -1,0 +1,714 @@
+u "etellis.u/0.1";
+use "u.compiler.native/1";
+
+// The source compiler is an ordinary U program. Each lambda lowers to a C
+// function; source trees are compiler data and never a generated evaluator.
+def cc_choose(c: Bool, yes: Fn(Value), no: Fn(Value)) -> Value = value.select(c, yes, no)();
+def cc_cat(a: Text, b: Text) -> Text = text.concat(a, b);
+def cc_num(n: Int) -> Text = text.from_int(n);
+def cc_each(xs: Value, f: Value) -> Unit = {
+  let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), list.length(xs)), fn() => {
+    f(list.get(xs, cell.get(i)));
+    cell.set(i, int.add(cell.get(i), 1));
+    yield ();
+  });
+  yield ();
+};
+def cc_has(xs: Value, name: Text) -> Bool = cc_choose(text.eq(value.kind(xs), "table"), fn() => table.has(xs, name), fn() => {
+  let found = cell.new(false); let i = cell.new(0); let count = list.length(xs);
+  control.while(fn() => bool.and(bool.not(cell.get(found)), int.lt(cell.get(i), count)), fn() => {
+    cell.set(found, value.equal(list.get(xs, cell.get(i)), name));
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield cell.get(found);
+});
+def cc_error(token: Value, code: Text, message: Text) -> Value = value.fail(
+  cc_cat(cc_cat(cc_cat(code, " at "), cc_num(token.start)), cc_cat(": ", message)));
+def cc_require(test: Bool, token: Value, code: Text, message: Text) -> Unit =
+  cc_choose(test, fn() => (), fn() => cc_error(token, code, message));
+def cc_lexical_tables: Value = {
+  let characters = buffer.new(); let codes = table.new();
+  let word_stops = buffer.new(); let digit_stops = buffer.new(); let space_stops = buffer.new();
+  nat.rec(256, (), fn(n: Nat, state: Value) => {
+    let c = text.from_code(n); buffer.push(characters, c); table.set(codes, c, n);
+    let digit = bool.and(int.ge(n, 48), int.le(n, 57));
+    let alpha = bool.or(int.eq(n, 95), bool.or(bool.and(int.ge(n, 65), int.le(n, 90)), bool.and(int.ge(n, 97), int.le(n, 122))));
+    let space = bool.or(int.eq(n, 32), bool.or(int.eq(n, 9), bool.or(int.eq(n, 10), bool.or(int.eq(n, 12), int.eq(n, 13)))));
+    cc_choose(bool.or(alpha, digit), fn() => (), fn() => buffer.push(word_stops, n));
+    cc_choose(digit, fn() => (), fn() => buffer.push(digit_stops, n));
+    cc_choose(space, fn() => (), fn() => buffer.push(space_stops, n)); yield ();
+  });
+  yield #{characters: buffer.freeze(characters), codes: codes, word_stops: buffer.freeze(word_stops),
+    digit_stops: buffer.freeze(digit_stops), space_stops: buffer.freeze(space_stops)};
+};
+def cc_char(src: Text, i: Int) -> Text = cc_choose(
+  bool.and(int.ge(i, 0), int.lt(i, bytes.length(src))), fn() => list.get(cc_lexical_tables.characters, bytes.at(src, i)), fn() => "");
+def cc_digit(c: Text) -> Bool = { let n = table.get(cc_lexical_tables.codes, c, -1); yield bool.and(int.ge(n, 48), int.le(n, 57)); };
+def cc_alpha(c: Text) -> Bool = {
+  let n = table.get(cc_lexical_tables.codes, c, -1);
+  yield bool.or(int.eq(n, 95), bool.or(bool.and(int.ge(n, 65), int.le(n, 90)), bool.and(int.ge(n, 97), int.le(n, 122))));
+};
+def cc_space(c: Text) -> Bool = {
+  let n = table.get(cc_lexical_tables.codes, c, -1);
+  yield bool.or(int.eq(n, 32), bool.or(int.eq(n, 9), bool.or(int.eq(n, 10), bool.or(int.eq(n, 12), int.eq(n, 13)))));
+};
+def cc_advance(s: Value) -> Unit = cell.set(s.pos, int.add(cell.get(s.pos), 1));
+def cc_sc(s: Value) -> Text = cc_char(s.source, cell.get(s.pos));
+def cc_scan_while(s: Value, f: Value) -> Unit = control.while(fn() => f(cc_sc(s)), fn() => cc_advance(s));
+def cc_scan_span(s: Value, stops: Value) -> Unit = {
+  let next = bytes.find_any(s.source, stops, cell.get(s.pos));
+  cell.set(s.pos, value.select(int.lt(next, 0), bytes.length(s.source), next)); yield ();
+};
+def cc_scan_comment(s: Value, start: Int) -> Unit = {
+  let ending = bytes.find(s.source, "*/", int.add(start, 2));
+  cc_require(int.ge(ending, 0), #{start: start}, "unterminated_comment", "expected */");
+  cell.set(s.pos, int.add(ending, 2));
+  yield ();
+};
+def cc_string_stops: Value = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 34, 92];
+def cc_scan_string(s: Value, start: Int) -> Unit = {
+  cc_advance(s);
+  let closed = cell.new(false);
+  control.while(fn() => bool.and(bool.not(cell.get(closed)), int.lt(cell.get(s.pos), bytes.length(s.source))), fn() => {
+    let next = bytes.find_any(s.source, cc_string_stops, cell.get(s.pos));
+    cc_require(int.ge(next, 0), #{start: start}, "unterminated_string", "expected closing quote");
+    cell.set(s.pos, next);
+    let c = cc_sc(s);
+    cc_choose(text.eq(c, "\""), fn() => { cc_advance(s); cell.set(closed, true); yield (); }, fn() =>
+      cc_choose(text.eq(c, "\\"), fn() => cell.set(s.pos, int.add(cell.get(s.pos), 2)), fn() => {
+        cc_require(int.ge(text.code(c), 32), #{start: start}, "invalid_string", "raw control character");
+        cc_advance(s);
+        yield ();
+      }));
+    yield ();
+  });
+  cc_require(bool.and(cell.get(closed), int.le(cell.get(s.pos), bytes.length(s.source))), #{start: start}, "unterminated_string", "expected closing quote");
+  // The low-level JSON codec validates escapes and surrogate pairs.
+  json.parse(bytes.slice(s.source, start, cell.get(s.pos)));
+  yield ();
+};
+def cc_scan_number(s: Value, start: Int) -> Text = {
+  let kind = cell.new("integer");
+  cc_scan_span(s, cc_lexical_tables.digit_stops);
+  cc_choose(bool.and(text.eq(cc_sc(s), "."), cc_digit(cc_char(s.source, int.add(cell.get(s.pos), 1)))), fn() => {
+    cell.set(kind, "float"); cc_advance(s); cc_scan_span(s, cc_lexical_tables.digit_stops); yield ();
+  }, fn() => ());
+  cc_choose(cc_has(["e", "E"], cc_sc(s)), fn() => {
+    cell.set(kind, "float"); cc_advance(s);
+    cc_choose(cc_has(["+", "-"], cc_sc(s)), fn() => cc_advance(s), fn() => ());
+    let exponent = cell.get(s.pos);
+    cc_scan_span(s, cc_lexical_tables.digit_stops);
+    cc_require(int.gt(cell.get(s.pos), exponent), #{start: start}, "invalid_number", "exponent requires digits");
+    yield ();
+  }, fn() => ());
+  cc_require(bool.not(cc_alpha(cc_sc(s))), #{start: start}, "invalid_number", "number and identifier require a separator");
+  cc_require(int.le(int.sub(cell.get(s.pos), start), 4096), #{start: start}, "number_limit", "numeric literal exceeds 4096 characters");
+  yield cell.get(kind);
+};
+def cc_scan(source: Text) -> Value = {
+  cc_require(int.le(bytes.length(source), 2000000), #{start: 0}, "source_limit", "source exceeds two million bytes");
+  let s = #{source: source, pos: cell.new(0)};
+  let out = buffer.new();
+  control.while(fn() => int.lt(cell.get(s.pos), bytes.length(source)), fn() => {
+    let start = cell.get(s.pos);
+    let c = cc_sc(s);
+    let next = cc_char(source, int.add(start, 1));
+    let kind = cell.new("");
+    cc_choose(cc_space(c), fn() => cc_scan_span(s, cc_lexical_tables.space_stops), fn() =>
+    cc_choose(bool.and(text.eq(c, "/"), text.eq(next, "/")), fn() => {
+      let ending = bytes.find(source, "\n", start);
+      cell.set(s.pos, value.select(int.lt(ending, 0), bytes.length(source), ending)); yield ();
+    }, fn() =>
+    cc_choose(bool.and(text.eq(c, "/"), text.eq(next, "*")), fn() => cc_scan_comment(s, start), fn() =>
+    cc_choose(text.eq(c, "\""), fn() => { cc_scan_string(s, start); cell.set(kind, "string"); yield (); }, fn() =>
+    cc_choose(cc_alpha(c), fn() => { cc_scan_span(s, cc_lexical_tables.word_stops); cell.set(kind, "identifier"); yield (); }, fn() =>
+    cc_choose(cc_digit(c), fn() => cell.set(kind, cc_scan_number(s, start)), fn() => {
+      let pair = cc_cat(c, next);
+      cc_choose(cc_has(["->", "=>", "#{"], pair), fn() => { cell.set(kind, pair); cell.set(s.pos, int.add(start, 2)); yield (); }, fn() => {
+        cc_require(cc_has(["(", ")", "[", "]", "{", "}", ",", ";", ":", ".", "=", "-"], c), #{start: start}, "invalid_character", cc_cat("unexpected ", c));
+        cell.set(kind, c); cc_advance(s); yield ();
+      });
+      yield ();
+    }))))));
+    cc_choose(bool.not(text.eq(cell.get(kind), "")), fn() => buffer.push(out, #{kind: cell.get(kind), text: bytes.slice(source, start, cell.get(s.pos)), start: start, end: cell.get(s.pos)}), fn() => ());
+    cc_require(int.le(buffer.length(out), 100000), #{start: start}, "token_limit", "token budget exceeded");
+    yield ();
+  });
+  buffer.push(out, #{kind: "eof", text: "", start: bytes.length(source), end: bytes.length(source)});
+  yield buffer.freeze(out);
+};
+
+def cc_token(p: Value) -> Value = list.get(p.tokens, cell.get(p.pos));
+def cc_is(p: Value, kind: Text) -> Bool = text.eq(cc_token(p).kind, kind);
+def cc_word(p: Value, word: Text) -> Bool = bool.and(cc_is(p, "identifier"), text.eq(cc_token(p).text, word));
+def cc_take(p: Value, kind: Text) -> Value = {
+  let token = cc_token(p);
+  cc_require(bool.and(text.eq(token.kind, kind), bool.not(text.eq(kind, "eof"))), token, "expected_token", cc_cat(cc_cat("expected ", kind), cc_cat(", found ", token.text)));
+  cell.set(p.pos, int.add(cell.get(p.pos), 1));
+  yield token;
+};
+def cc_accept(p: Value, kind: Text) -> Bool = cc_choose(cc_is(p, kind), fn() => { cc_take(p, kind); yield true; }, fn() => false);
+def cc_params(p: Value) -> Value = {
+  cc_take(p, "(");
+  let items = buffer.new(); let names = buffer.new(); let more = cell.new(bool.not(cc_is(p, ")")));
+  control.while(fn() => cell.get(more), fn() => {
+    let name = cc_take(p, "identifier");
+    cc_require(bool.not(cc_has(buffer.freeze(names), name.text)), name, "duplicate_parameter", name.text);
+    buffer.push(names, name.text); cc_take(p, ":");
+    buffer.push(items, #{name: name.text, type: cc_expr(p), start: name.start});
+    cell.set(more, bool.and(cc_accept(p, ","), bool.not(cc_is(p, ")"))));
+    yield ();
+  });
+  cc_take(p, ")"); yield buffer.freeze(items);
+};
+def cc_sequence(p: Value, ending: Text) -> Value = {
+  let items = buffer.new(); let more = cell.new(bool.not(cc_is(p, ending)));
+  control.while(fn() => cell.get(more), fn() => {
+    buffer.push(items, cc_expr(p));
+    cell.set(more, bool.and(cc_accept(p, ","), bool.not(cc_is(p, ending))));
+    yield ();
+  });
+  cc_take(p, ending); yield buffer.freeze(items);
+};
+def cc_record(p: Value, token: Value) -> Value = {
+  let fields = buffer.new(); let names = buffer.new(); let more = cell.new(bool.not(cc_is(p, "}")));
+  control.while(fn() => cell.get(more), fn() => {
+    let name = cc_take(p, "identifier");
+    cc_require(bool.not(cc_has(buffer.freeze(names), name.text)), name, "duplicate_field", name.text);
+    buffer.push(names, name.text); cc_take(p, ":");
+    buffer.push(fields, #{name: name.text, value: cc_expr(p)});
+    cell.set(more, bool.and(cc_accept(p, ","), bool.not(cc_is(p, "}"))));
+    yield ();
+  });
+  cc_take(p, "}"); yield #{kind: "record", fields: buffer.freeze(fields), start: token.start};
+};
+def cc_block(p: Value, token: Value) -> Value = {
+  let statements = buffer.new(); let names = table.new();
+  control.while(fn() => bool.not(cc_word(p, "yield")), fn() => {
+    cc_require(bool.not(bool.or(cc_is(p, "}"), cc_is(p, "eof"))), cc_token(p), "missing_yield", "block requires terminal yield");
+    let first = cc_token(p);
+    cc_choose(cc_word(p, "let"), fn() => {
+      cc_take(p, "identifier"); let name = cc_take(p, "identifier");
+      cc_require(bool.not(table.has(names, name.text)), name, "duplicate_binding", name.text);
+      table.set(names, name.text, true);
+      cc_take(p, "=");
+      buffer.push(statements, #{kind: "let", name: name.text, value: cc_expr(p), start: first.start});
+      yield ();
+    }, fn() => buffer.push(statements, #{kind: "expr", value: cc_expr(p), start: first.start}));
+    cc_take(p, ";"); yield ();
+  });
+  cc_take(p, "identifier"); let result = cc_expr(p); cc_take(p, ";"); cc_take(p, "}");
+  yield #{kind: "block", statements: buffer.freeze(statements), result: result, start: token.start};
+};
+def cc_atom(p: Value) -> Value = {
+  let token = cc_token(p);
+  yield cc_choose(cc_is(p, "identifier"), fn() => {
+    cc_take(p, "identifier");
+    yield cc_choose(text.eq(token.text, "fn"), fn() => {
+      let params = cc_params(p); cc_take(p, "=>");
+      yield #{kind: "lambda", params: params, body: cc_expr(p), start: token.start};
+    }, fn() => cc_choose(cc_has(["true", "false"], token.text), fn() => #{kind: "literal", literal_type: "Bool", raw: token.text, value: text.eq(token.text, "true"), start: token.start}, fn() => {
+      cc_require(bool.not(cc_has(["use", "def", "let", "yield"], token.text)), token, "reserved_word", token.text);
+      yield #{kind: "name", name: token.text, start: token.start};
+    }));
+  }, fn() => cc_choose(cc_has(["integer", "float", "string", "-"], token.kind), fn() => {
+    let negative = cc_accept(p, "-"); let number = cc_token(p); cc_take(p, number.kind);
+    cc_require(bool.or(bool.not(negative), cc_has(["integer", "float"], number.kind)), number, "invalid_number", "minus requires numeric literal");
+    let raw = cc_choose(negative, fn() => cc_cat("-", number.text), fn() => number.text);
+    let typ = cc_choose(text.eq(number.kind, "string"), fn() => "Text", fn() => cc_choose(text.eq(number.kind, "float"), fn() => "F64", fn() => "Int"));
+    let value = cc_choose(text.eq(typ, "Text"), fn() => json.parse(raw), fn() => cc_choose(text.eq(typ, "Int"), fn() => text.parse_int(raw), fn() => text.parse_real(raw)));
+    yield #{kind: "literal", literal_type: typ, raw: raw, value: value, start: token.start};
+  }, fn() => cc_choose(cc_accept(p, "["), fn() => #{kind: "list", items: cc_sequence(p, "]"), start: token.start}, fn() =>
+  cc_choose(cc_accept(p, "("), fn() => cc_choose(cc_accept(p, ")"), fn() => #{kind: "tuple", items: [], start: token.start}, fn() => {
+    let first = cc_expr(p);
+    yield cc_choose(cc_accept(p, ","), fn() => #{kind: "tuple", items: list.cons(first, cc_sequence(p, ")")), start: token.start}, fn() => { cc_take(p, ")"); yield first; });
+  }), fn() => cc_choose(cc_accept(p, "#{"), fn() => cc_record(p, token), fn() => cc_choose(cc_accept(p, "{"), fn() => cc_block(p, token), fn() => cc_error(token, "expected_expression", token.text)))))));
+};
+def cc_expr(p: Value) -> Value = {
+  cell.set(p.depth, int.add(cell.get(p.depth), 1));
+  cc_require(int.le(cell.get(p.depth), 128), cc_token(p), "nesting_limit", "expression depth exceeds 128");
+  let expression = cell.new(cc_atom(p)); let count = cell.new(0);
+  control.while(fn() => bool.or(cc_is(p, "("), cc_is(p, ".")), fn() => {
+    cell.set(count, int.add(cell.get(count), 1));
+    cc_require(int.le(cell.get(count), 128), cc_token(p), "nesting_limit", "postfix chain exceeds 128");
+    cc_choose(cc_accept(p, "."), fn() => {
+      let name = cc_take(p, "identifier");
+      cell.set(expression, #{kind: "member", object: cell.get(expression), name: name.text, start: cell.get(expression).start});
+      yield ();
+    }, fn() => {
+      cc_take(p, "(");
+      cell.set(expression, #{kind: "call", callee: cell.get(expression), args: cc_sequence(p, ")"), start: cell.get(expression).start});
+      yield ();
+    });
+    yield ();
+  });
+  cell.set(p.depth, int.sub(cell.get(p.depth), 1)); yield cell.get(expression);
+};
+def cc_parse(source: Text) -> Value = {
+  let p = #{tokens: cc_scan(source), pos: cell.new(0), depth: cell.new(0)};
+  let definitions = buffer.new(); let names = buffer.new(); let imports = buffer.new(); let headers = cell.new(0);
+  control.while(fn() => bool.not(cc_is(p, "eof")), fn() => {
+    let first = cc_take(p, "identifier");
+    cc_choose(text.eq(first.text, "u"), fn() => {
+      let version = cc_take(p, "string");
+      cc_require(text.eq(json.parse(version.text), "etellis.u/0.1"), version, "unsupported_version", version.text);
+      cc_take(p, ";"); cell.set(headers, int.add(cell.get(headers), 1)); yield ();
+    }, fn() => {
+      cc_require(int.gt(cell.get(headers), 0), first, "missing_header", "expected u version header");
+      cc_choose(text.eq(first.text, "use"), fn() => {
+        let profile = json.parse(cc_take(p, "string").text);
+        cc_choose(cc_has(buffer.freeze(imports), profile), fn() => (), fn() => buffer.push(imports, profile));
+        cc_take(p, ";"); yield ();
+      }, fn() => {
+        cc_require(text.eq(first.text, "def"), first, "expected_definition", "expected def, use, or module header");
+        let name = cc_take(p, "identifier");
+        cc_require(bool.not(cc_has(buffer.freeze(names), name.text)), name, "duplicate_definition", name.text);
+        buffer.push(names, name.text);
+        let is_function = cc_is(p, "(");
+        let params = cc_choose(is_function, fn() => { let params = cc_params(p); cc_take(p, "->"); yield params; }, fn() => { cc_take(p, ":"); yield []; });
+        let annotation = cc_expr(p); cc_take(p, "="); let body = cc_expr(p); cc_take(p, ";");
+        buffer.push(definitions, #{name: name.text, params: params, type: annotation, body: body, is_function: is_function, start: first.start});
+        yield ();
+      });
+      yield ();
+    });
+    yield ();
+  });
+  cc_require(int.gt(cell.get(headers), 0), cc_token(p), "missing_header", "expected u version header");
+  yield #{definitions: buffer.freeze(definitions), imports: buffer.freeze(imports), source: source};
+};
+
+// Validation covers lexical binding, direct arity, concrete core types, and
+// explicit dynamic Value boundaries. Rich theory annotations remain obligations.
+def cc_qname(e: Value) -> Text = cc_choose(text.eq(e.kind, "name"), fn() => e.name, fn() =>
+  cc_choose(text.eq(e.kind, "member"), fn() => { let parent = cc_qname(e.object); yield cc_choose(text.eq(parent, ""), fn() => "", fn() => cc_cat(cc_cat(parent, "."), e.name)); }, fn() => ""));
+def cc_root_name(e: Value) -> Text = cc_choose(text.eq(e.kind, "name"), fn() => e.name, fn() => cc_choose(text.eq(e.kind, "member"), fn() => cc_root_name(e.object), fn() => ""));
+def cc_env(parent: Value) -> Value = #{local: table.new(), parent: parent,
+  obligations: cc_choose(text.eq(value.kind(parent), "record"), fn() => parent.obligations, fn() => buffer.new()),
+  reported: cc_choose(text.eq(value.kind(parent), "record"), fn() => parent.reported, fn() => table.new())};
+def cc_missing_binding: Value = #{found: false};
+def cc_bind(env: Value, binding: Value) -> Unit = table.set(env.local, binding.name, #{found: true, binding: binding});
+def cc_binding(env: Value, name: Text) -> Value = {
+  let local = table.get(env.local, name, cc_missing_binding);
+  yield cc_choose(local.found, fn() => local, fn() => {
+    let scope = cell.new(env.parent); let result = cell.new(cc_missing_binding);
+    control.while(fn() => bool.and(bool.not(cell.get(result).found), text.eq(value.kind(cell.get(scope)), "record")), fn() => {
+      cell.set(result, table.get(cell.get(scope).local, name, cc_missing_binding));
+      cell.set(scope, cell.get(scope).parent); yield ();
+    });
+    yield cell.get(result);
+  });
+};
+def cc_tname(t: Value) -> Text = cc_choose(text.eq(t.kind, "name"), fn() => t.name, fn() => cc_choose(text.eq(t.kind, "call"), fn() => cc_qname(t.callee), fn() => "Value"));
+def cc_types_cache: Value = table.new();
+def cc_type(name: Text) -> Value = {
+  cc_choose(table.has(cc_types_cache, name), fn() => (), fn() => table.set(cc_types_cache, name, #{kind: "name", name: name, start: 0}));
+  yield table.get(cc_types_cache, name, ());
+};
+def cc_compatible(expected: Text, actual: Text) -> Bool = bool.or(bool.or(bool.and(text.eq(expected, "Pi"), text.eq(actual, "Fn")), bool.and(text.eq(expected, "Type"), text.eq(actual, "Record"))), bool.or(
+  bool.or(text.eq(expected, actual), cc_has(["Value", "Any", "Unknown"], expected)),
+  bool.or(cc_has(["Value", "Any", "Unknown"], actual), bool.or(bool.and(cc_has(["Int", "Nat", "F64", "F32", "Real"], expected), text.eq(actual, "Nat")), bool.and(cc_has(["F64", "F32", "Real"], expected), cc_has(["Int", "F64", "F32", "Real"], actual))))));
+def cc_core_types: Value = ["Value", "Any", "Type", "Unit", "Bool", "Text", "Int", "Nat", "F32", "F64", "Real", "Fn", "List", "Pair", "Tuple", "Record", "Buffer", "Cell", "Partial", "Bytes"];
+def cc_domain_types: Value = ["Decimal", "U8", "U64", "I64", "Bit", "Clock", "ConsoleCap", "Http", "Response", "Substitution", "ActorSystemCap", "SupervisorRef", "FiniteModelReport", "ProofReceipt", "GpuThread", "CdcState", "CdcStepResult", "CdcNative", "ReciprocalBinding", "DecisionCoordinate", "U1Closure", "RecurrenceRequest", "PathTangent", "VerifiedRecurrence", "Spectrum", "PositiveReal", "RealTrajectory", "DAE", "IO", "Actors", "ReturnMap", "U1Check", "Proof", "Prop", "Term", "Set", "Port", "Capability", "Tensor", "Result"];
+def cc_constructors: Value = #{
+  List: #{min: 1, max: 1}, Pair: #{min: 2, max: 2}, Fn: #{min: 1, max: 1000},
+  Owned: #{min: 1, max: 1}, Buffer: #{min: 2, max: 2}, MutView: #{min: 1, max: 1},
+  Task: #{min: 1, max: 1}, SharedCap: #{min: 1, max: 1}, Effect: #{min: 2, max: 2},
+  Code: #{min: 1, max: 1}, Rel: #{min: 1, max: 1000}, Logic: #{min: 1, max: 1},
+  Search: #{min: 1, max: 1}, Bag: #{min: 1, max: 1}, Array: #{min: 2, max: 2},
+  Measure: #{min: 1, max: 1}, ApproxPosterior: #{min: 1, max: 1}, ActorStep: #{min: 1, max: 1},
+  Option: #{min: 1, max: 1}, BehaviorSet: #{min: 1, max: 1}, Temporal: #{min: 1, max: 1},
+  Pi: #{min: 2, max: 2}, Eq: #{min: 3, max: 3}, Signal: #{min: 2, max: 2}, Bits: #{min: 1, max: 1},
+  GpuRead: #{min: 2, max: 2}, GpuOwn: #{min: 2, max: 2}, GpuOwnElement: #{min: 1, max: 1},
+  GpuTask: #{min: 1, max: 1}, QReg: #{min: 1, max: 1}, QuantumProgram: #{min: 1, max: 1},
+  ExecutedPath: #{min: 1, max: 1}, Analysis: #{min: 1, max: 1}, Partial: #{min: 1, max: 1},
+  Distribution: #{min: 1, max: 1}, Result: #{min: 2, max: 2}, Cell: #{min: 1, max: 1},
+  Tensor: #{min: 2, max: 2}, Port: #{min: 1, max: 1}, Set: #{min: 1, max: 1}};
+def cc_note(env: Value, message: Text) -> Unit = cc_choose(table.has(env.reported, message), fn() => (), fn() => {
+  table.set(env.reported, message, true); buffer.push(env.obligations, message); yield ();
+});
+def cc_type_known(name: Text) -> Bool = bool.or(cc_has(cc_core_types, name), bool.or(cc_has(cc_domain_types, name), record.has(cc_constructors, name)));
+def cc_annotation_term(e: Value, env: Value) -> Unit = {
+  let qname = cc_qname(e);
+  cc_choose(text.eq(e.kind, "name"), fn() => {
+    cc_require(bool.or(cc_binding(env, e.name).found, cc_type_known(e.name)), e, "unbound_index", e.name); yield ();
+  }, fn() => cc_choose(text.eq(e.kind, "literal"), fn() => (), fn() =>
+  cc_choose(text.eq(e.kind, "member"), fn() => {
+    cc_choose(cc_has(sys.native_names(), qname), fn() => (), fn() => cc_annotation_term(e.object, env)); yield ();
+  }, fn() => cc_choose(text.eq(e.kind, "call"), fn() => {
+    cc_annotation_term(e.callee, env); cc_each(e.args, fn(arg: Value) => cc_annotation_term(arg, env)); yield ();
+  }, fn() => cc_choose(text.eq(e.kind, "lambda"), fn() => {
+    let local = cc_env(env);
+    cc_each(e.params, fn(param: Value) => { cc_annotation(param.type, local); cc_bind(local, param); yield (); });
+    cc_annotation_term(e.body, local); yield ();
+  }, fn() => cc_choose(cc_has(["list", "tuple"], e.kind), fn() => cc_each(e.items, fn(item: Value) => cc_annotation_term(item, env)), fn() =>
+  cc_choose(text.eq(e.kind, "record"), fn() => cc_each(e.fields, fn(field: Value) => cc_annotation_term(field.value, env)), fn() =>
+    cc_error(e, "unsupported_annotation_term", e.kind))))))));
+  yield ();
+};
+def cc_nat_index(e: Value, env: Value, positive: Bool) -> Unit = {
+  cc_choose(text.eq(e.kind, "literal"), fn() => {
+    cc_require(text.eq(e.literal_type, "Int"), e, "type_index_kind", "index requires Nat");
+    cc_require(cc_choose(positive, fn() => int.gt(e.value, 0), fn() => int.ge(e.value, 0)), e, "type_index_range", "invalid natural index"); yield ();
+  }, fn() => cc_choose(text.eq(e.kind, "name"), fn() => {
+    let binding = cc_binding(env, e.name);
+    cc_require(binding.found, e, "unbound_index", e.name);
+    cc_require(text.eq(cc_tname(binding.binding.type), "Nat"), e, "type_index_kind", "index requires declared Nat");
+    cc_note(env, "index obligation: runtime Nat value must satisfy the declared shape or width"); yield ();
+  }, fn() => {
+    cc_annotation_term(e, env); cc_note(env, "index obligation: computed index requires total normalization and a Nat range check"); yield ();
+  })); yield ();
+};
+def cc_annotation(t: Value, env: Value) -> Unit = {
+  cc_choose(text.eq(t.kind, "name"), fn() => {
+    cc_choose(cc_type_known(t.name), fn() => (), fn() => {
+      let binding = cc_binding(env, t.name);
+      cc_require(binding.found, t, "unknown_type", t.name);
+      cc_require(text.eq(cc_tname(binding.binding.type), "Type"), t, "type_parameter_kind", "a value index cannot occupy a type position");
+      cc_note(env, cc_cat("alias obligation: ", t.name)); yield ();
+    });
+    cc_choose(cc_has(cc_core_types, t.name), fn() => (), fn() => cc_note(env, cc_cat("theory obligation: ", t.name)));
+    yield ();
+  }, fn() => cc_choose(text.eq(t.kind, "call"), fn() => {
+    let name = cc_qname(t.callee);
+    cc_require(record.has(cc_constructors, name), t, "unknown_type_constructor", name);
+    let contract = record.get(cc_constructors, name); let count = list.length(t.args);
+    cc_require(bool.and(int.ge(count, contract.min), int.le(count, contract.max)), t, "type_arity", name);
+    cc_choose(cc_has(["List", "Pair", "Fn", "Partial", "Cell"], name), fn() => (), fn() => cc_note(env, cc_cat("theory obligation: ", name)));
+    let i = cell.new(0);
+    cc_each(t.args, fn(arg: Value) => {
+      let position = cell.get(i);
+      cc_choose(bool.or(bool.and(cc_has(["Bits", "QReg"], name), int.eq(position, 0)), bool.and(cc_has(["Buffer", "GpuRead", "GpuOwn"], name), int.eq(position, 1))),
+        fn() => cc_nat_index(arg, env, cc_has(["Bits", "QReg"], name)), fn() =>
+      cc_choose(bool.and(cc_has(["Array", "Tensor"], name), int.eq(position, 1)), fn() => {
+        cc_require(text.eq(arg.kind, "list"), arg, "shape_kind", "shape requires an explicit list of Nat indices");
+        cc_each(arg.items, fn(dimension: Value) => cc_nat_index(dimension, env, false)); yield ();
+      }, fn() => cc_choose(bool.and(text.eq(name, "Signal"), int.eq(position, 1)), fn() => {
+        cc_require(text.eq(arg.kind, "name"), arg, "clock_index_kind", "Signal requires a declared Clock");
+        let binding = cc_binding(env, arg.name); cc_require(binding.found, arg, "unbound_index", arg.name);
+        cc_require(text.eq(cc_tname(binding.binding.type), "Clock"), arg, "clock_index_kind", "Signal requires a declared Clock");
+        cc_note(env, "index obligation: Signal clock identity and timing contract"); yield ();
+      }, fn() => cc_choose(bool.and(text.eq(name, "Eq"), int.gt(position, 0)), fn() => {
+        cc_annotation_term(arg, env); cc_note(env, "dependent obligation: equality conversion requires the independent U proof kernel"); yield ();
+      }, fn() => cc_choose(bool.and(text.eq(name, "Pi"), int.eq(position, 1)), fn() => {
+        cc_require(text.eq(arg.kind, "lambda"), arg, "dependent_codomain", "Pi codomain requires an explicit typed binder");
+        cc_require(int.eq(list.length(arg.params), 1), arg, "dependent_codomain", "Pi codomain requires one binder");
+        let local = cc_env(env);
+        cc_each(arg.params, fn(param: Value) => { cc_annotation(param.type, local); cc_bind(local, param); yield (); });
+        cc_annotation(arg.body, local); cc_note(env, "dependent obligation: Pi formation and conversion require the independent U proof kernel"); yield ();
+      }, fn() => cc_annotation(arg, env))))));
+      cell.set(i, int.add(position, 1)); yield ();
+    }); yield ();
+  }, fn() => cc_error(t, "invalid_type_expression", "expected a declared type or type constructor")));
+  yield ();
+};
+def cc_native_types_cache: Cell = cell.new(());
+def cc_native_params_cache: Cell = cell.new(());
+def cc_native_type(name: Text) -> Text = {
+  cc_choose(text.eq(value.kind(cell.get(cc_native_types_cache)), "unit"), fn() => {
+  let parts = table.new();
+  cc_each([#{names: ["int.add", "int.sub", "int.mul", "int.div", "int.mod", "int.neg", "text.parse_int", "text.length", "text.code", "text.from_code", "list.length", "buffer.length", "bytes.length", "bytes.at"], type: "Int"},
+           #{names: ["nat.add", "nat.sub", "nat.mul", "nat.div", "nat.mod", "nat.zero", "nat.succ"], type: "Nat"},
+           #{names: ["int.eq", "int.ne", "int.lt", "int.le", "int.gt", "int.ge", "nat.eq", "nat.lt", "nat.le", "nat.gt", "nat.ge", "bool.not", "bool.and", "bool.or", "text.eq", "value.equal", "record.has"], type: "Bool"},
+           #{names: ["text.concat", "text.at", "text.slice", "text.join", "text.from_int", "text.from_real", "text.from_code", "value.kind", "value.to_text", "sys.read", "sys.getenv", "json.encode", "bytes.slice"], type: "Text"},
+           #{names: ["list.cons", "list.append", "list.reverse", "list.map", "list.filter", "list.tail_or_empty", "buffer.freeze", "record.keys", "sys.args", "sys.native_names"], type: "List"},
+           #{names: ["cell.set", "buffer.push", "buffer.set", "sys.print", "sys.write", "control.while"], type: "Unit"},
+           #{names: ["cell.new"], type: "Cell"}, #{names: ["buffer.new"], type: "Buffer"},
+           #{names: ["f64.add", "f64.sub", "f64.mul", "f64.div", "text.parse_real", "int.to_real", "math.sin", "math.cos", "math.exp", "math.log", "math.sqrt", "math.abs", "math.fma"], type: "F64"}],
+    fn(group: Value) => cc_each(group.names, fn(n: Text) => table.set(parts, n, group.type)));
+  cell.set(cc_native_types_cache, parts); yield ();
+  }, fn() => ());
+  yield table.get(cell.get(cc_native_types_cache), name, "Value");
+};
+def cc_native_params(name: Text) -> Value = {
+  cc_choose(text.eq(value.kind(cell.get(cc_native_params_cache)), "unit"), fn() => {
+  let result = table.new();
+  cc_each([
+    #{names: ["int.add", "int.sub", "int.mul", "int.div", "int.mod", "int.eq", "int.ne", "int.lt", "int.le", "int.gt", "int.ge"], types: ["Int", "Int"]},
+    #{names: ["nat.add", "nat.sub", "nat.mul", "nat.div", "nat.mod", "nat.eq", "nat.lt", "nat.le", "nat.gt", "nat.ge", "nat.ceil_div"], types: ["Nat", "Nat"]},
+    #{names: ["int.neg", "int.abs", "int.to_real"], types: ["Int"]}, #{names: ["nat.succ"], types: ["Nat"]},
+    #{names: ["bool.and", "bool.or"], types: ["Bool", "Bool"]}, #{names: ["bool.not"], types: ["Bool"]},
+    #{names: ["text.concat", "text.eq"], types: ["Text", "Text"]},
+    #{names: ["text.length", "text.code", "text.parse_int", "text.parse_real", "bytes.length", "sys.read", "sys.getenv", "sys.print", "json.parse"], types: ["Text"]},
+    #{names: ["text.at", "bytes.at"], types: ["Text", "Int"]}, #{names: ["text.slice", "bytes.slice"], types: ["Text", "Int", "Int"]},
+    #{names: ["text.from_code", "text.from_int", "sys.exit"], types: ["Int"]}, #{names: ["sys.write"], types: ["Text", "Text"]},
+    #{names: ["list.length", "list.reverse", "list.tail_or_empty"], types: ["List"]}, #{names: ["list.get"], types: ["List", "Int"]},
+    #{names: ["list.append"], types: ["List", "List"]}, #{names: ["list.cons"], types: ["Value", "List"]},
+    #{names: ["list.map", "list.filter"], types: ["List", "Fn"]}, #{names: ["list.fold_left"], types: ["List", "Value", "Fn"]},
+    #{names: ["nat.rec"], types: ["Nat", "Value", "Fn"]}, #{names: ["control.while"], types: ["Fn", "Fn"]},
+    #{names: ["value.select"], types: ["Bool", "Value", "Value"]}, #{names: ["value.equal"], types: ["Value", "Value"]},
+    #{names: ["value.kind", "value.to_text", "cell.new", "json.encode", "partial.done"], types: ["Value"]},
+    #{names: ["cell.get"], types: ["Cell"]}, #{names: ["cell.set"], types: ["Cell", "Value"]},
+    #{names: ["buffer.get"], types: ["Buffer", "Int"]}, #{names: ["buffer.set"], types: ["Buffer", "Int", "Value"]},
+    #{names: ["buffer.push"], types: ["Buffer", "Value"]}, #{names: ["buffer.length", "buffer.freeze"], types: ["Buffer"]},
+    #{names: ["record.has", "record.get"], types: ["Value", "Text"]}, #{names: ["record.keys"], types: ["Value"]},
+    #{names: ["sys.args", "sys.native_names", "buffer.new", "nat.zero"], types: []},
+    #{names: ["f64.add", "f64.sub", "f64.mul", "f64.div", "f64.eq", "f64.lt", "f64.le", "f64.gt", "f64.ge"], types: ["F64", "F64"]},
+    #{names: ["math.sin", "math.cos", "math.exp", "math.log", "math.sqrt", "math.abs"], types: ["F64"]},
+    #{names: ["math.fma"], types: ["F64", "F64", "F64"]}
+  ], fn(group: Value) => cc_each(group.names, fn(n: Text) => table.set(result, n, #{known: true, types: group.types})));
+  cell.set(cc_native_params_cache, result); yield ();
+  }, fn() => ());
+  yield table.get(cell.get(cc_native_params_cache), name, #{known: false});
+};
+def cc_check_arguments(e: Value, expected: Value, actual: Value) -> Unit = {
+  cc_require(int.eq(list.length(expected), list.length(actual)), e, "call_arity", cc_cat("expected ", cc_num(list.length(expected))));
+  let i = cell.new(0);
+  cc_each(actual, fn(type: Value) => {
+    let requirement = list.get(expected, cell.get(i));
+    cc_require(cc_compatible(requirement, cc_tname(type)), e, "argument_type", cc_cat(cc_cat(requirement, " required, found "), cc_tname(type)));
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  yield ();
+};
+def cc_infer(e: Value, env: Value, primitives: Value) -> Value = cc_choose(text.eq(e.kind, "literal"), fn() =>
+  cc_type(cc_choose(bool.and(text.eq(e.literal_type, "Int"), bool.not(text.eq(cc_char(e.raw, 0), "-"))), fn() => "Nat", fn() => e.literal_type)), fn() =>
+  cc_choose(text.eq(e.kind, "name"), fn() => {
+    let binding = cc_binding(env, e.name);
+    yield cc_choose(binding.found, fn() => binding.binding.type, fn() => {
+      cc_require(bool.or(cc_has(primitives, e.name), bool.or(cc_has(cc_core_types, e.name), cc_has(cc_domain_types, e.name))), e, "unbound_name", e.name);
+      yield cc_choose(cc_has(primitives, e.name), fn() => cc_type("Value"), fn() => cc_type("Type"));
+    });
+  }, fn() => cc_choose(text.eq(e.kind, "member"), fn() => {
+    let qname = cc_qname(e);
+    let root = cc_root_name(e);
+    let closed = bool.and(table.has(primitives, cc_cat("#namespace:", root)), bool.not(cc_binding(env, root).found));
+    yield cc_choose(closed, fn() => {
+      cc_require(cc_has(primitives, qname), e, "unknown_operator", qname); yield cc_type("Value");
+    }, fn() => { cc_infer(e.object, env, primitives); yield cc_type("Value"); });
+  }, fn() => cc_choose(text.eq(e.kind, "lambda"), fn() => {
+    let local = cc_env(env);
+    cc_each(e.params, fn(param: Value) => { cc_annotation(param.type, local); cc_bind(local, param); yield (); });
+    let result = cc_infer(e.body, local, primitives);
+    yield #{kind: "call", callee: cc_type("Fn"), args: list.append(list.map(e.params, fn(param: Value) => param.type), [result]), start: e.start};
+  }, fn() => cc_choose(text.eq(e.kind, "call"), fn() => {
+    let callee_type = cc_infer(e.callee, env, primitives);
+    let args = list.map(e.args, fn(arg: Value) => cc_infer(arg, env, primitives));
+    let qname = cc_qname(e.callee);
+    yield cc_choose(bool.and(text.eq(cc_tname(callee_type), "Fn"), text.eq(callee_type.kind, "call")), fn() => {
+      let arity = int.sub(list.length(callee_type.args), 1);
+      cc_require(int.eq(arity, list.length(args)), e, "call_arity", cc_cat("expected ", cc_num(arity)));
+      let i = cell.new(0);
+      cc_each(args, fn(actual: Value) => {
+        let expected = list.get(callee_type.args, cell.get(i));
+        cc_require(cc_compatible(cc_tname(expected), cc_tname(actual)), e, "argument_type", cc_cat(cc_cat(cc_tname(expected), " required, found "), cc_tname(actual)));
+        cell.set(i, int.add(cell.get(i), 1)); yield ();
+      });
+      yield list.get(callee_type.args, arity);
+    }, fn() => {
+      cc_require(cc_has(["Value", "Any", "Unknown", "Fn"], cc_tname(callee_type)), e, "not_callable", cc_tname(callee_type));
+      yield cc_choose(bool.and(cc_has(primitives, qname), bool.not(cc_binding(env, cc_root_name(e.callee)).found)), fn() => {
+        let contract = cc_native_params(qname);
+        cc_choose(contract.known, fn() => cc_check_arguments(e, contract.types, args), fn() => ());
+        yield cc_type(cc_native_type(qname));
+      }, fn() => cc_type("Value"));
+    });
+  }, fn() => cc_choose(cc_has(["list", "tuple"], e.kind), fn() => {
+    cc_each(e.items, fn(item: Value) => cc_infer(item, env, primitives));
+    yield cc_type(cc_choose(text.eq(e.kind, "list"), fn() => "List", fn() => cc_choose(int.eq(list.length(e.items), 0), fn() => "Unit", fn() => "Pair")));
+  }, fn() => cc_choose(text.eq(e.kind, "record"), fn() => { cc_each(e.fields, fn(field: Value) => cc_infer(field.value, env, primitives)); yield cc_type("Record"); }, fn() =>
+  cc_choose(text.eq(e.kind, "block"), fn() => {
+    let local = cell.new(cc_env(env));
+    cc_each(e.statements, fn(statement: Value) => {
+      let type = cc_infer(statement.value, cell.get(local), primitives);
+      cc_choose(text.eq(statement.kind, "let"), fn() => {
+        let next = cc_env(cell.get(local)); cc_bind(next, #{name: statement.name, type: type}); cell.set(local, next); yield ();
+      }, fn() => ()); yield ();
+    });
+    yield cc_infer(e.result, cell.get(local), primitives);
+  }, fn() => cc_error(e, "unsupported_expression", e.kind)))))))));
+def cc_validate(module: Value) -> Value = {
+  let env = cc_env(()); let primitives = table.new(); let obligations = env.obligations;
+  cc_each(sys.native_names(), fn(name: Text) => {
+    table.set(primitives, name, true);
+    let separator = bytes.find(name, ".", 0);
+    cc_choose(int.gt(separator, 0), fn() => table.set(primitives,
+      cc_cat("#namespace:", bytes.slice(name, 0, separator)), true), fn() => ());
+    yield ();
+  });
+  cc_each(module.definitions, fn(d: Value) => {
+    let type = cc_choose(d.is_function, fn() => #{kind: "call", callee: cc_type("Fn"), args: list.append(list.map(d.params, fn(p: Value) => p.type), [d.type]), start: d.start}, fn() => d.type);
+    cc_bind(env, #{name: d.name, type: type}); yield ();
+  });
+  cc_each(module.definitions, fn(d: Value) => {
+    let local = cc_env(env);
+    cc_each(d.params, fn(param: Value) => { cc_annotation(param.type, local); cc_bind(local, param); yield (); });
+    cc_annotation(d.type, local);
+    cc_choose(bool.and(bool.not(d.is_function), text.eq(cc_tname(d.type), "Type")), fn() => buffer.push(obligations, cc_cat("type declaration: ", d.name)), fn() => {
+      let actual = cc_infer(d.body, local, primitives);
+      let expected = cc_tname(d.type);
+      cc_require(cc_compatible(expected, cc_tname(actual)), d, "return_type", cc_cat(cc_cat(expected, " required, found "), cc_tname(actual)));
+      cc_choose(text.eq(expected, "Type"), fn() => cc_note(local, cc_cat("type constructor obligation: ", d.name)), fn() => ());
+      cc_choose(cc_has(["Value", "Any"], expected), fn() => buffer.push(obligations, cc_cat("explicit dynamic boundary: ", d.name)), fn() => ());
+      yield ();
+    });
+    yield ();
+  });
+  yield #{definitions: list.length(module.definitions), status: "core-checked", scope: "lexical binding, explicit annotations, direct function arity, concrete scalar compatibility; runtime guards remain authoritative", obligations: buffer.freeze(obligations)};
+};
+
+// Deterministic, ordered C lowering. UTF-8 bytes are octal-escaped where needed.
+def cc_escape_bytes: Value = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 34, 63, 92, 127];
+def cc_escape_spellings: Value = {
+  let output = buffer.new();
+  nat.rec(256, (), fn(n: Nat, state: Value) => buffer.push(output,
+    cc_cat("\\", cc_cat(cc_num(int.div(n, 64)), cc_cat(cc_num(int.mod(int.div(n, 8), 8)), cc_num(int.mod(n, 8)))))));
+  yield buffer.freeze(output);
+};
+def cc_quote_cache: Value = table.new();
+def cc_quote_uncached(s: Text) -> Text = {
+  let out = buffer.new(); buffer.push(out, "\""); let i = cell.new(0);
+  control.while(fn() => int.lt(cell.get(i), bytes.length(s)), fn() => {
+    let next = bytes.find_any(s, cc_escape_bytes, cell.get(i));
+    let complete = int.lt(next, 0);
+    let boundary = value.select(complete, bytes.length(s), next);
+    buffer.push(out, bytes.slice(s, cell.get(i), boundary));
+    // The loop proves s nonempty; index zero keeps both strict branches safe.
+    buffer.push(out, value.select(complete, "", list.get(cc_escape_spellings, bytes.at(s, value.select(complete, 0, next)))));
+    cell.set(i, value.select(complete, bytes.length(s), int.add(next, 1))); yield ();
+  });
+  buffer.push(out, "\""); yield text.join(buffer.freeze(out), "");
+};
+def cc_quote(s: Text) -> Text = cc_choose(int.le(bytes.length(s), 256), fn() => {
+  let cached = table.get(cc_quote_cache, s, ());
+  yield cc_choose(text.eq(value.kind(cached), "text"), fn() => cached, fn() => {
+    let escaped = cc_quote_uncached(s); table.set(cc_quote_cache, s, escaped); yield escaped;
+  });
+}, fn() => cc_quote_uncached(s));
+def cc_id(g: Value, prefix: Text) -> Text = {
+  let n = cell.get(g.serial); cell.set(g.serial, int.add(n, 1)); yield cc_cat(prefix, cc_num(n));
+};
+def cc_line(out: Value, line: Text) -> Unit = buffer.push(out, cc_cat(line, "\n"));
+def cc_temp(g: Value, out: Value, expression: Text) -> Text = {
+  let name = cc_id(g, "v"); cc_line(out, cc_cat(cc_cat(cc_cat("V ", name), "="), cc_cat(expression, ";"))); yield name;
+};
+def cc_array(items: Value, typ: Text) -> Text = cc_choose(int.eq(list.length(items), 0), fn() => "NULL", fn() => cc_cat(cc_cat(cc_cat("(", typ), "[]){"), cc_cat(text.join(items, ","), "}")));
+def cc_description(params: Value, body: Value) -> Text = {
+  let description = json.encode(#{params: params, body: body});
+  yield cc_cat(cc_cat(cc_cat("u_descriptor(", cc_quote(description)), ","), cc_cat(cc_num(bytes.length(description)), ")"));
+};
+def cc_guard_kinds: Value = {
+  let kinds = table.new();
+  cc_each([#{types: ["Int", "Nat"], kind: "int"}, #{types: ["Bool"], kind: "bool"},
+           #{types: ["Text"], kind: "text"}, #{types: ["Unit"], kind: "unit"},
+           #{types: ["F32", "F64", "Real"], kind: "numeric"}, #{types: ["List"], kind: "list"},
+           #{types: ["Pair", "Tuple"], kind: "tuple"}, #{types: ["Record", "Type"], kind: "record"},
+           #{types: ["Fn", "Pi"], kind: "closure"}, #{types: ["Cell"], kind: "cell"},
+           #{types: ["Buffer"], kind: "buffer"}, #{types: ["Partial"], kind: "partial"}],
+    fn(group: Value) => cc_each(group.types, fn(name: Text) => table.set(kinds, name, group.kind)));
+  yield kinds;
+};
+def cc_guard(g: Value, out: Value, value: Text, annotation: Value) -> Text = {
+  let typ = cc_tname(annotation); let storage = table.get(cc_guard_kinds, typ, "");
+  yield cc_choose(text.eq(storage, ""), fn() => value, fn() => cc_temp(g, out,
+    cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_guard(", value), ","), cc_quote(storage)), ","), cc_cat(cc_choose(text.eq(typ, "Nat"), fn() => "1", fn() => "0"), ")"))));
+};
+def cc_function(g: Value, params: Value, body: Value, result_type: Value) -> Text = {
+  let name = cc_id(g, "f");
+  let out = buffer.new();
+  cc_line(out, cc_cat(cc_cat("static V ", name), "(E env,size_t argc,V*argv){"));
+  cc_line(out, "(void)argc;(void)argv;E scope=u_env(env);");
+  let i = cell.new(0);
+  cc_each(params, fn(param: Value) => {
+    let argument = cc_cat(cc_cat("argv[", cc_num(cell.get(i))), "]");
+    let guarded = cc_guard(g, out, argument, param.type);
+    cc_line(out, cc_cat(cc_cat("u_bind(scope,", cc_quote(param.name)), cc_cat(cc_cat(",", guarded), ");")));
+    cell.set(i, int.add(cell.get(i), 1)); yield ();
+  });
+  let result = cc_emit_expr(g, out, body, "scope");
+  let guarded = cc_guard(g, out, result, result_type);
+  cc_line(out, cc_cat(cc_cat("return ", guarded), ";}"));
+  buffer.push(g.functions, text.join(buffer.freeze(out), ""));
+  buffer.push(g.prototypes, cc_cat(cc_cat("static V ", name), "(E,size_t,V*);\n"));
+  yield name;
+};
+def cc_emit_expr(g: Value, out: Value, e: Value, scope: Text) -> Text = cc_choose(text.eq(e.kind, "literal"), fn() => {
+  let code = cc_choose(text.eq(e.literal_type, "Text"), fn() => cc_cat(cc_cat(cc_cat("u_literal(", cc_quote(e.value)), ","), cc_cat(cc_num(bytes.length(e.value)), ")")), fn() =>
+    cc_choose(text.eq(e.literal_type, "Bool"), fn() => cc_choose(e.value, fn() => "u_bool(1)", fn() => "u_bool(0)"), fn() => cc_cat(cc_cat(cc_choose(text.eq(e.literal_type, "Int"), fn() => "u_int(", fn() => "u_real("), cc_quote(e.raw)), ")")));
+  yield cc_temp(g, out, code);
+}, fn() => cc_choose(text.eq(e.kind, "name"), fn() => cc_temp(g, out, cc_cat(cc_cat(cc_cat("u_lookup(", scope), ","), cc_cat(cc_quote(e.name), ")"))), fn() =>
+cc_choose(text.eq(e.kind, "member"), fn() => {
+  let object = cc_emit_expr(g, out, e.object, scope);
+  yield cc_temp(g, out, cc_cat(cc_cat(cc_cat("u_member(", object), ","), cc_cat(cc_quote(e.name), ")")));
+}, fn() => cc_choose(text.eq(e.kind, "call"), fn() => {
+  let callee = cc_emit_expr(g, out, e.callee, scope);
+  let args = list.map(e.args, fn(arg: Value) => cc_emit_expr(g, out, arg, scope));
+  yield cc_temp(g, out, cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_call(", callee), ","), cc_num(list.length(args))), ","), cc_cat(cc_array(args, "V"), ")")));
+}, fn() => cc_choose(text.eq(e.kind, "lambda"), fn() => {
+  let function = cc_function(g, e.params, e.body, cc_type("Value"));
+  let closure = cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_closure(", function), ","), scope), ","), cc_cat(cc_num(list.length(e.params)), ")"));
+  yield cc_temp(g, out, cc_cat(cc_cat(cc_cat("u_annotate(", closure), ","), cc_cat(cc_description(e.params, e.body), ")")));
+}, fn() => cc_choose(cc_has(["list", "tuple"], e.kind), fn() => {
+  let items = list.map(e.items, fn(item: Value) => cc_emit_expr(g, out, item, scope));
+  yield cc_temp(g, out, cc_choose(bool.and(text.eq(e.kind, "tuple"), int.eq(list.length(items), 0)), fn() => "u_unit()", fn() => cc_cat(cc_cat(cc_cat(cc_choose(text.eq(e.kind, "list"), fn() => "u_list(", fn() => "u_tuple("), cc_num(list.length(items))), ","), cc_cat(cc_array(items, "V"), ")"))));
+}, fn() => cc_choose(text.eq(e.kind, "record"), fn() => {
+  let keys = list.map(e.fields, fn(field: Value) => cc_quote(field.name));
+  let vals = list.map(e.fields, fn(field: Value) => cc_emit_expr(g, out, field.value, scope));
+  yield cc_temp(g, out, cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_record(", cc_num(list.length(keys))), ","), cc_array(keys, "const char*")), ","), cc_cat(cc_array(vals, "V"), ")")));
+}, fn() => cc_choose(text.eq(e.kind, "block"), fn() => {
+  let inner = cc_id(g, "s"); cc_line(out, cc_cat(cc_cat(cc_cat("E ", inner), "=u_env("), cc_cat(scope, ");")));
+  let current = cell.new(inner);
+  cc_each(e.statements, fn(statement: Value) => {
+    let value = cc_emit_expr(g, out, statement.value, cell.get(current));
+    cc_choose(text.eq(statement.kind, "let"), fn() => {
+      let next = cc_id(g, "s");
+      cc_line(out, cc_cat(cc_cat(cc_cat("E ", next), "=u_env("), cc_cat(cell.get(current), ");")));
+      cc_line(out, cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_bind(", next), ","), cc_quote(statement.name)), ","), cc_cat(value, ");")));
+      cell.set(current, next); yield ();
+    }, fn() => cc_line(out, cc_cat(cc_cat("(void)", value), ";")));
+    yield ();
+  });
+  yield cc_emit_expr(g, out, e.result, cell.get(current));
+}, fn() => cc_error(e, "unsupported_lowering", e.kind)))))))));
+def cc_emit(module: Value, entry: Text) -> Text = {
+  cc_validate(module);
+  cc_require(cc_has(list.map(module.definitions, fn(d: Value) => d.name), entry), #{start: 0}, "entry_missing", entry);
+  let g = #{serial: cell.new(0), functions: buffer.new(), prototypes: buffer.new()};
+  let init = buffer.new();
+  cc_line(init, "int main(int argc,char**argv){u_runtime_init(argc,argv);E root=u_env(NULL);");
+  let global_names = list.map(module.definitions, fn(d: Value) => d.name);
+  cc_each(list.append(cc_core_types, cc_domain_types), fn(name: Text) => cc_choose(cc_has(global_names, name), fn() => (), fn() => {
+    let descriptor = json.encode(#{kind: "type", name: name});
+    cc_line(init, cc_cat(cc_cat(cc_cat("u_bind(root,", cc_quote(name)), ",u_call(u_lookup(root,\"native.json_parse\"),1,(V[]){u_descriptor("),
+      cc_cat(cc_cat(cc_cat(cc_quote(descriptor), ","), cc_num(bytes.length(descriptor))), ")}));")));
+    yield ();
+  }));
+  cc_each(module.definitions, fn(d: Value) => cc_choose(d.is_function, fn() => {
+    let function = cc_function(g, d.params, d.body, d.type);
+    let closure = cc_cat(cc_cat(cc_cat(cc_cat("u_closure(", function), ",root,"), cc_num(list.length(d.params))), ")");
+    cc_line(init, cc_cat(cc_cat(cc_cat(cc_cat(cc_cat("u_bind(root,", cc_quote(d.name)), ",u_annotate("), closure), ","), cc_cat(cc_description(d.params, d.body), "));")));
+    yield ();
+  }, fn() => ()));
+  cc_each(module.definitions, fn(d: Value) => cc_choose(bool.not(d.is_function), fn() => {
+    cc_choose(text.eq(cc_tname(d.type), "Type"), fn() => {
+      let descriptor = json.encode(#{kind: "type", name: d.name, syntax: d.body});
+      let literal = cc_cat(cc_cat(cc_cat("u_descriptor(", cc_quote(descriptor)), ","), cc_cat(cc_num(bytes.length(descriptor)), ")"));
+      let value = cc_temp(g, init, cc_cat(cc_cat("u_call(u_lookup(root,\"native.json_parse\"),1,(V[]){", literal), "})"));
+      let guarded = cc_guard(g, init, value, d.type);
+      cc_line(init, cc_cat(cc_cat(cc_cat("u_bind(root,", cc_quote(d.name)), ","), cc_cat(guarded, ");")));
+      yield ();
+    }, fn() => {
+      let initializer = cc_function(g, [], d.body, d.type);
+      cc_line(init, cc_cat(cc_cat(cc_cat(cc_cat("u_bind_lazy(root,", cc_quote(d.name)), ",u_closure("), initializer), ",root,0));"));
+      yield ();
+    });
+    yield ();
+  }, fn() => ()));
+  cc_line(init, cc_cat(cc_cat("return u_finish(u_entry(root,", cc_quote(entry)), "));}"));
+  yield cc_cat("/* Generated by the U compiler. */\n#include \"runtime.h\"\n", cc_cat(text.join(buffer.freeze(g.prototypes), ""), cc_cat(text.join(buffer.freeze(g.functions), ""), text.join(buffer.freeze(init), ""))));
+};
+def main() -> Unit = {
+  let args = sys.args();
+  cc_require(int.ge(list.length(args), 3), #{start: 0}, "usage", "uc emit INPUT OUTPUT [ENTRY] | check INPUT | parse INPUT | fmt INPUT");
+  let command = list.get(args, 1); let input = list.get(args, 2); let source = sys.read(input); let module = cc_parse(source);
+  cc_choose(text.eq(command, "parse"), fn() => sys.print(json.encode(#{status: "parsed", definitions: list.length(module.definitions), imports: module.imports})), fn() =>
+  cc_choose(text.eq(command, "check"), fn() => sys.print(json.encode(cc_validate(module))), fn() =>
+  cc_choose(text.eq(command, "fmt"), fn() => sys.print(source), fn() =>
+  cc_choose(text.eq(command, "emit"), fn() => {
+    cc_require(int.ge(list.length(args), 4), #{start: 0}, "usage", "uc emit INPUT OUTPUT [ENTRY]");
+    let entry = cc_choose(int.ge(list.length(args), 5), fn() => list.get(args, 4), fn() => "main");
+    sys.write(list.get(args, 3), cc_emit(module, entry)); yield ();
+  }, fn() => cc_error(#{start: 0}, "unknown_command", command)))));
+  yield ();
+};

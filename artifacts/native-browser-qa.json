@@ -1,0 +1,139 @@
+{
+  "checkedAt": "2026-09-14T20:34:21.000Z",
+  "u": {
+    "browserCases": [
+      {
+        "scenario": "disjoint",
+        "sharing": false,
+        "profile": false,
+        "verdict": "Held: composition is unadmitted"
+      },
+      {
+        "scenario": "disjoint",
+        "sharing": false,
+        "profile": true,
+        "verdict": "Admissible in this model"
+      },
+      {
+        "scenario": "disjoint",
+        "sharing": true,
+        "profile": false,
+        "verdict": "Held: composition is unadmitted"
+      },
+      {
+        "scenario": "disjoint",
+        "sharing": true,
+        "profile": true,
+        "verdict": "Admissible in this model"
+      },
+      {
+        "scenario": "shared-read",
+        "sharing": false,
+        "profile": false,
+        "verdict": "Held: sharing witness required"
+      },
+      {
+        "scenario": "shared-read",
+        "sharing": false,
+        "profile": true,
+        "verdict": "Held: sharing witness required"
+      },
+      {
+        "scenario": "shared-read",
+        "sharing": true,
+        "profile": false,
+        "verdict": "Held: composition is unadmitted"
+      },
+      {
+        "scenario": "shared-read",
+        "sharing": true,
+        "profile": true,
+        "verdict": "Admissible in this model"
+      },
+      {
+        "scenario": "read-write",
+        "sharing": false,
+        "profile": false,
+        "verdict": "Rejected: access conflicts"
+      },
+      {
+        "scenario": "read-write",
+        "sharing": false,
+        "profile": true,
+        "verdict": "Rejected: access conflicts"
+      },
+      {
+        "scenario": "read-write",
+        "sharing": true,
+        "profile": false,
+        "verdict": "Rejected: access conflicts"
+      },
+      {
+        "scenario": "read-write",
+        "sharing": true,
+        "profile": true,
+        "verdict": "Rejected: access conflicts"
+      },
+      {
+        "scenario": "duplicate",
+        "sharing": false,
+        "profile": false,
+        "verdict": "Rejected: ownership is duplicated"
+      },
+      {
+        "scenario": "duplicate",
+        "sharing": false,
+        "profile": true,
+        "verdict": "Rejected: ownership is duplicated"
+      },
+      {
+        "scenario": "duplicate",
+        "sharing": true,
+        "profile": false,
+        "verdict": "Rejected: ownership is duplicated"
+      },
+      {
+        "scenario": "duplicate",
+        "sharing": true,
+        "profile": true,
+        "verdict": "Rejected: ownership is duplicated"
+      }
+    ],
+    "all16Matched": true,
+    "kernelKeyboardNavigation": true
+  },
+  "bidi": {
+    "cases": 81,
+    "accepted": 35,
+    "refused": 4,
+    "heldCommitPreservedLatches": true,
+    "balancedAndApertureCommitsPassed": true,
+    "flowInteractionPassed": true
+  },
+  "loading": {
+    "disabledUntilLoaded": true,
+    "enabledAfterVerifiedLoad": true
+  },
+  "failure": {
+    "missingModuleDisables": true,
+    "checksumMismatchDisables": true,
+    "noJavaScriptDisablesBoth": true
+  },
+  "responsive": {
+    "width": 390,
+    "horizontalOverflow": {
+      "u": false,
+      "bidi": false
+    }
+  },
+  "pageErrors": {
+    "u": [],
+    "bidi": []
+  },
+  "screenshots": [
+    "u-desktop.png",
+    "u-mobile.png",
+    "bidi-desktop.png",
+    "bidi-mobile.png"
+  ]
+}

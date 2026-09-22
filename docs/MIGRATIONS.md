@@ -1,11 +1,21 @@
 # Version and migration contract
 
-The language header, semantic profile, graph encoding, ABI, package and implementation version are distinct. This release is the initial `etellis.u/0.1` source profile and stage-0 0.1.0 implementation. No earlier development receipt is a release migration guarantee.
+U 0.2 changes the implementation from a Python-hosted reference to a U-written native compiler and libraries. The source header remains `etellis.u/0.1`; all 22 original source files remain unchanged.
 
-A semantic behavior change creates a new profile or explicit migration relation. In particular, changing precision, multiply/add contraction, observable event order, resource permissions, conditioning convention or refusal policy cannot silently reuse an incompatible semantic identity.
+Graph, evidence, package and build receipts use explicit schemas. New receipts must not be relabeled as old receipts, and old identity encodings are not silently accepted under new profiles.
 
-Raw source bytes, formatted syntax, structural graph, semantic candidate, realization, execution and resource identities have different scopes. Original bytes remain provenance after a transformation. Export after graph change requires a checked residual update; absent that update it is refused.
+The native CLI prints ordinary program results directly. `build` emits a build receipt alongside its executable; `prove` returns the checked proof's public account without serializing its authority. This differs from the historical reference evaluator's output envelope.
 
-The initial named total checker refuses binder shadowing. Future alpha-renaming support, Sigma/inductive extensions or new conversion rules require explicit checker identity and proof trust changes. Generator registration does not modify the proof kernel.
+`package lock` writes schema 2 and preserves any previous lock byte-for-byte under `.u-lock.previous-<sha256>`. Verify and install refuse schema 1 with explicit relocking guidance. Installation uses `<destination>/<name>/<version>/<full-snapshot-digest>` and rechecks an existing target before reuse. Installed source does not grant the permissions declared in its manifest, and install scripts never run.
 
-CDC compatibility retains the original BiDi pin and numerical contract. A future more mathematical ODE profile must be separately named. U is not a user-facing replacement imposed on `.cdc`, and the existing BiDi implementation/history remains independent.
+```sh
+./bin/etellis-u package lock .
+./bin/etellis-u package verify .
+./bin/etellis-u package install . --destination .u-packages
+```
+
+The source defaults to the working directory and the destination to `.u-packages`. An installation store inside its source tree must lie under an excluded directory. Failed staging directories remain available for inspection; the tool does not delete them.
+
+The optional independent bootstrap uses [bootstrap/build.sh](../bootstrap/build.sh). Ordinary users use [bootstrap/native-build.sh](../bootstrap/native-build.sh) or the public launcher; Python is not required.
+
+The complete historical implementation remains recoverable from commit `5dce6e72e93a165913f38713626b8c3e5c8a8f1b`. Historical receipts and test counts describe that implementation, not this native release.
