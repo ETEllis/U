@@ -2,9 +2,10 @@
 
 Date: September 14, 2026.
 
-Final source bundle rebuilt September 22, 2026. The PDF remains 20 pages;
-the final page and bibliography were inspected after the source update, and
-the TeX log contains no warnings.
+Final source bundle rebuilt September 22, 2026. The voice pass tightened the
+abstract, research position and limitations without changing a mathematical
+statement. The PDF remains 20 pages; the final page and bibliography were
+inspected after the source update, and the TeX log contains no warnings.
 
 The native-implementation revision compiled with Tectonic to a 20-page letter-size PDF without TeX warnings. Every page was rendered. The revised abstract, compact contents, proof-boundary paragraph, FMA contract, implementation section, native feature table, command examples, limitations and appendices were visually inspected. The contents fit one page, the native feature table remains together, and the shell examples contain valid single-backslash continuations. Equations, references and page numbers remain within their margins.
 

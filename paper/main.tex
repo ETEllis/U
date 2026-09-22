@@ -71,9 +71,9 @@ memory, relations and search, measures and probability, behaviors and clocks,
 continuous dynamics, and coherent state with observation instruments. Q's
 current mathematical profile uses complex Hilbert spaces and quantum channels;
 its architectural role is to preserve joint-state composition and observation
-contracts. The proposal separates an
-operation's meaning from its realization and from the evidence produced by
-that realization. It requires checked composite profiles or adapters at
+contracts. U separates an operation's meaning from its realization and from
+the evidence produced by that realization. It requires checked composite
+profiles or adapters at
 mixed-theory boundaries, deterministic elaboration, conservative independence
 witnesses, distinct artifact identities, and residual-preserving source
 ingestion. We give conditional structural-preservation results, a finite
@@ -96,9 +96,10 @@ physical-backend execution remain outside the established scope.
 \noindent\textbf{Keywords:} programming-language semantics; typed operations;
 semantic preservation; resources; proof checking; hybrid systems; provenance.
 \vfill
-\noindent\small Repository: \url{https://github.com/ETEllis/U}.
-Companion system: \url{https://github.com/ETEllis/BiDi}.
-Interactive introduction: \url{https://etellis.github.io/U-web/}.
+\noindent\small Public paper and introduction:
+\url{https://etellis.github.io/U-web/}.\\
+U implementation (access controlled): \url{https://github.com/ETEllis/U}.\\
+BiDi companion (access controlled): \url{https://github.com/ETEllis/BiDi}.
 \newpage
 {\footnotesize\setlength{\parskip}{0pt}\tableofcontents}
 \newpage
@@ -1189,10 +1190,10 @@ declared OpenQASM fragment's semantics and execution assumptions before
 claiming native support; a Bell-state simulation or emitted circuit file
 does not establish that result for the full language or physical hardware.
 
-The present originality claim is thus a research hypothesis about the
-integrated protocol and its execution discipline. Demonstrating useful
-compression without hiding domain semantics requires comparative artifacts,
-preservation evidence, usability work and realistic maintenance accounting.
+The originality question lies in the integrated protocol: do meaning,
+realization, source reconstruction and evidence remain usable when every
+boundary is made explicit? Answering it requires comparative artifacts,
+preservation evidence, usability studies and realistic maintenance accounting.
 
 \section{Limitations and further work}
 
@@ -1214,17 +1215,14 @@ long-running memory reclamation also remain incomplete. Classical
 simulation, interchange emission, numerical calibration and physical
 realization are distinct support classes.
 
-The development program connects foundational contracts and canonical
-syntax to executable values, resources and proofs; native CDC compatibility;
-theory conformance; faithful ingestion and law-aware transforms; production
-classical runtime; specialized execution; stronger formal correspondence;
-and continued self-hosting. The compiler and structural graph now execute
-in U, with reproducible stages and independent comparison. Formatting preserves
-comment and literal lexemes while canonicalizing the supported layout, with
-idempotence checked on the source corpus. Broader
-law-aware source transformations and general WebAssembly lowering remain
-further work. Independent implementations remain useful checks as the
-native system grows.
+The compiler and structural graph execute in U, with reproducible stages and
+independent comparison. Formatting preserves comment and literal lexemes on
+the checked source corpus. The next tests concern correspondence: whether
+compiled operations preserve their declared laws, adapters retain measured
+losses, and imported source can be reconstructed after lawful transformations.
+Broader WebAssembly lowering and long-running memory reclamation present
+separate engineering questions. Independent implementations remain useful
+checks as the native system grows.
 
 Progress should be measured independently in compile time, runtime,
 memory, semantic coverage, representation density, proof/analysis coverage

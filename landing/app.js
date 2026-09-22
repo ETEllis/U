@@ -100,7 +100,7 @@ function updateAdmission() {
   verdict.className = `verdict ${status}`;
   verdict.textContent = title;
   document.getElementById("admission-reason").textContent = reason;
-  document.getElementById("admission-earned").textContent = status === "accepted" ? "A lawful declared resource split. Physical simultaneity, general commutation and execution still require their own evidence." : "No composite execution is authorized by this explanatory result. The listed obligation or conflict must be resolved in the actual checked graph.";
+  document.getElementById("admission-earned").textContent = status === "accepted" ? "A lawful declared resource split. Physical simultaneity, general commutation and execution still require their own evidence." : "This illustration leaves an unmet obligation. A concrete program must check its own resources and profile.";
 }
 for (const control of admissionControls) control.addEventListener("change",updateAdmission);
 updateAdmission();

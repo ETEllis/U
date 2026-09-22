@@ -12,7 +12,7 @@ U is a programming language whose operations carry the laws governing how they m
 
 The result is `49`. The same path handles lexical closures and arbitrary-precision integers, including the exact 100th Fibonacci number.
 
-The larger aim is to bring values, memory, relations, probability, concurrent behavior, dynamics and coherent state into one inspectable representation while retaining the distinctions that give each domain its meaning. A probability distribution and a numerical trajectory may share a composition structure. Their laws still differ.
+The architecture connects values, memory, relations, probability, concurrent behavior, dynamics and coherent state through an inspectable graph. Each domain keeps the law that gives its operations meaning. A probability distribution and a numerical trajectory can share a composition structure without becoming the same kind of thing.
 
 ## Run
 
@@ -164,7 +164,7 @@ The [BiDi crosswalk](docs/ARCHITECTURE.md#bidi-crosswalk) connects its source la
 
 ## Native possession and import
 
-Native support requires the relevant operations and laws to participate in U's own representation, analysis and execution. The intended import relation is:
+Native support requires the relevant operations and laws to participate in U's own representation, analysis and execution. A faithful import must produce:
 
 ```text
 source → typed U graph + residual + provenance
